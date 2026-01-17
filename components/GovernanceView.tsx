@@ -1,12 +1,21 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { ShieldCheck, History, AlertTriangle, FileText, User, Search, Filter, CheckCircle, Fingerprint, ShieldAlert, Globe, ExternalLink, Eye } from 'lucide-react';
 import { NexCard, NexBadge } from './shared/NexUI';
 
 export const GovernanceView: React.FC = () => {
-  const { auditLogs, processes, openInstanceViewer, navigateTo } = useBPM();
+  const { auditLogs, processes, rules, openInstanceViewer, navigateTo } = useBPM();
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Dynamic Trust Calculation
+  const trustScore = useMemo(() => {
+    if (auditLogs.length === 0) return 100;
+    const alerts = auditLogs.filter(l => l.severity === 'Alert').length;
+    const warnings = auditLogs.filter(l => l.severity === 'Warning').length;
+    const score = 100 - ((alerts * 5) + (warnings * 1)) / auditLogs.length * 10; 
+    return Math.max(0, Math.min(100, score)).toFixed(1);
+  }, [auditLogs]);
 
   const filteredLogs = auditLogs.filter(log => 
     log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -33,11 +42,11 @@ export const GovernanceView: React.FC = () => {
         <div className="flex gap-4">
           <NexCard className="px-4 py-2 min-w-[120px] text-center bg-slate-50">
             <p className="text-[10px] font-bold text-slate-500 uppercase">Trust Score</p>
-            <p className="text-lg font-black text-emerald-600">99.9%</p>
+            <p className={`text-lg font-black ${Number(trustScore) > 90 ? 'text-emerald-600' : 'text-amber-500'}`}>{trustScore}%</p>
           </NexCard>
           <NexCard className="px-4 py-2 min-w-[120px] text-center bg-slate-50">
             <p className="text-[10px] font-bold text-slate-500 uppercase">Active Rules</p>
-            <p className="text-lg font-black text-slate-900">482</p>
+            <p className="text-lg font-black text-slate-900">{rules.length}</p>
           </NexCard>
         </div>
       </header>

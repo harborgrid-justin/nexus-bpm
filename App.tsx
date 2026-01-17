@@ -67,7 +67,7 @@ const NavItem = ({ view, icon: Icon, label, active }: { view: ViewState; icon: R
 };
 
 const AppContent: React.FC = () => {
-  const { nav, navigateTo, viewingInstanceId, closeInstanceViewer, currentUser, loading, reseedSystem } = useBPM();
+  const { nav, navigateTo, viewingInstanceId, closeInstanceViewer, currentUser, loading, reseedSystem, notifications } = useBPM();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const renderCurrentView = () => {
@@ -169,19 +169,24 @@ const AppContent: React.FC = () => {
           <div className="flex items-center gap-4">
             <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden text-slate-500"><Menu size={20}/></button>
             <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-sm">
-               <span className="text-xs font-semibold text-slate-700">Project:</span>
-               <span className="text-xs text-slate-900">DMH-24 Downtown Metro Hub</span>
+               <span className="text-xs font-semibold text-slate-700">Domain:</span>
+               <span className="text-xs text-slate-900 font-mono">{currentUser.domainId || 'GLOBAL'}</span>
                <ChevronDown size={12} className="text-slate-400" />
             </div>
           </div>
           
           <div className="flex items-center gap-4">
-            <div className="relative">
+            <div className="relative hidden md:block">
               <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"/>
               <input className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-sm w-64 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="Global Search (ID, Task, Case)..." />
             </div>
             <div className="h-4 w-px bg-slate-300 mx-1"></div>
-            <button className="text-slate-500 hover:text-blue-600 transition-colors"><Bell size={18}/></button>
+            <button className="text-slate-500 hover:text-blue-600 transition-colors relative">
+              <Bell size={18}/>
+              {notifications.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 rounded-full border border-white"></span>
+              )}
+            </button>
             <button className="text-slate-500 hover:text-blue-600 transition-colors"><SettingsIcon size={18}/></button>
           </div>
         </header>

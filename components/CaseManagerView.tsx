@@ -1,20 +1,33 @@
 
 import React, { useState } from 'react';
 import { useBPM } from '../contexts/BPMContext';
-import { Briefcase, Plus, Search, Filter, Clock, ChevronRight, AlertCircle, X } from 'lucide-react';
+import { Briefcase, Plus, Search, Filter, Clock, ChevronRight, AlertCircle, X, SearchX } from 'lucide-react';
 import { NexCard, NexButton, NexBadge } from './shared/NexUI';
 
 export const CaseManagerView: React.FC = () => {
-  const { cases, navigateTo, createCase } = useBPM();
+  const { cases, navigateTo, createCase, currentUser } = useBPM();
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  
+  // Filter States
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterMine, setFilterMine] = useState(false);
 
   const handleCreate = async () => {
     if (!newTitle) return;
     await createCase(newTitle, newDesc);
     setNewTitle(''); setNewDesc(''); setShowCreate(false);
   };
+
+  const filteredCases = cases.filter(c => {
+      const matchSearch = c.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          c.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          c.id.includes(searchQuery);
+      
+      const matchMine = filterMine ? c.stakeholders.some(s => s.userId === currentUser?.id) : true;
+      return matchSearch && matchMine;
+  });
 
   return (
     <div className="space-y-6 animate-fade-in pb-20">
@@ -65,9 +78,19 @@ export const CaseManagerView: React.FC = () => {
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14}/>
-            <input className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-sm text-xs font-medium focus:ring-1 focus:ring-blue-600 outline-none" placeholder="Search operational context..." />
+            <input 
+                className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-sm text-xs font-medium focus:ring-1 focus:ring-blue-600 outline-none" 
+                placeholder="Search operational context..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+            />
           </div>
-          <button className="p-2 bg-white border border-slate-300 rounded-sm text-slate-500 hover:text-slate-900"><Filter size={16}/></button>
+          <button 
+            onClick={() => setFilterMine(!filterMine)}
+            className={`px-3 py-2 border rounded-sm text-[10px] font-bold uppercase flex items-center gap-2 transition-all ${filterMine ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-300 hover:text-slate-900'}`}
+          >
+            <Filter size={14}/> {filterMine ? 'My Cases' : 'All Cases'}
+          </button>
         </div>
 
         <div className="grid gap-2">
@@ -76,8 +99,13 @@ export const CaseManagerView: React.FC = () => {
               <Briefcase size={32} className="mx-auto text-slate-300 mb-4"/>
               <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Queue clear.</p>
             </div>
+          ) : filteredCases.length === 0 ? (
+            <div className="p-12 text-center bg-white rounded-sm border border-dashed border-slate-300">
+              <SearchX size={32} className="mx-auto text-slate-300 mb-4"/>
+              <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">No matching cases found.</p>
+            </div>
           ) : (
-            cases.map(c => (
+            filteredCases.map(c => (
               <div 
                 key={c.id} 
                 onClick={() => navigateTo('case-viewer', c.id)}

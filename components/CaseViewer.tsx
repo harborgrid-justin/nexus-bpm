@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { 
   ArrowLeft, Users, Send, Settings, Activity, 
-  CheckSquare, ChevronRight, Briefcase, ShieldCheck, Play, X, Layers, Plus, Shield, Edit, Trash2, RotateCcw, Lock
+  CheckSquare, ChevronRight, Briefcase, ShieldCheck, Play, X, Layers, Plus, Shield, Edit, Trash2, RotateCcw, Lock, Database, Paperclip, FileText, Upload, Save
 } from 'lucide-react';
 import { NexBadge, NexButton, NexHistoryFeed, NexCard, NexModal, NexFormGroup } from './shared/NexUI';
 
@@ -25,8 +25,18 @@ export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
 
+  // Data Tab State
+  const [caseData, setCaseData] = useState<string>('');
+
   const currentCase = cases.find(c => c.id === caseId);
   const relatedTasks = useMemo(() => tasks.filter(t => t.caseId === caseId), [tasks, caseId]);
+
+  // Sync internal state when case changes
+  React.useEffect(() => {
+      if (currentCase) {
+          setCaseData(JSON.stringify(currentCase.data || {}, null, 2));
+      }
+  }, [currentCase]);
 
   if (!currentCase) return <div className="p-20 text-center text-slate-400">Case file not found.</div>;
 
@@ -78,6 +88,16 @@ export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
   const handleReopenCase = async () => {
       await updateCase(caseId, { status: 'Open' });
       await addCaseEvent(caseId, 'Case reopened for further action.');
+  };
+
+  const handleSaveData = async () => {
+      try {
+          const parsed = JSON.parse(caseData);
+          await updateCase(caseId, { data: parsed });
+          await addCaseEvent(caseId, 'Updated case data fields.');
+      } catch (e) {
+          alert('Invalid JSON format');
+      }
   };
 
   return (
@@ -280,6 +300,54 @@ export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
                     <div className="p-12 text-center text-slate-400 italic text-xs">No tasks associated with this case.</div>
                   )}
                 </div>
+              )}
+
+              {activeTab === 'data' && (
+                  <div className="max-w-4xl mx-auto h-full flex flex-col">
+                      <div className="bg-white border border-slate-300 rounded-sm p-4 shadow-sm flex-1 flex flex-col">
+                          <div className="flex justify-between items-center mb-4">
+                              <h3 className="text-xs font-bold text-slate-700 uppercase flex items-center gap-2"><Database size={14}/> Structured Case Data</h3>
+                              <NexButton size="sm" icon={Save} onClick={handleSaveData}>Update Schema</NexButton>
+                          </div>
+                          <textarea 
+                              className="flex-1 w-full font-mono text-xs p-4 bg-slate-50 border border-slate-200 rounded-sm outline-none focus:border-blue-400 resize-none"
+                              value={caseData}
+                              onChange={e => setCaseData(e.target.value)}
+                          />
+                      </div>
+                  </div>
+              )}
+
+              {activeTab === 'content' && (
+                  <div className="max-w-4xl mx-auto space-y-4">
+                      <div className="flex justify-between items-center">
+                          <h3 className="text-xs font-bold text-slate-700 uppercase">Attached Artifacts</h3>
+                          <NexButton size="sm" icon={Upload}>Upload File</NexButton>
+                      </div>
+                      <div className="bg-white border border-slate-300 rounded-sm shadow-sm overflow-hidden">
+                          {(currentCase.attachments || []).length === 0 ? (
+                              <div className="p-12 text-center flex flex-col items-center">
+                                  <Paperclip size={32} className="text-slate-300 mb-2"/>
+                                  <p className="text-slate-400 text-xs font-bold uppercase">No attachments</p>
+                              </div>
+                          ) : (
+                              (currentCase.attachments || []).map((file, i) => (
+                                  <div key={i} className="flex items-center justify-between p-4 border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                                      <div className="flex items-center gap-3">
+                                          <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-sm flex items-center justify-center">
+                                              <FileText size={20}/>
+                                          </div>
+                                          <div>
+                                              <p className="text-sm font-bold text-slate-800">{file.name}</p>
+                                              <p className="text-[10px] text-slate-500">{(file.size || 0) / 1024} KB • {new Date(file.uploadDate).toLocaleDateString()}</p>
+                                          </div>
+                                      </div>
+                                      <button className="text-blue-600 hover:underline text-xs font-medium">Download</button>
+                                  </div>
+                              ))
+                          )}
+                      </div>
+                  </div>
               )}
            </div>
         </main>

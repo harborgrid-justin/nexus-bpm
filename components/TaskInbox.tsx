@@ -5,7 +5,7 @@ import { useBPM } from '../contexts/BPMContext';
 import { 
   Search, CheckSquare, ShieldAlert, ChevronLeft, 
   Briefcase, Send, Layers, Clock, AlertCircle, UserPlus, Settings, Tag,
-  Filter, CheckCircle, XCircle, Play, StopCircle
+  Filter, CheckCircle, XCircle, Play, StopCircle, Paperclip
 } from 'lucide-react';
 import { NexBadge, NexButton, NexHistoryFeed, NexModal, NexFormGroup } from './shared/NexUI';
 
@@ -32,7 +32,10 @@ const ListItem: React.FC<ListItemProps> = ({ task, isSelected, isMultiSelectMode
       <div className="flex-1">
         <div className="flex justify-between items-start mb-1">
             <span className={`text-[13px] font-bold truncate pr-2 ${isSelected ? 'text-blue-800' : 'text-slate-800'}`}>{task.title}</span>
-            {task.priority === TaskPriority.CRITICAL && <AlertCircle size={14} className="text-rose-600 shrink-0"/>}
+            <div className="flex items-center gap-1">
+               {(task.attachments?.length ?? 0) > 0 && <Paperclip size={12} className="text-slate-400"/>}
+               {task.priority === TaskPriority.CRITICAL && <AlertCircle size={14} className="text-rose-600 shrink-0"/>}
+            </div>
         </div>
         <div className="flex justify-between items-center text-[11px] text-slate-500">
             <span className="truncate max-w-[120px]">{task.processName}</span>
@@ -49,6 +52,7 @@ export const TaskInbox: React.FC = () => {
   const [commentText, setCommentText] = useState('');
   
   // View State
+  const [localFilter, setLocalFilter] = useState('');
   const [sortBy, setSortBy] = useState<'dueDate' | 'priority'>('dueDate');
   const [filterProcess, setFilterProcess] = useState('All');
   const [multiSelectMode, setMultiSelectMode] = useState(false);
@@ -73,8 +77,9 @@ export const TaskInbox: React.FC = () => {
       
       // Filter Logic
       const matchesProcess = filterProcess === 'All' || t.processName === filterProcess;
+      const matchesSearch = !localFilter || t.title.toLowerCase().includes(localFilter.toLowerCase()) || t.id.toLowerCase().includes(localFilter.toLowerCase());
       
-      return (isMyTask || isDelegated || isUnassigned) && matchesProcess;
+      return (isMyTask || isDelegated || isUnassigned) && matchesProcess && matchesSearch;
   });
 
   const sortedTasks = useMemo(() => {
@@ -175,7 +180,12 @@ export const TaskInbox: React.FC = () => {
         <div className="p-3 border-b border-slate-200 bg-slate-50 space-y-2">
            <div className="relative">
              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"/>
-             <input className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-sm focus:ring-1 focus:ring-blue-500 outline-none" placeholder="Filter tasks..." />
+             <input 
+                className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                placeholder="Filter tasks..." 
+                value={localFilter}
+                onChange={e => setLocalFilter(e.target.value)}
+             />
            </div>
            <div className="flex gap-1">
                <select className="flex-1 py-1 px-2 text-[10px] bg-slate-100 border border-slate-200 rounded-sm outline-none" value={sortBy} onChange={e => setSortBy(e.target.value as any)}>
@@ -204,18 +214,31 @@ export const TaskInbox: React.FC = () => {
         )}
 
         <div className="flex-1 overflow-y-auto no-scrollbar">
-          <div className="px-4 py-2 bg-slate-100 text-[10px] font-bold text-slate-500 uppercase border-y border-slate-200">My Worklist ({myTasks.length})</div>
-          {myTasks.map(t => <ListItem key={t.id} task={t} isSelected={selectedTask?.id === t.id} isMultiSelectMode={multiSelectMode} isChecked={selectedIds.has(t.id)} onCheck={toggleSelection} onClick={setSelectedTask} />)}
-          
-          {delegatedTasks.length > 0 && (
-            <>
-              <div className="px-4 py-2 bg-slate-100 text-[10px] font-bold text-blue-600 uppercase border-y border-slate-200 flex items-center gap-2"><ShieldAlert size={10}/> Delegated</div>
-              {delegatedTasks.map(t => <ListItem key={t.id} task={t} isSelected={selectedTask?.id === t.id} isMultiSelectMode={multiSelectMode} isChecked={selectedIds.has(t.id)} onCheck={toggleSelection} onClick={setSelectedTask} />)}
-            </>
+          {sortedTasks.length === 0 ? (
+             <div className="p-8 text-center">
+                <CheckCircle size={32} className="mx-auto text-slate-200 mb-2"/>
+                <p className="text-xs text-slate-400 font-bold uppercase">All caught up</p>
+             </div>
+          ) : (
+             <>
+                {myTasks.length > 0 && <div className="px-4 py-2 bg-slate-100 text-[10px] font-bold text-slate-500 uppercase border-y border-slate-200">My Worklist ({myTasks.length})</div>}
+                {myTasks.map(t => <ListItem key={t.id} task={t} isSelected={selectedTask?.id === t.id} isMultiSelectMode={multiSelectMode} isChecked={selectedIds.has(t.id)} onCheck={toggleSelection} onClick={setSelectedTask} />)}
+                
+                {delegatedTasks.length > 0 && (
+                    <>
+                    <div className="px-4 py-2 bg-slate-100 text-[10px] font-bold text-blue-600 uppercase border-y border-slate-200 flex items-center gap-2"><ShieldAlert size={10}/> Delegated</div>
+                    {delegatedTasks.map(t => <ListItem key={t.id} task={t} isSelected={selectedTask?.id === t.id} isMultiSelectMode={multiSelectMode} isChecked={selectedIds.has(t.id)} onCheck={toggleSelection} onClick={setSelectedTask} />)}
+                    </>
+                )}
+                
+                {unassignedTasks.length > 0 && (
+                    <>
+                    <div className="px-4 py-2 bg-slate-100 text-[10px] font-bold text-slate-500 uppercase border-y border-slate-200">Unassigned ({unassignedTasks.length})</div>
+                    {unassignedTasks.map(t => <ListItem key={t.id} task={t} isSelected={selectedTask?.id === t.id} isMultiSelectMode={multiSelectMode} isChecked={selectedIds.has(t.id)} onCheck={toggleSelection} onClick={setSelectedTask} />)}
+                    </>
+                )}
+             </>
           )}
-          
-          <div className="px-4 py-2 bg-slate-100 text-[10px] font-bold text-slate-500 uppercase border-y border-slate-200">Unassigned ({unassignedTasks.length})</div>
-          {unassignedTasks.map(t => <ListItem key={t.id} task={t} isSelected={selectedTask?.id === t.id} isMultiSelectMode={multiSelectMode} isChecked={selectedIds.has(t.id)} onCheck={toggleSelection} onClick={setSelectedTask} />)}
         </div>
       </div>
 

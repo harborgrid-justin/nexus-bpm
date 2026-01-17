@@ -4,7 +4,7 @@ import { useBPM } from '../contexts/BPMContext';
 import { 
   Users, Shield, Landmark, UserPlus, Search, 
   MoreVertical, Key, User as UserIcon, PlusCircle, Trash2, Globe, Fingerprint, Lock,
-  Clock, X, ChevronRight, ShieldAlert, CheckSquare, Plus, Edit, Slash
+  Clock, X, ChevronRight, ShieldAlert, CheckSquare, Plus, Edit, Slash, Zap
 } from 'lucide-react';
 import { Permission, User } from '../types';
 import { TabBtn } from './identity/TabBtn';
@@ -13,7 +13,7 @@ import { PolicyItem } from './identity/PolicyItem';
 import { NexButton, NexBadge, NexCard, NexModal, NexFormGroup } from './shared/NexUI';
 
 export const IdentityView: React.FC = () => {
-  const { users, roles, groups, delegations, hasPermission, currentUser, revokeDelegation, createDelegation, createUser, updateUser, deleteUser, createRole, updateRole, deleteRole, createGroup, updateGroup, deleteGroup } = useBPM();
+  const { users, roles, groups, delegations, hasPermission, currentUser, revokeDelegation, createDelegation, createUser, updateUser, deleteUser, createRole, updateRole, deleteRole, createGroup, updateGroup, deleteGroup, addNotification } = useBPM();
   const [activeTab, setActiveTab] = useState<'profile' | 'users' | 'roles' | 'groups' | 'sso'>('profile');
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -36,6 +36,9 @@ export const IdentityView: React.FC = () => {
   const [roleForm, setRoleForm] = useState({ name: '', permissions: [] as Permission[] });
   const [groupForm, setGroupForm] = useState({ name: '', parentGroupId: '', description: '' });
 
+  // Mock State for SSO Toggles (In prod this would be in Context)
+  const [ssoState, setSsoState] = useState({ ldap: true, okta: false, workspace: true });
+
   const canManageUsers = hasPermission(Permission.USER_MANAGE);
 
   const filteredUsers = users.filter(u => 
@@ -46,6 +49,14 @@ export const IdentityView: React.FC = () => {
   const myDelegations = delegations.filter(d => d.fromUserId === currentUser?.id);
 
   // --- Handlers ---
+
+  const toggleSSO = (key: keyof typeof ssoState) => {
+      setSsoState(prev => {
+          const newState = !prev[key];
+          addNotification('info', `${(key as string).toUpperCase()} Integration ${newState ? 'Enabled' : 'Disabled'}`);
+          return { ...prev, [key]: newState };
+      });
+  };
 
   const openCreateUser = () => {
       setEditingUserId(null);
@@ -433,6 +444,46 @@ export const IdentityView: React.FC = () => {
                           <p className="text-xs text-slate-500 leading-snug">{group.description}</p>
                       </NexCard>
                   ))}
+              </div>
+          </div>
+      )}
+
+      {activeTab === 'sso' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <NexCard className="p-6 space-y-4">
+                  <IntegrationCard isHeader name="Identity Providers" />
+                  <div className="space-y-3">
+                      <div onClick={() => toggleSSO('ldap')} className="cursor-pointer">
+                        <IntegrationCard name="LDAP / Active Directory" status={ssoState.ldap ? "Connected" : "Inactive"} sync="Auto-Sync: 1hr" active={ssoState.ldap} />
+                      </div>
+                      <div onClick={() => toggleSSO('okta')} className="cursor-pointer">
+                        <IntegrationCard name="Okta OIDC" status={ssoState.okta ? "Connected" : "Inactive"} sync="Just-in-Time" active={ssoState.okta} />
+                      </div>
+                      <div onClick={() => toggleSSO('workspace')} className="cursor-pointer">
+                        <IntegrationCard name="Google Workspace" status={ssoState.workspace ? "Connected" : "Inactive"} sync="OAuth 2.0" active={ssoState.workspace} />
+                      </div>
+                  </div>
+              </NexCard>
+              <div className="space-y-6">
+                 <NexCard className="p-6">
+                     <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <ShieldAlert size={16} className="text-amber-500"/> Password Policy
+                     </h3>
+                     <div className="space-y-2">
+                         <PolicyItem text="Minimum Length: 12 chars" active />
+                         <PolicyItem text="Requires MFA for Admins" active />
+                         <PolicyItem text="Expiration: 90 days" active />
+                         <PolicyItem text="History: Last 5 passwords" active />
+                     </div>
+                 </NexCard>
+                 <NexCard className="p-6">
+                     <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <Globe size={16} className="text-blue-500"/> Geo-Fencing
+                     </h3>
+                     <div className="p-3 bg-slate-50 border border-slate-200 rounded-sm text-xs text-slate-600">
+                         Access restricted to <span className="font-bold text-slate-900">US, EU, UK</span> regions. Login attempts from high-risk zones trigger auto-lockout.
+                     </div>
+                 </NexCard>
               </div>
           </div>
       )}

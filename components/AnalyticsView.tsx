@@ -1,22 +1,43 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, Cell } from 'recharts';
 import { TrendingUp, Clock, Target, Zap, Activity, Globe, ArrowUpRight } from 'lucide-react';
 import { NexCard } from './shared/NexUI';
 
 export const AnalyticsView: React.FC = () => {
-  const { instances, processes, navigateTo } = useBPM();
+  const { instances, processes, tasks, navigateTo } = useBPM();
 
+  // Dynamic Data Aggregation
   const completedInstances = instances.filter(i => i.status === 'Completed').length;
-  const avgSLACompliance = 94.2;
-  const taskVolumeData = [
-    { name: 'W1', volume: 120, baseline: 100 },
-    { name: 'W2', volume: 150, baseline: 110 },
-    { name: 'W3', volume: 180, baseline: 120 },
-    { name: 'W4', volume: 140, baseline: 115 },
-    { name: 'W5', volume: 210, baseline: 130 },
-  ];
+  
+  // Calculate Avg SLA Compliance from completed tasks
+  const avgSLACompliance = useMemo(() => {
+     const completedTasks = tasks.filter(t => t.status === 'Completed');
+     if (completedTasks.length === 0) return 100;
+     const onTime = completedTasks.filter(t => new Date(t.dueDate) > new Date()).length; // Approximation using current time as completion
+     return ((onTime / completedTasks.length) * 100).toFixed(1);
+  }, [tasks]);
+
+  // Dynamic Volume Data (Instances grouped by start date)
+  const taskVolumeData = useMemo(() => {
+    const grouped: Record<string, number> = {};
+    instances.forEach(inst => {
+      const date = new Date(inst.startDate).toLocaleDateString(undefined, { weekday: 'short' });
+      grouped[date] = (grouped[date] || 0) + 1;
+    });
+
+    // Fill last 5 days if empty for chart
+    const result = [];
+    const today = new Date();
+    for (let i = 4; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const key = d.toLocaleDateString(undefined, { weekday: 'short' });
+        result.push({ name: key, volume: grouped[key] || 0, baseline: 5 }); // Baseline 5 for demo
+    }
+    return result;
+  }, [instances]);
 
   const processPerformance = processes.map(p => ({
     name: p.name.split(' ').map(w => w[0]).join(''),
