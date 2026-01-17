@@ -1,152 +1,111 @@
 
-import React, { useEffect, useState } from 'react';
-import { Activity, Clock, AlertCircle, ShieldCheck, Briefcase, Sparkles, ChevronDown, ListChecks, DollarSign, Gauge, LucideIcon } from 'lucide-react';
-import { getProcessInsights } from '../services/geminiService';
+import React, { useState } from 'react';
+import { Activity, Clock, AlertCircle, ShieldCheck, Briefcase, Sparkles, ListChecks, DollarSign, Gauge, LucideIcon } from 'lucide-react';
 import { useBPM } from '../contexts/BPMContext';
-import { NexSectionHeader, NexCard, NexBadge } from './shared/NexUI';
+import { NexCard } from './shared/NexUI';
 
-interface MetricCardProps {
+interface MetricPanelProps {
   label: string;
   value: string | number;
-  subValue?: string;
+  sub: string;
   icon: LucideIcon;
-  variant: 'blue' | 'emerald' | 'amber' | 'rose' | 'slate';
-  trend?: string;
+  color: 'blue' | 'green' | 'amber' | 'red';
 }
 
-const MetricCard = ({ label, value, subValue, icon: Icon, variant, trend }: MetricCardProps) => {
-  const variantStyles = {
-    blue: 'bg-blue-50 text-blue-600',
-    emerald: 'bg-emerald-50 text-emerald-600',
-    amber: 'bg-amber-50 text-amber-600',
-    rose: 'bg-rose-50 text-rose-600',
-    slate: 'bg-slate-50 text-slate-400'
+const MetricPanel = ({ label, value, sub, icon: Icon, color }: MetricPanelProps) => {
+  const colors = {
+    blue: 'text-blue-700 bg-blue-50 border-blue-200',
+    green: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+    amber: 'text-amber-700 bg-amber-50 border-amber-200',
+    red: 'text-rose-700 bg-rose-50 border-rose-200'
   };
 
   return (
-    <NexCard className="relative flex flex-col justify-center min-h-[140px] group" hover={false}>
-      <div className="flex justify-between items-start">
-        <div className="space-y-1">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</p>
-          <div className="flex items-baseline gap-2">
-            <h4 className="text-3xl font-black text-slate-900 tracking-tight">{value}</h4>
-            {trend && <span className="text-[11px] font-bold text-emerald-600">{trend}</span>}
-          </div>
-          {subValue && <p className="text-[12px] text-slate-400 font-medium">{subValue}</p>}
-        </div>
-        <div className={`p-3 rounded-xl ${variantStyles[variant]} transition-all`}>
-          <Icon size={20} strokeWidth={2.5} />
-        </div>
+    <NexCard className="p-4 flex items-center justify-between border-l-4 border-l-transparent hover:border-l-blue-600 transition-all">
+      <div>
+        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">{label}</p>
+        <div className="text-2xl font-bold text-slate-900 leading-none mb-1">{value}</div>
+        <p className="text-[11px] text-slate-400">{sub}</p>
+      </div>
+      <div className={`p-2 rounded-sm border ${colors[color].replace('text-', 'border-').split(' ')[2]} ${colors[color].split(' ')[1]} ${colors[color].split(' ')[0]}`}>
+        <Icon size={18} />
       </div>
     </NexCard>
   );
 };
 
 export const Dashboard: React.FC = () => {
-  const { instances, tasks, navigateTo } = useBPM();
-  const [activeTopTab, setActiveTopTab] = useState('Overview');
-  const [activeContextTab, setActiveContextTab] = useState('Dashboard');
+  const { tasks, instances, navigateTo } = useBPM();
+  const [activeTab, setActiveTab] = useState('Overview');
   
-  const pendingCount = tasks.filter(t => t.status === 'Pending').length;
-  const criticalCount = tasks.filter(t => t.priority === 'Critical' && t.status !== 'Completed').length;
-  const activeInstancesCount = instances.filter(i => i.status === 'Active').length;
+  const criticalCount = tasks.filter(t => t.priority === 'Critical').length;
 
   return (
-    <div className="space-y-8 pb-32 animate-fade-in">
-      {/* Top Nav Tabs - Screenshot Style */}
-      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2">
-        {['Overview', 'Planning', 'Execution', 'Control'].map(tab => (
-          <button 
-            key={tab}
-            onClick={() => setActiveTopTab(tab)}
-            className={`tab-capsule ${activeTopTab === tab ? 'tab-active' : 'tab-inactive'}`}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
-
-      {/* Breadcrumb Pill */}
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg w-fit card-shadow">
-        <Briefcase size={14} className="text-blue-500" />
-        <span className="text-[12px] font-bold text-slate-700">Dashboard</span>
-      </div>
-
-      <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-        <NexSectionHeader 
-          icon={Briefcase}
-          title="Integration Management"
-          subtitle="Coordinate all aspects of the project from initiation to closure."
-        />
-        
-        {/* Card Level Tab Switcher */}
-        <div className="flex items-center p-1 bg-slate-100 border border-slate-200/50 rounded-xl card-shadow">
-          {['Dashboard', 'Charter', 'Logs'].map(tab => (
-            <button
+    <div className="space-y-4 animate-fade-in">
+      {/* Dense Top Bar */}
+      <div className="flex items-center justify-between bg-white border border-slate-300 p-2 rounded-sm shadow-sm">
+        <div className="flex gap-1">
+          {['Overview', 'Planning', 'Execution', 'Control'].map(tab => (
+            <button 
               key={tab}
-              onClick={() => setActiveContextTab(tab)}
-              className={`px-5 py-2 rounded-lg text-[12px] font-bold transition-all ${
-                activeContextTab === tab 
-                  ? 'bg-white text-blue-600 shadow-sm' 
-                  : 'text-slate-400 hover:text-slate-600'
-              }`}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-1.5 text-xs font-semibold rounded-sm transition-all ${activeTab === tab ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
             >
               {tab}
             </button>
           ))}
         </div>
-      </div>
-
-      {/* Metric Cards Stack */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <MetricCard 
-          label="Overall Progress" 
-          value="30%" 
-          subValue="1 / 3 tasks complete" 
-          icon={ListChecks} 
-          variant="blue" 
-        />
-        <MetricCard 
-          label="Budget Variance" 
-          value="$2.9M" 
-          subValue="Includes $0.0 committed" 
-          icon={DollarSign} 
-          variant="emerald" 
-          trend="↑"
-        />
-        <MetricCard 
-          label="Open Risks" 
-          value={criticalCount} 
-          subValue="0 high-impact" 
-          icon={AlertCircle} 
-          variant="rose" 
-        />
-        <MetricCard 
-          label="Quality Score" 
-          value="100%" 
-          subValue="Exceeding threshold" 
-          icon={ShieldCheck} 
-          variant="emerald" 
-        />
-      </div>
-
-      {/* Insight Banner */}
-      <div className="bg-[#0F172A] p-8 rounded-3xl card-shadow relative overflow-hidden group">
-        <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 blur-[60px] rounded-full -mr-10 -mt-10"></div>
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Sparkles size={16} className="text-blue-400" />
-              <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Cognitive Advisor</h4>
-            </div>
-            <p className="text-white text-lg font-bold leading-relaxed tracking-tight">
-              Project throughput is stable. Recommend expanding the scope of Downtown Metro Hub logic.
-            </p>
-          </div>
-          <button onClick={() => navigateTo('designer')} className="p-4 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-all backdrop-blur-md shrink-0">
-            <Gauge size={24} />
-          </button>
+        <div className="flex items-center gap-2 px-3 border-l border-slate-200">
+           <span className="text-[11px] font-bold text-slate-500">LAST SYNC:</span>
+           <span className="text-[11px] font-mono text-slate-800">10:42:05 AM</span>
         </div>
+      </div>
+
+      {/* Metrics Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <MetricPanel label="Progress" value="30%" sub="1/3 Phases" icon={ListChecks} color="blue" />
+        <MetricPanel label="Variance" value="$2.9M" sub="Under Budget" icon={DollarSign} color="green" />
+        <MetricPanel label="Risks" value={criticalCount} sub="High Impact" icon={AlertCircle} color="red" />
+        <MetricPanel label="Quality" value="100%" sub="Verified" icon={ShieldCheck} color="green" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Main Chart Area */}
+        <NexCard className="lg:col-span-2 p-0 overflow-hidden min-h-[300px]">
+          <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+            <h3 className="text-xs font-bold text-slate-700 uppercase">Velocity Burn-down</h3>
+            <button className="text-blue-600 text-xs font-medium hover:underline">View Report</button>
+          </div>
+          <div className="p-6 flex items-center justify-center h-64 bg-white">
+             {/* Placeholder for chart */}
+             <div className="w-full h-full border-l border-b border-slate-200 relative">
+                <div className="absolute bottom-0 left-0 w-full h-[60%] bg-blue-50/50 border-t border-blue-200"></div>
+                <div className="absolute bottom-0 left-[20%] w-[10%] h-[40%] bg-slate-800"></div>
+                <div className="absolute bottom-0 left-[35%] w-[10%] h-[55%] bg-slate-800"></div>
+                <div className="absolute bottom-0 left-[50%] w-[10%] h-[30%] bg-slate-800"></div>
+                <div className="absolute bottom-0 left-[65%] w-[10%] h-[70%] bg-slate-800"></div>
+             </div>
+          </div>
+        </NexCard>
+
+        {/* Actionable Insights */}
+        <NexCard className="flex flex-col p-0">
+           <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
+             <h3 className="text-xs font-bold text-slate-700 uppercase flex items-center gap-2">
+               <Sparkles size={14} className="text-amber-500"/> AI Advisor
+             </h3>
+           </div>
+           <div className="p-4 flex-1 bg-slate-50/30">
+             <div className="bg-white border border-l-4 border-l-blue-500 border-slate-200 p-4 shadow-sm mb-4">
+                <p className="text-xs font-medium text-slate-800 leading-relaxed">
+                  Throughput is stable. Recommend expanding DMH-24 logic to include automated vendor notifications.
+                </p>
+             </div>
+             <button onClick={() => navigateTo('designer')} className="w-full py-2 bg-white border border-slate-300 text-slate-700 text-xs font-bold uppercase hover:bg-slate-50 transition-all shadow-sm">
+               Open Designer
+             </button>
+           </div>
+        </NexCard>
       </div>
     </div>
   );

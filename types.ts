@@ -1,5 +1,4 @@
 
-
 export enum TaskStatus {
   PENDING = 'Pending',
   CLAIMED = 'Claimed',
@@ -106,17 +105,30 @@ export interface Task {
 }
 
 export type ProcessStepType = 
-  // Core BPMN & System Components
-  | 'start' 
-  | 'end' 
-  | 'user-task' 
-  | 'service-task' 
-  | 'decision' 
-  | 'parallel-gateway' 
-  | 'note' 
-  | 'sub-process' 
-  | 'boundary-event'
-  | 'rules-engine-task';
+  // --- CORE ---
+  | 'start' | 'end' | 'user-task' | 'service-task' | 'sub-process' | 'script-task'
+  // --- GATEWAYS ---
+  | 'exclusive-gateway' | 'parallel-gateway' | 'inclusive-gateway' | 'complex-gateway' | 'event-gateway'
+  // --- EVENTS ---
+  | 'timer-event' | 'message-event' | 'signal-event' | 'error-event' | 'escalation-event' | 'compensation-event'
+  // --- COMMUNICATION ---
+  | 'email-send' | 'slack-post' | 'teams-message' | 'sms-twilio' | 'whatsapp-msg' | 'push-notification' | 'sendgrid-email' | 'mailchimp-add'
+  // --- DOCUMENTS ---
+  | 'pdf-generate' | 'doc-sign' | 'ocr-extract' | 's3-upload' | 'gdrive-save' | 'sharepoint-store' | 'dropbox-save' | 'template-render'
+  // --- CRM & SALES ---
+  | 'salesforce-create' | 'salesforce-update' | 'hubspot-add' | 'zoho-lead' | 'pipedrive-deal' | 'dynamics-record' | 'zendesk-ticket' | 'intercom-msg'
+  // --- DEV TOOLS ---
+  | 'jira-issue' | 'github-pr' | 'gitlab-merge' | 'bitbucket-commit' | 'trello-card' | 'asana-task' | 'linear-issue' | 'pagerduty-alert'
+  // --- CLOUD INFRA ---
+  | 'aws-lambda' | 'azure-func' | 'gcp-function' | 'kubernetes-job' | 'vm-provision' | 'db-provision' | 'dns-update' | 'cdn-purge'
+  // --- DATA & INTEGRATION ---
+  | 'sql-query' | 'rest-api' | 'graphql-query' | 'soap-call' | 'kafka-publish' | 'rabbit-mq' | 'ftp-upload' | 'csv-parse' | 'xml-transform' | 'json-map'
+  // --- AI & ML ---
+  | 'ai-text-gen' | 'ai-summarize' | 'ai-sentiment' | 'ai-vision' | 'ai-translate' | 'ai-classify' | 'automl-predict' | 'vector-embed'
+  // --- FINANCE ---
+  | 'stripe-charge' | 'paypal-payout' | 'quickbooks-invoice' | 'xero-bill' | 'sap-posting' | 'oracle-ledger' | 'expensify-report'
+  // --- LOGIC & RULES ---
+  | 'business-rule' | 'decision-table' | 'wait-state' | 'terminate-end' | 'loop-container';
 
 
 export interface ProcessStep {

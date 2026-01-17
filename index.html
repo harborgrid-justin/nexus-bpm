@@ -11,10 +11,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       :root {
-        --brand-slate: #0F172A;
-        --brand-blue: #3B82F6;
-        --ui-bg: #F8FAFC;
-        --text-base: clamp(0.875rem, 0.8rem + 0.375vw, 1rem);
+        --brand-slate: #1e293b;
+        --brand-blue: #0284c7;
+        --ui-bg: #eaebef;
+        --text-base: 13px; /* Enterprise standard density */
       }
       
       body {
@@ -23,48 +23,47 @@
         -webkit-font-smoothing: antialiased;
         background-color: var(--ui-bg);
         color: var(--brand-slate);
-        overscroll-behavior-y: contain;
+        overscroll-behavior-y: none;
       }
 
+      /* Enterprise "Panel" Shadow - subtle, defined */
       .card-shadow {
-        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+        box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
       }
       
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-      @keyframes slideUp {
-        from { transform: translateY(20px); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
-      }
       @keyframes fadeIn {
         from { opacity: 0; }
         to { opacity: 1; }
       }
-      .animate-slide-up { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
-      .animate-fade-in { animation: fadeIn 0.4s ease-out; }
+      .animate-fade-in { animation: fadeIn 0.3s ease-out; }
       
       .designer-grid {
-        background-image: radial-gradient(circle at 1px 1px, #E2E8F0 1px, transparent 0);
+        background-image: 
+          linear-gradient(to right, #e2e8f0 1px, transparent 1px),
+          linear-gradient(to bottom, #e2e8f0 1px, transparent 1px);
+        background-size: 20px 20px;
       }
 
-      /* Form Input Styles */
+      /* Compact Form Inputs */
       .prop-input {
-        @apply w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-[14px] font-medium text-slate-900 outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white focus:border-blue-500 transition-all;
+        @apply w-full px-3 py-2 bg-white border border-slate-300 rounded-sm text-[13px] text-slate-800 outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600 transition-all shadow-sm;
       }
       .prop-label {
-        @apply text-[10px] font-black text-slate-400 uppercase tracking-widest px-1;
+        @apply text-[11px] font-bold text-slate-600 mb-1 block;
       }
 
-      /* Tab Styles */
+      /* Enterprise Tabs (Underline style) */
       .tab-capsule {
-        @apply px-5 py-2 rounded-xl text-[13px] font-bold transition-all border;
+        @apply px-4 py-2 text-[13px] font-medium transition-all border-b-2 border-transparent hover:text-blue-700 whitespace-nowrap;
       }
       .tab-active {
-        @apply bg-[#0F172A] text-white border-[#0F172A];
+        @apply text-blue-700 border-blue-600 bg-white;
       }
       .tab-inactive {
-        @apply bg-white text-slate-500 border-slate-200 hover:bg-slate-50;
+        @apply text-slate-500 hover:bg-slate-100;
       }
     </style>
     <script type="importmap">
@@ -81,7 +80,7 @@
     }
     </script>
   </head>
-  <body class="bg-[#F8FAFC] text-[#0F172A] antialiased overflow-hidden selection:bg-blue-100 selection:text-blue-900">
+  <body class="bg-[#eaebef] text-slate-900 antialiased overflow-hidden selection:bg-blue-100 selection:text-blue-900">
     <div id="root"></div>
   </body>
 </html>

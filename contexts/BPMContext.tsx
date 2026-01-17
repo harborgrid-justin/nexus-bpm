@@ -4,7 +4,7 @@ import { produce } from 'immer';
 import { 
   ProcessDefinition, ProcessInstance, Task, TaskStatus, TaskPriority, 
   ViewState, AuditLog, Comment, User, UserRole, UserGroup, Permission, 
-  Delegation, BusinessRule, DecisionTable, Case, CaseEvent
+  Delegation, BusinessRule, DecisionTable, Case, CaseEvent, CasePolicy, CaseStakeholder
 } from '../types';
 import { dbService } from '../services/dbService';
 
@@ -43,25 +43,60 @@ interface BPMContextType {
   addNotification: (type: 'success' | 'error' | 'info', message: string, deepLink?: { view: ViewState; id?: string }) => void;
   removeNotification: (id: string) => void;
   
+  // Process Management
   deployProcess: (process: Partial<ProcessDefinition>) => Promise<void>;
+  updateProcess: (id: string, updates: Partial<ProcessDefinition>) => Promise<void>;
+  deleteProcess: (id: string) => Promise<void>;
+  toggleProcessState: (id: string) => Promise<void>;
+  
+  // Instance Management
   startProcess: (definitionId: string, inputData: any, caseId?: string) => Promise<string>;
+  suspendInstance: (id: string) => Promise<void>;
+  terminateInstance: (id: string) => Promise<void>;
+  
+  // Task Management
   completeTask: (taskId: string, action: string, comments: string) => Promise<void>;
   claimTask: (taskId: string) => Promise<void>;
   releaseTask: (taskId: string) => Promise<void>;
+  reassignTask: (taskId: string, userId: string) => Promise<void>;
+  updateTaskMetadata: (taskId: string, updates: Partial<Task>) => Promise<void>;
   addTaskComment: (taskId: string, text: string) => Promise<void>;
+  bulkCompleteTasks: (taskIds: string[], action: 'approve' | 'reject') => Promise<void>;
   
+  // Case Management
   createCase: (title: string, description: string) => Promise<string>;
+  updateCase: (id: string, updates: Partial<Case>) => Promise<void>;
+  deleteCase: (id: string) => Promise<void>;
   addCaseEvent: (caseId: string, description: string) => Promise<void>;
+  removeCaseEvent: (caseId: string, eventId: string) => Promise<void>;
+  addCasePolicy: (caseId: string, policy: string) => Promise<void>;
+  removeCasePolicy: (caseId: string, policyId: string) => Promise<void>;
+  addCaseStakeholder: (caseId: string, userId: string, role: string) => Promise<void>;
+  removeCaseStakeholder: (caseId: string, userId: string) => Promise<void>;
   
+  // Rules Management
   saveRule: (rule: BusinessRule) => Promise<void>;
   deleteRule: (id: string) => Promise<void>;
+  cloneRule: (id: string) => Promise<void>;
   saveDecisionTable: (table: DecisionTable) => Promise<void>;
   deleteDecisionTable: (id: string) => Promise<void>;
   executeRules: (ruleId: string, fact: any) => Promise<any>;
   
+  // Identity Management
+  createUser: (user: Omit<User, 'id'>) => Promise<void>;
+  updateUser: (id: string, updates: Partial<User>) => Promise<void>;
+  deleteUser: (id: string) => Promise<void>;
+  createRole: (role: Omit<UserRole, 'id'>) => Promise<void>;
+  updateRole: (id: string, updates: Partial<UserRole>) => Promise<void>;
+  deleteRole: (id: string) => Promise<void>;
+  createGroup: (group: Omit<UserGroup, 'id'>) => Promise<void>;
+  updateGroup: (id: string, updates: Partial<UserGroup>) => Promise<void>;
+  deleteGroup: (id: string) => Promise<void>;
+  
   createDelegation: (toUserId: string, scope: 'All' | 'Critical Only') => Promise<void>;
   revokeDelegation: (id: string) => Promise<void>;
   
+  // System
   hasPermission: (perm: Permission) => boolean;
   reseedSystem: () => Promise<void>;
   resetSystem: () => Promise<void>;
@@ -158,6 +193,41 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }));
   };
 
+  // --- Process Methods ---
+  const deployProcess = async (p: Partial<ProcessDefinition>) => { 
+    const newDef = { ...p, id: p.id || `proc-${Date.now()}`, createdAt: new Date().toISOString(), deployedBy: state.currentUser?.name || 'System' } as ProcessDefinition;
+    await dbService.add('processes', newDef); 
+    addAudit('PROCESS_DEPLOY', 'Process', newDef.id, `Deployed model: ${newDef.name}`);
+    loadData(); 
+  };
+
+  const updateProcess = async (id: string, updates: Partial<ProcessDefinition>) => {
+    const p = state.processes.find(x => x.id === id);
+    if(p) {
+        const up = { ...p, ...updates };
+        await dbService.add('processes', up);
+        setState(produce(draft => { draft.processes = draft.processes.map(x => x.id === id ? up : x); }));
+        addAudit('PROCESS_UPDATE', 'Process', id, 'Updated definition metadata');
+    }
+  };
+
+  const deleteProcess = async (id: string) => {
+      await dbService.delete('processes', id);
+      setState(produce(draft => { draft.processes = draft.processes.filter(x => x.id !== id); }));
+      addAudit('PROCESS_DELETE', 'Process', id, 'Removed process definition', 'Warning');
+  };
+
+  const toggleProcessState = async (id: string) => {
+      const p = state.processes.find(x => x.id === id);
+      if(p) {
+          const up = { ...p, isActive: !p.isActive };
+          await dbService.add('processes', up);
+          setState(produce(draft => { draft.processes = draft.processes.map(x => x.id === id ? up : x); }));
+          addNotification('info', `Process ${up.isActive ? 'Activated' : 'Suspended'}`);
+      }
+  };
+
+  // --- Instance Methods ---
   const startProcess = async (definitionId: string, inputData: any, caseId?: string) => {
     const def = state.processes.find(p => p.id === definitionId);
     if (!def) throw new Error("Registry entry not found.");
@@ -220,6 +290,27 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return instanceId;
   };
 
+  const suspendInstance = async (id: string) => {
+      const i = state.instances.find(x => x.id === id);
+      if(i) {
+          const up = { ...i, status: i.status === 'Active' ? 'Suspended' : 'Active' } as ProcessInstance;
+          await dbService.add('instances', up);
+          setState(produce(draft => { draft.instances = draft.instances.map(x => x.id === id ? up : x); }));
+          addAudit('INSTANCE_SUSPEND', 'Instance', id, `Changed status to ${up.status}`);
+      }
+  };
+
+  const terminateInstance = async (id: string) => {
+      const i = state.instances.find(x => x.id === id);
+      if(i) {
+          const up = { ...i, status: 'Terminated', endDate: new Date().toISOString() } as ProcessInstance;
+          await dbService.add('instances', up);
+          setState(produce(draft => { draft.instances = draft.instances.map(x => x.id === id ? up : x); }));
+          addAudit('INSTANCE_TERMINATE', 'Instance', id, 'Forced termination', 'Alert');
+      }
+  };
+
+  // --- Task Methods ---
   const completeTask = async (taskId: string, action: string, comments: string) => {
     const task = state.tasks.find(t => t.id === taskId);
     if (!task) return;
@@ -236,7 +327,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const updatedInstance = {
       ...instance,
       activeStepIds: nextStepIds,
-      status: nextStepIds.length > 0 ? 'Active' : 'Completed',
+      status: (nextStepIds.length > 0 ? 'Active' : 'Completed') as any,
       history: [...instance.history, { 
         id: `h-${Date.now()}`, stepName: task.title, action: action, performer: state.currentUser?.name || 'Unknown', timestamp: new Date().toISOString(), comments
       }]
@@ -259,6 +350,66 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addNotification('success', 'Operational record updated.');
   };
 
+  const claimTask = async (id: string) => { 
+      const t = state.tasks.find(t => t.id === id);
+      if (t) {
+        const ut = { ...t, assignee: state.currentUser!.id, status: TaskStatus.CLAIMED };
+        await dbService.add('tasks', ut);
+        setState(produce(draft => { draft.tasks = draft.tasks.map(x => x.id === id ? ut : x); }));
+        addAudit('TASK_CLAIM', 'Task', id, `Claimed responsibility`);
+        addNotification('info', 'Task claimed.');
+      }
+  };
+
+  const releaseTask = async (id: string) => {
+      const t = state.tasks.find(t => t.id === id);
+      if (t) {
+        const ut = { ...t, assignee: 'Unassigned', status: TaskStatus.PENDING };
+        await dbService.add('tasks', ut);
+        setState(produce(draft => { draft.tasks = draft.tasks.map(x => x.id === id ? ut : x); }));
+        addNotification('info', 'Task released to pool.');
+      }
+  };
+
+  const reassignTask = async (taskId: string, userId: string) => {
+    const t = state.tasks.find(t => t.id === taskId);
+    if (t) {
+      const ut = { ...t, assignee: userId, status: TaskStatus.PENDING };
+      await dbService.add('tasks', ut);
+      setState(produce(draft => { draft.tasks = draft.tasks.map(x => x.id === taskId ? ut : x); }));
+      addAudit('TASK_REASSIGN', 'Task', taskId, `Reassigned to ${userId}`);
+      addNotification('info', 'Task ownership transferred.');
+    }
+  };
+
+  const updateTaskMetadata = async (taskId: string, updates: Partial<Task>) => {
+    const t = state.tasks.find(t => t.id === taskId);
+    if (t) {
+      const ut = { ...t, ...updates };
+      await dbService.add('tasks', ut);
+      setState(produce(draft => { draft.tasks = draft.tasks.map(x => x.id === taskId ? ut : x); }));
+      addAudit('TASK_UPDATE', 'Task', taskId, 'Updated metadata');
+    }
+  };
+
+  const addTaskComment = async (tid: string, text: string) => {
+      const t = state.tasks.find(t => t.id === tid);
+      if (t) {
+        const c: Comment = { id: `c-${Date.now()}`, userId: state.currentUser!.id, userName: state.currentUser!.name, text, timestamp: new Date().toISOString() };
+        const ut = { ...t, comments: [...t.comments, c] };
+        await dbService.add('tasks', ut);
+        setState(produce(draft => { draft.tasks = draft.tasks.map(x => x.id === tid ? ut : x); }));
+      }
+  };
+
+  const bulkCompleteTasks = async (taskIds: string[], action: 'approve' | 'reject') => {
+      for (const id of taskIds) {
+          await completeTask(id, action, `Bulk ${action} applied.`);
+      }
+      addNotification('success', `Bulk action processed for ${taskIds.length} tasks.`);
+  };
+
+  // --- Case Methods ---
   const createCase = async (t: string, d: string) => {
     const nc: Case = {
       id: `case-${Date.now()}`, title: t, description: d, status: 'Open', priority: TaskPriority.MEDIUM, createdAt: new Date().toISOString(),
@@ -271,6 +422,22 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return nc.id;
   };
 
+  const updateCase = async (id: string, updates: Partial<Case>) => {
+      const c = state.cases.find(x => x.id === id);
+      if(c) {
+          const up = { ...c, ...updates };
+          await dbService.add('cases', up);
+          setState(produce(draft => { draft.cases = draft.cases.map(x => x.id === id ? up : x); }));
+          addAudit('CASE_UPDATE', 'Case', id, 'Updated properties');
+      }
+  };
+
+  const deleteCase = async (id: string) => {
+      await dbService.delete('cases', id);
+      setState(produce(draft => { draft.cases = draft.cases.filter(x => x.id !== id); }));
+      addNotification('info', 'Case file deleted.');
+  };
+
   const addCaseEvent = async (caseId: string, description: string) => {
     const c = state.cases.find(cs => cs.id === caseId);
     if (c) {
@@ -281,6 +448,124 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         draft.cases = draft.cases.map(cs => cs.id === caseId ? updatedCase : cs);
       }));
     }
+  };
+
+  const removeCaseEvent = async (caseId: string, eventId: string) => {
+      const c = state.cases.find(cs => cs.id === caseId);
+      if (c) {
+          const updatedCase = { ...c, timeline: c.timeline.filter(e => e.id !== eventId) };
+          await dbService.add('cases', updatedCase);
+          setState(produce(draft => { draft.cases = draft.cases.map(x => x.id === caseId ? updatedCase : x); }));
+      }
+  };
+
+  const addCasePolicy = async (caseId: string, policy: string) => {
+    const c = state.cases.find(cs => cs.id === caseId);
+    if (c) {
+      const pol: CasePolicy = { id: `pol-${Date.now()}`, description: policy, isEnforced: true };
+      const updatedCase = { ...c, policies: [...c.policies, pol] };
+      await dbService.add('cases', updatedCase);
+      setState(produce(draft => { draft.cases = draft.cases.map(cs => cs.id === caseId ? updatedCase : cs); }));
+      addAudit('CASE_UPDATE', 'Case', caseId, 'Added policy');
+    }
+  };
+
+  const removeCasePolicy = async (caseId: string, policyId: string) => {
+      const c = state.cases.find(cs => cs.id === caseId);
+      if (c) {
+          const updatedCase = { ...c, policies: c.policies.filter(p => p.id !== policyId) };
+          await dbService.add('cases', updatedCase);
+          setState(produce(draft => { draft.cases = draft.cases.map(x => x.id === caseId ? updatedCase : x); }));
+      }
+  };
+
+  const addCaseStakeholder = async (caseId: string, userId: string, role: string) => {
+    const c = state.cases.find(cs => cs.id === caseId);
+    if (c) {
+      const sh: CaseStakeholder = { userId, role: role as any };
+      const updatedCase = { ...c, stakeholders: [...c.stakeholders, sh] };
+      await dbService.add('cases', updatedCase);
+      setState(produce(draft => { draft.cases = draft.cases.map(cs => cs.id === caseId ? updatedCase : cs); }));
+      addAudit('CASE_UPDATE', 'Case', caseId, `Added stakeholder: ${userId}`);
+    }
+  };
+
+  const removeCaseStakeholder = async (caseId: string, userId: string) => {
+      const c = state.cases.find(cs => cs.id === caseId);
+      if (c) {
+          const updatedCase = { ...c, stakeholders: c.stakeholders.filter(s => s.userId !== userId) };
+          await dbService.add('cases', updatedCase);
+          setState(produce(draft => { draft.cases = draft.cases.map(x => x.id === caseId ? updatedCase : x); }));
+      }
+  };
+
+  // --- Identity Methods ---
+  const createUser = async (user: Omit<User, 'id'>) => {
+    const newUser = { ...user, id: `u-${Date.now()}` };
+    await dbService.add('users', newUser);
+    setState(produce(draft => { draft.users.push(newUser); }));
+    addAudit('USER_CREATE', 'User', newUser.id, `Provisioned identity: ${user.email}`);
+    addNotification('success', 'Principal provisioned.');
+  };
+
+  const updateUser = async (id: string, updates: Partial<User>) => {
+      const u = state.users.find(x => x.id === id);
+      if(u) {
+          const up = { ...u, ...updates };
+          await dbService.add('users', up);
+          setState(produce(draft => { draft.users = draft.users.map(x => x.id === id ? up : x); }));
+          addAudit('USER_UPDATE', 'User', id, 'Updated profile');
+      }
+  };
+
+  const deleteUser = async (id: string) => {
+      await dbService.delete('users', id);
+      setState(produce(draft => { draft.users = draft.users.filter(x => x.id !== id); }));
+      addAudit('USER_DELETE', 'User', id, 'Deprovisioned identity', 'Alert');
+  };
+
+  const createRole = async (role: Omit<UserRole, 'id'>) => {
+    const newRole = { ...role, id: `role-${Date.now()}` };
+    await dbService.add('roles', newRole);
+    setState(produce(draft => { draft.roles.push(newRole); }));
+    addAudit('ROLE_CREATE', 'System', newRole.id, `Created role: ${role.name}`);
+    addNotification('success', 'Role definition created.');
+  };
+
+  const updateRole = async (id: string, updates: Partial<UserRole>) => {
+      const r = state.roles.find(x => x.id === id);
+      if(r) {
+          const up = { ...r, ...updates };
+          await dbService.add('roles', up);
+          setState(produce(draft => { draft.roles = draft.roles.map(x => x.id === id ? up : x); }));
+      }
+  };
+
+  const deleteRole = async (id: string) => {
+      await dbService.delete('roles', id);
+      setState(produce(draft => { draft.roles = draft.roles.filter(x => x.id !== id); }));
+  };
+
+  const createGroup = async (group: Omit<UserGroup, 'id'>) => {
+    const newGroup = { ...group, id: `grp-${Date.now()}` };
+    await dbService.add('groups', newGroup);
+    setState(produce(draft => { draft.groups.push(newGroup); }));
+    addAudit('GROUP_CREATE', 'System', newGroup.id, `Created group: ${group.name}`);
+    addNotification('success', 'Directory group created.');
+  };
+
+  const updateGroup = async (id: string, updates: Partial<UserGroup>) => {
+      const g = state.groups.find(x => x.id === id);
+      if(g) {
+          const up = { ...g, ...updates };
+          await dbService.add('groups', up);
+          setState(produce(draft => { draft.groups = draft.groups.map(x => x.id === id ? up : x); }));
+      }
+  };
+
+  const deleteGroup = async (id: string) => {
+      await dbService.delete('groups', id);
+      setState(produce(draft => { draft.groups = draft.groups.filter(x => x.id !== id); }));
   };
 
   const createDelegation = async (toUserId: string, scope: 'All' | 'Critical Only') => {
@@ -306,6 +591,21 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addNotification('info', 'Authority delegation terminated.');
   };
 
+  // --- Rules Methods ---
+  const saveRule = async (r: BusinessRule) => { await dbService.add('rules', r); addAudit('RULE_SAVE', 'Rule', r.id, `Updated logic: ${r.name}`); loadData(); };
+  const deleteRule = async (id: string) => { await dbService.delete('rules', id); loadData(); };
+  const cloneRule = async (id: string) => {
+      const r = state.rules.find(x => x.id === id);
+      if(r) {
+          const nr = { ...r, id: `rule-${Date.now()}`, name: `${r.name} (Copy)` };
+          await saveRule(nr);
+          addNotification('success', 'Rule cloned successfully.');
+      }
+  };
+  const saveDecisionTable = async (t: DecisionTable) => { await dbService.add('decisionTables', t); loadData(); };
+  const deleteDecisionTable = async (id: string) => { await dbService.delete('decisionTables', id); loadData(); };
+  const executeRules = async (id: string, fact: any) => fact;
+
   const contextValue: BPMContextType = {
     ...state,
     setGlobalSearch: (s) => setState(prev => ({ ...prev, globalSearch: s })),
@@ -317,48 +617,13 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (u) { setState(prev => ({ ...prev, currentUser: u })); navigateTo('dashboard'); }
     },
     addNotification, removeNotification,
-    deployProcess: async (p) => { 
-      const newDef = { ...p, id: p.id || `proc-${Date.now()}`, createdAt: new Date().toISOString(), deployedBy: state.currentUser?.name || 'System' } as ProcessDefinition;
-      await dbService.add('processes', newDef); 
-      addAudit('PROCESS_DEPLOY', 'Process', newDef.id, `Deployed model: ${newDef.name}`);
-      loadData(); 
-    },
-    startProcess, completeTask,
-    claimTask: async (id) => { 
-      const t = state.tasks.find(t => t.id === id);
-      if (t) {
-        const ut = { ...t, assignee: state.currentUser!.id, status: TaskStatus.CLAIMED };
-        await dbService.add('tasks', ut);
-        setState(produce(draft => { draft.tasks = draft.tasks.map(x => x.id === id ? ut : x); }));
-        addAudit('TASK_CLAIM', 'Task', id, `Claimed responsibility`);
-      }
-    },
-    releaseTask: async (id) => {
-      const t = state.tasks.find(t => t.id === id);
-      if (t) {
-        const ut = { ...t, assignee: 'Unassigned', status: TaskStatus.PENDING };
-        await dbService.add('tasks', ut);
-        setState(produce(draft => { draft.tasks = draft.tasks.map(x => x.id === id ? ut : x); }));
-      }
-    },
-    addTaskComment: async (tid, text) => {
-      const t = state.tasks.find(t => t.id === tid);
-      if (t) {
-        const c: Comment = { id: `c-${Date.now()}`, userId: state.currentUser!.id, userName: state.currentUser!.name, text, timestamp: new Date().toISOString() };
-        const ut = { ...t, comments: [...t.comments, c] };
-        await dbService.add('tasks', ut);
-        setState(produce(draft => { draft.tasks = draft.tasks.map(x => x.id === tid ? ut : x); }));
-      }
-    },
-    createCase,
-    addCaseEvent,
-    saveRule: async (r) => { await dbService.add('rules', r); addAudit('RULE_SAVE', 'Rule', r.id, `Updated logic: ${r.name}`); loadData(); },
-    deleteRule: async (id) => { await dbService.delete('rules', id); loadData(); },
-    saveDecisionTable: async (t) => { await dbService.add('decisionTables', t); loadData(); },
-    deleteDecisionTable: async (id) => { await dbService.delete('decisionTables', id); loadData(); },
-    executeRules: async (id, fact) => fact,
-    createDelegation,
-    revokeDelegation,
+    deployProcess, updateProcess, deleteProcess, toggleProcessState,
+    startProcess, suspendInstance, terminateInstance,
+    completeTask, claimTask, releaseTask, reassignTask, updateTaskMetadata, addTaskComment, bulkCompleteTasks,
+    createCase, updateCase, deleteCase, addCaseEvent, removeCaseEvent, addCasePolicy, removeCasePolicy, addCaseStakeholder, removeCaseStakeholder,
+    createUser, updateUser, deleteUser, createRole, updateRole, deleteRole, createGroup, updateGroup, deleteGroup,
+    createDelegation, revokeDelegation,
+    saveRule, deleteRule, cloneRule, saveDecisionTable, deleteDecisionTable, executeRules,
     hasPermission: (p) => state.currentUser?.roleIds.some(r => state.roles.find(x => x.id === r)?.permissions.includes(p)) || false,
     reseedSystem: async () => { await dbService.reseed(); loadData(); },
     resetSystem: async () => { await dbService.resetDB(); window.location.reload(); },

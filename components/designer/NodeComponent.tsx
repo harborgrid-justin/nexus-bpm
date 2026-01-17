@@ -14,48 +14,35 @@ export const NodeComponent: React.FC<NodeComponentProps> = ({ step, isSelected }
   return (
     <div 
       data-node-id={step.id} 
-      className={`absolute w-[260px] h-[100px] bg-white rounded-2xl border-2 p-5 flex items-center gap-5 transition-all duration-200 cursor-grab active:cursor-grabbing ${
+      className={`absolute w-[200px] h-[80px] bg-white border flex items-center gap-3 px-4 shadow-sm transition-all select-none ${
         isSelected 
-          ? 'border-blue-600 card-shadow z-20' 
-          : 'border-slate-200 hover:border-slate-300 z-10'
+          ? 'border-blue-600 ring-1 ring-blue-600 z-20' 
+          : 'border-slate-300 hover:border-slate-400 z-10'
       }`} 
       style={{ 
         left: step.position?.x, 
         top: step.position?.y,
+        borderRadius: '2px' // Enterprise sharp corners
       }}
     >
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 relative ${
-        isSelected ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-600'
-      }`}>
-        <Icon size={20} strokeWidth={isSelected ? 2.5 : 2} className={isSelected ? 'text-white' : color} />
+      <div className={`w-8 h-8 flex items-center justify-center rounded-sm bg-slate-100 border border-slate-200`}>
+        <Icon size={16} className={color.replace('text-', 'text-opacity-80 text-')} />
       </div>
       
-      <div className="overflow-hidden flex-1 relative">
-        <p className={`text-[15px] font-black truncate tracking-tightest leading-tight mb-1 transition-colors ${isSelected ? 'text-slate-900' : 'text-slate-800'}`}>
+      <div className="flex-1 min-w-0">
+        <p className="text-[12px] font-bold text-slate-800 truncate leading-tight">
           {step.name}
         </p>
-        <div className="flex items-center gap-2">
-           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap">
-            {step.type.replace('-', ' ')}
-          </span>
-          {step.role && (
-            <>
-              <span className="text-slate-300 text-[10px]">•</span>
-              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider truncate max-w-[90px]">
-                {step.role}
-              </span>
-            </>
-          )}
-        </div>
+        <p className="text-[10px] text-slate-500 uppercase tracking-wide truncate mt-0.5">
+          {step.type}
+        </p>
       </div>
       
+      {/* Connector Handle */}
       <div 
         data-handle-id={step.id} 
-        className="absolute -right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 bg-slate-900 border-2 border-white rounded-full cursor-crosshair hover:scale-125 hover:rotate-45 transition-all z-30 shadow-md flex items-center justify-center group"
-        title="Connect Step"
-      >
-        <div className="w-1 h-1 bg-white rounded-full"></div>
-      </div>
+        className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 bg-slate-400 border border-white rounded-full cursor-crosshair hover:bg-blue-600 hover:scale-125 transition-all z-30"
+      />
     </div>
   );
 };

@@ -11,8 +11,8 @@ interface TabBtnProps {
 export const TabBtn: React.FC<TabBtnProps> = ({ active, onClick, icon: Icon, label }) => (
   <button 
     onClick={onClick}
-    className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all shrink-0 ${active ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'text-slate-400 hover:text-slate-600'}`}
+    className={`px-4 py-2 text-xs font-bold flex items-center gap-2 transition-all shrink-0 border-b-2 ${active ? 'text-blue-700 border-blue-600 bg-white' : 'text-slate-500 border-transparent hover:text-slate-800'}`}
   >
-    <Icon size={16}/> {label}
+    <Icon size={14}/> {label}
   </button>
 );
