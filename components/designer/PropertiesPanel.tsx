@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { ProcessStep, UserRole } from '../../types';
 import { useBPM } from '../../contexts/BPMContext';
-import { MousePointer2, Trash2, Info, UserCheck, Cpu, Compass, X, ChevronDown, FunctionSquare, ExternalLink, Globe, Key, Clock, Code, Database, Mail, Terminal, Shuffle } from 'lucide-react';
+import { MousePointer2, Trash2, Info, UserCheck, Cpu, Compass, X, ChevronDown, FunctionSquare, ExternalLink, Globe, Key, Clock, Code, Database, Mail, Terminal, Shuffle, Server, Shield, Share2, FileText, HardDrive, Layout } from 'lucide-react';
 import { NexButton, NexFormGroup } from '../shared/NexUI';
 import { getStepTypeMetadata } from './designerUtils';
 
@@ -34,11 +34,6 @@ export const PropertiesPanel = ({
     const meta = getStepTypeMetadata(step.type);
     const updateField = (field: keyof ProcessStep, value: any) => { onUpdate({ ...step, [field]: value }); };
     const updateDataField = (key: string, value: any) => { onUpdate({ ...step, data: { ...step.data, [key]: value } }); };
-    const toggleSkill = (skill: string) => {
-        const skills = step.requiredSkills || [];
-        const newSkills = skills.includes(skill) ? skills.filter(sk => sk !== skill) : [...skills, skill];
-        onUpdate({ ...step, requiredSkills: newSkills });
-    };
   
     return (
       <aside className="w-full h-full bg-white border-l border-slate-300 flex flex-col shadow-xl z-20">
@@ -92,24 +87,163 @@ export const PropertiesPanel = ({
              </NexFormGroup>
           </section>
 
-          {/* DYNAMIC CONFIGURATION LOGIC */}
+          {/* --- DYNAMIC CONFIGURATION FOR 25+ WIRING OPPORTUNITIES --- */}
           
-          {/* COMMUNICATION CATEGORY */}
+          {/* 1. CORE / GATEWAYS */}
+          {meta.category === 'Gateways' && (
+             <section className="space-y-4">
+                <NexFormGroup label="Default Route">
+                   <input className="prop-input" placeholder="Flow ID" value={step.data?.defaultFlow || ''} onChange={e => updateDataField('defaultFlow', e.target.value)} />
+                </NexFormGroup>
+                {step.type === 'exclusive-gateway' && (
+                   <NexFormGroup label="Condition Expression (CEL)">
+                      <textarea className="prop-input h-20 font-mono text-xs" placeholder="amount > 1000 && approved == true" value={step.data?.condition || ''} onChange={e => updateDataField('condition', e.target.value)} />
+                   </NexFormGroup>
+                )}
+             </section>
+          )}
+
+          {/* 2. EVENTS (Timer) */}
+          {step.type === 'timer-event' && (
+             <section className="space-y-4">
+                <NexFormGroup label="Schedule Type">
+                   <select className="prop-input" value={step.data?.timerType || 'duration'} onChange={e => updateDataField('timerType', e.target.value)}>
+                      <option value="duration">Duration (ISO 8601)</option>
+                      <option value="date">Fixed Date</option>
+                      <option value="cycle">Cycle (Cron)</option>
+                   </select>
+                </NexFormGroup>
+                <NexFormGroup label="Expression">
+                   <input className="prop-input font-mono" placeholder={step.data?.timerType === 'cycle' ? '0 0 * * *' : 'PT1H'} value={step.data?.expression || ''} onChange={e => updateDataField('expression', e.target.value)} />
+                </NexFormGroup>
+             </section>
+          )}
+
+          {/* 3. COMMUNICATION */}
           {meta.category === 'Communication' && (
               <section className="space-y-4">
-                  <NexFormGroup label="Recipient">
-                      <input className="prop-input" placeholder="email@example.com or ${var}" value={step.data?.to || ''} onChange={e => updateDataField('to', e.target.value)} />
-                  </NexFormGroup>
-                  <NexFormGroup label="Subject / Topic">
-                      <input className="prop-input" placeholder="Notification Subject" value={step.data?.subject || ''} onChange={e => updateDataField('subject', e.target.value)} />
-                  </NexFormGroup>
-                  <NexFormGroup label="Message Template">
-                      <textarea className="prop-input h-24 font-mono textxs" placeholder="Hello ${userName}..." value={step.data?.body || ''} onChange={e => updateDataField('body', e.target.value)} />
+                  {(step.type === 'email-send' || step.type === 'sendgrid-email') && (
+                    <>
+                      <NexFormGroup label="Recipient">
+                          <input className="prop-input" placeholder="email@example.com or ${var}" value={step.data?.to || ''} onChange={e => updateDataField('to', e.target.value)} />
+                      </NexFormGroup>
+                      <NexFormGroup label="Template ID">
+                          <input className="prop-input" placeholder="d-12345abc" value={step.data?.templateId || ''} onChange={e => updateDataField('templateId', e.target.value)} />
+                      </NexFormGroup>
+                    </>
+                  )}
+                  {step.type === 'slack-post' && (
+                      <NexFormGroup label="Webhook URL / Channel">
+                          <input className="prop-input" placeholder="https://hooks.slack.com/..." value={step.data?.webhookUrl || ''} onChange={e => updateDataField('webhookUrl', e.target.value)} />
+                      </NexFormGroup>
+                  )}
+                  {step.type === 'sms-twilio' && (
+                      <div className="grid grid-cols-2 gap-2">
+                         <NexFormGroup label="From Number"><input className="prop-input" placeholder="+1..." value={step.data?.from || ''} onChange={e => updateDataField('from', e.target.value)} /></NexFormGroup>
+                         <NexFormGroup label="To Number"><input className="prop-input" placeholder="${phone}" value={step.data?.to || ''} onChange={e => updateDataField('to', e.target.value)} /></NexFormGroup>
+                      </div>
+                  )}
+                  <NexFormGroup label="Message Body">
+                      <textarea className="prop-input h-24 font-mono text-xs" placeholder="Hello ${userName}..." value={step.data?.body || ''} onChange={e => updateDataField('body', e.target.value)} />
                   </NexFormGroup>
               </section>
           )}
 
-          {/* AI & ML CATEGORY */}
+          {/* 4. DOCUMENTS */}
+          {meta.category === 'Documents' && (
+             <section className="space-y-4">
+                {step.type === 'pdf-generate' && (
+                   <NexFormGroup label="HTML Template">
+                      <textarea className="prop-input h-32 font-mono text-xs" placeholder="<html>...</html>" value={step.data?.html || ''} onChange={e => updateDataField('html', e.target.value)} />
+                   </NexFormGroup>
+                )}
+                {(step.type === 's3-upload' || step.type === 'gdrive-save') && (
+                   <>
+                     <NexFormGroup label="Bucket / Folder">
+                        <input className="prop-input" placeholder="my-corp-data" value={step.data?.bucket || ''} onChange={e => updateDataField('bucket', e.target.value)} />
+                     </NexFormGroup>
+                     <NexFormGroup label="File Key / Path">
+                        <input className="prop-input" placeholder="/invoices/${id}.pdf" value={step.data?.key || ''} onChange={e => updateDataField('key', e.target.value)} />
+                     </NexFormGroup>
+                   </>
+                )}
+             </section>
+          )}
+
+          {/* 5. DATA & INTEGRATION */}
+          {meta.category === 'Data & Integration' && (
+             <section className="space-y-4">
+                {step.type === 'rest-api' && (
+                   <>
+                     <NexFormGroup label="Method">
+                        <select className="prop-input" value={step.data?.method || 'GET'} onChange={e => updateDataField('method', e.target.value)}>
+                           <option>GET</option><option>POST</option><option>PUT</option><option>DELETE</option>
+                        </select>
+                     </NexFormGroup>
+                     <NexFormGroup label="Endpoint URL">
+                        <input className="prop-input" placeholder="https://api.example.com/v1/..." value={step.data?.url || ''} onChange={e => updateDataField('url', e.target.value)} />
+                     </NexFormGroup>
+                     <NexFormGroup label="Headers (JSON)">
+                        <textarea className="prop-input h-16 font-mono text-xs" placeholder='{"Authorization": "Bearer..."}' value={step.data?.headers || ''} onChange={e => updateDataField('headers', e.target.value)} />
+                     </NexFormGroup>
+                   </>
+                )}
+                {step.type === 'sql-query' && (
+                   <>
+                     <NexFormGroup label="Connection String">
+                        <input type="password" class="prop-input" placeholder="postgres://user:pass@host..." value={step.data?.connection || ''} onChange={e => updateDataField('connection', e.target.value)} />
+                     </NexFormGroup>
+                     <NexFormGroup label="SQL Query">
+                        <textarea className="prop-input h-24 font-mono text-xs" placeholder="SELECT * FROM users WHERE id = $1" value={step.data?.query || ''} onChange={e => updateDataField('query', e.target.value)} />
+                     </NexFormGroup>
+                   </>
+                )}
+                {step.type === 'graphql-query' && (
+                   <NexFormGroup label="Query / Mutation">
+                      <textarea className="prop-input h-32 font-mono text-xs" placeholder="query { user(id: 1) { name } }" value={step.data?.query || ''} onChange={e => updateDataField('query', e.target.value)} />
+                   </NexFormGroup>
+                )}
+             </section>
+          )}
+
+          {/* 6. DEV TOOLS & CLOUD */}
+          {(meta.category === 'Dev Tools' || meta.category === 'Cloud Infra') && (
+             <section className="space-y-4">
+                {(step.type === 'github-pr' || step.type === 'gitlab-merge') && (
+                   <div className="grid grid-cols-2 gap-2">
+                      <NexFormGroup label="Repo Owner"><input className="prop-input" value={step.data?.owner || ''} onChange={e => updateDataField('owner', e.target.value)}/></NexFormGroup>
+                      <NexFormGroup label="Repo Name"><input className="prop-input" value={step.data?.repo || ''} onChange={e => updateDataField('repo', e.target.value)}/></NexFormGroup>
+                   </div>
+                )}
+                {step.type === 'jira-issue' && (
+                   <>
+                     <NexFormGroup label="Project Key"><input className="prop-input" placeholder="PROJ" value={step.data?.projectKey || ''} onChange={e => updateDataField('projectKey', e.target.value)}/></NexFormGroup>
+                     <NexFormGroup label="Issue Type"><select className="prop-input" value={step.data?.issueType || 'Task'} onChange={e => updateDataField('issueType', e.target.value)}><option>Bug</option><option>Task</option><option>Story</option></select></NexFormGroup>
+                   </>
+                )}
+                {step.type === 'aws-lambda' && (
+                   <NexFormGroup label="Function ARN">
+                      <input className="prop-input font-mono" placeholder="arn:aws:lambda:us-east-1:..." value={step.data?.arn || ''} onChange={e => updateDataField('arn', e.target.value)} />
+                   </NexFormGroup>
+                )}
+             </section>
+          )}
+
+          {/* 7. CRM & SALES */}
+          {meta.category === 'CRM & Sales' && (
+             <section className="space-y-4">
+                <NexFormGroup label="Object Type">
+                   <select className="prop-input" value={step.data?.objectType || 'Lead'} onChange={e => updateDataField('objectType', e.target.value)}>
+                      <option>Lead</option><option>Contact</option><option>Opportunity</option><option>Account</option><option>Ticket</option>
+                   </select>
+                </NexFormGroup>
+                <NexFormGroup label="Field Mapping (JSON)">
+                   <textarea className="prop-input h-24 font-mono text-xs" placeholder='{"email": "${email}", "status": "New"}' value={step.data?.fields || ''} onChange={e => updateDataField('fields', e.target.value)} />
+                </NexFormGroup>
+             </section>
+          )}
+
+          {/* 8. AI & ML CATEGORY */}
           {meta.category === 'AI & ML' && (
               <section className="space-y-4">
                   <NexFormGroup label="Model Selection">
@@ -119,19 +253,18 @@ export const PropertiesPanel = ({
                           <option value="gemini-1-5">Gemini 1.5 Pro</option>
                       </select>
                   </NexFormGroup>
-                  <NexFormGroup label="System Prompt">
-                      <textarea className="prop-input h-20 resize-none" placeholder="You are a helpful assistant..." value={step.data?.systemPrompt || ''} onChange={e => updateDataField('systemPrompt', e.target.value)} />
+                  <NexFormGroup label="Input Context">
+                      <textarea className="prop-input h-20 resize-none" placeholder="${documentText} or manual prompt" value={step.data?.systemPrompt || ''} onChange={e => updateDataField('systemPrompt', e.target.value)} />
                   </NexFormGroup>
-                  <NexFormGroup label="Temperature">
-                      <div className="flex items-center gap-2">
-                          <input type="range" min="0" max="1" step="0.1" className="flex-1" value={step.data?.temp || 0.7} onChange={e => updateDataField('temp', parseFloat(e.target.value))} />
-                          <span className="text-xs font-mono w-8">{step.data?.temp || 0.7}</span>
-                      </div>
-                  </NexFormGroup>
+                  {step.type === 'ai-sentiment' && (
+                     <NexFormGroup label="Threshold Alert">
+                        <input type="number" step="0.1" className="prop-input" placeholder="0.8" value={step.data?.threshold || ''} onChange={e => updateDataField('threshold', e.target.value)} />
+                     </NexFormGroup>
+                  )}
               </section>
           )}
 
-          {/* FINANCE */}
+          {/* 9. FINANCE */}
           {meta.category === 'Finance' && (
               <section className="space-y-4">
                   <NexFormGroup label="Amount">
@@ -145,10 +278,15 @@ export const PropertiesPanel = ({
                           <option>USD</option><option>EUR</option><option>GBP</option><option>JPY</option>
                       </select>
                   </NexFormGroup>
+                  {step.type === 'stripe-charge' && (
+                     <NexFormGroup label="Customer ID">
+                        <input className="prop-input" placeholder="cus_..." value={step.data?.customerId || ''} onChange={e => updateDataField('customerId', e.target.value)} />
+                     </NexFormGroup>
+                  )}
               </section>
           )}
 
-          {/* LOGIC & RULES */}
+          {/* 10. LOGIC & RULES */}
           {(step.type === 'business-rule' || step.type === 'decision-table') && (
               <section className="space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
@@ -175,7 +313,7 @@ export const PropertiesPanel = ({
               </section>
           )}
 
-          {/* USER TASKS */}
+          {/* 11. USER TASKS */}
           {step.type === 'user-task' && (
               <section className="space-y-4">
                   <NexFormGroup label="Role Assignment">
@@ -187,6 +325,12 @@ export const PropertiesPanel = ({
                       <option value="">Unassigned</option>
                       {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                     </select>
+                  </NexFormGroup>
+                  <NexFormGroup label="Candidate Groups">
+                      <input className="prop-input" placeholder="group1, group2" value={step.data?.candidateGroups || ''} onChange={e => updateDataField('candidateGroups', e.target.value)} />
+                  </NexFormGroup>
+                  <NexFormGroup label="Form Key">
+                      <input className="prop-input" placeholder="form_registration_v1" value={step.data?.formKey || ''} onChange={e => updateDataField('formKey', e.target.value)} />
                   </NexFormGroup>
                   <NexFormGroup label="SLA Deadline">
                       <div className="flex gap-2">

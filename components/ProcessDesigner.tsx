@@ -3,15 +3,14 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { ProcessStep, ProcessLink, ProcessStepType } from '../types';
 import { useBPM } from '../contexts/BPMContext';
 import { 
-  Save, ZoomIn, ZoomOut, Sparkles, Cpu, PenTool, PlayCircle, X, LayoutPanelLeft, Trash2, Bot,
-  MessageSquare, ThumbsUp, ThumbsDown
+  Save, ZoomIn, ZoomOut, Sparkles, Cpu, LayoutPanelLeft, Trash2,
 } from 'lucide-react';
 import { PaletteSidebar } from './designer/PaletteSidebar';
 import { NodeComponent } from './designer/NodeComponent';
 import { PropertiesPanel } from './designer/PropertiesPanel';
+import { CanvasContextMenu } from './designer/CanvasContextMenu'; // Imported
 import { getStepTypeMetadata } from './designer/designerUtils';
 import { generateProcessWorkflow } from '../services/geminiService';
-import { NexButton } from './shared/NexUI';
 
 const GRID_SIZE = 20;
 
@@ -23,6 +22,10 @@ export const ProcessDesigner: React.FC = () => {
   const [viewport, setViewport] = useState({ x: 50, y: 50, zoom: 1 });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   
+  // Context Menu & Clipboard State
+  const [contextMenu, setContextMenu] = useState<{ position: { x: number; y: number }, targetId: string | null } | null>(null);
+  const [clipboard, setClipboard] = useState<ProcessStep | null>(null);
+
   // AI States
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -60,8 +63,9 @@ export const ProcessDesigner: React.FC = () => {
     };
   };
 
+  // --- Actions ---
+
   const handleDeploy = async () => {
-    // CRITICAL: Map visual links to logical nextStepIds before saving
     const connectedSteps = steps.map(step => {
         const outgoingLinks = links.filter(l => l.sourceId === step.id);
         return {
@@ -96,7 +100,6 @@ export const ProcessDesigner: React.FC = () => {
       const generatedSteps = await generateProcessWorkflow(aiPrompt);
       if (generatedSteps && generatedSteps.length > 0) {
         setSteps(generatedSteps);
-        // Simple auto-link logic
         const newLinks: ProcessLink[] = [];
         for(let i=0; i < generatedSteps.length - 1; i++) {
           newLinks.push({ id: `link-auto-${i}`, sourceId: generatedSteps[i].id, targetId: generatedSteps[i+1].id });
@@ -113,23 +116,124 @@ export const ProcessDesigner: React.FC = () => {
       addNotification('error', 'Canvas is empty. Add steps to simulate.');
       return;
     }
-    // State is already persisted in Context via useEffect
     navigateTo('simulation-report');
   };
 
-  const addNode = (type: ProcessStepType) => {
-    const world = screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
+  const addNode = (type: ProcessStepType, position?: { x: number, y: number }) => {
+    const world = position || screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
     const metadata = getStepTypeMetadata(type);
     const newNode: ProcessStep = {
       id: `node-${Date.now()}`, name: metadata.defaultName, type, description: '',
-      position: { x: snapToGrid(world.x - 100), y: snapToGrid(world.y - 40) },
+      position: { x: snapToGrid(world.x - (position ? 0 : 100)), y: snapToGrid(world.y - (position ? 0 : 40)) },
       requiredSkills: metadata.defaultSkills || [], data: {}
     };
     setSteps(prev => [...prev, newNode]);
     setSelectedId(newNode.id);
   };
 
+  // --- Context Menu Handlers ---
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const target = e.target as HTMLElement;
+    const nodeEl = target.closest('[data-node-id]');
+    const targetId = nodeEl ? nodeEl.getAttribute('data-node-id') : null;
+    
+    // Select the node immediately if right-clicked
+    if (targetId) setSelectedId(targetId);
+
+    setContextMenu({
+      position: { x: e.clientX, y: e.clientY },
+      targetId
+    });
+  };
+
+  const handleMenuAction = (action: string, payload?: any) => {
+    if (!contextMenu) return;
+    const { targetId, position } = contextMenu;
+
+    switch (action) {
+      case 'delete':
+        if (targetId) deleteStep(targetId);
+        break;
+        
+      case 'duplicate':
+        if (targetId) {
+          const original = steps.find(s => s.id === targetId);
+          if (original) {
+            const newNode = {
+              ...original,
+              id: `node-${Date.now()}`,
+              name: `${original.name} (Copy)`,
+              position: { x: (original.position?.x || 0) + 20, y: (original.position?.y || 0) + 20 }
+            };
+            setSteps(prev => [...prev, newNode]);
+            setSelectedId(newNode.id);
+          }
+        }
+        break;
+
+      case 'copy':
+        if (targetId) {
+          const node = steps.find(s => s.id === targetId);
+          if (node) {
+            setClipboard(node);
+            addNotification('info', 'Copied to clipboard');
+          }
+        }
+        break;
+
+      case 'paste':
+        if (clipboard) {
+          const world = screenToWorld(position.x, position.y);
+          const newNode = {
+            ...clipboard,
+            id: `node-${Date.now()}`,
+            name: clipboard.name, 
+            position: { x: snapToGrid(world.x), y: snapToGrid(world.y) }
+          };
+          setSteps(prev => [...prev, newNode]);
+          setSelectedId(newNode.id);
+          addNotification('success', 'Pasted component');
+        } else {
+          addNotification('info', 'Clipboard is empty');
+        }
+        break;
+
+      case 'disconnect':
+        if (targetId) {
+          setLinks(prev => prev.filter(l => l.sourceId !== targetId && l.targetId !== targetId));
+          addNotification('info', 'Links removed.');
+        }
+        break;
+
+      case 'edit':
+        // Already selected by context menu open logic, panel is open
+        break;
+
+      case 'add-node':
+        // Calculate world coordinates for the click position
+        const world = screenToWorld(position.x, position.y);
+        addNode(payload, { x: world.x, y: world.y });
+        break;
+
+      case 'reset-view':
+        setViewport({ x: 50, y: 50, zoom: 1 });
+        break;
+
+      case 'clear-canvas':
+        handleClear();
+        break;
+    }
+    setContextMenu(null);
+  };
+
+  // --- Pointer Events ---
+
   const handlePointerDown = (e: React.PointerEvent) => {
+    // Hide context menu on left click
+    if (contextMenu) setContextMenu(null);
+
     const target = e.target as HTMLElement;
     const nodeEl = target.closest('[data-node-id]');
     const handleEl = target.closest('[data-handle-id]');
@@ -232,7 +336,12 @@ export const ProcessDesigner: React.FC = () => {
 
         {/* 3. Canvas (Grid) */}
         <div className="flex-1 relative bg-[#f0f2f5] overflow-hidden cursor-grab active:cursor-grabbing designer-grid"
-             ref={canvasRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}>
+             ref={canvasRef} 
+             onPointerDown={handlePointerDown} 
+             onPointerMove={handlePointerMove} 
+             onPointerUp={handlePointerUp}
+             onContextMenu={handleContextMenu}
+        >
            <div style={{ transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`, transformOrigin: '0 0' }}>
               {/* SVG Overlay for Links - MUST be pointer-events-none to allow clicking nodes through it */}
               <svg className="overflow-visible absolute top-0 left-0 pointer-events-none">
@@ -265,6 +374,16 @@ export const ProcessDesigner: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Context Menu Overlay */}
+      {contextMenu && (
+        <CanvasContextMenu 
+          position={contextMenu.position} 
+          targetId={contextMenu.targetId} 
+          onClose={() => setContextMenu(null)}
+          onAction={handleMenuAction}
+        />
+      )}
     </div>
   );
 };
