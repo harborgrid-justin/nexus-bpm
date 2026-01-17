@@ -102,6 +102,7 @@ export interface Task {
   attachments: Attachment[];
   isAdHoc: boolean;
   caseId?: string;
+  triggerSource?: 'Manual' | 'Rule' | 'System' | 'Escalation';
 }
 
 export type ProcessStepType = 
@@ -145,6 +146,11 @@ export interface ProcessStep {
   position?: { x: number; y: number };
   isCollapsed?: boolean;
   data?: Record<string, any>; // For custom component properties
+  
+  // LOGIC WIRING
+  businessRuleId?: string; // Bind a rule to run on entry/exit
+  onEntryAction?: string;
+  onExitAction?: string;
 }
 
 export interface ProcessLink {
@@ -222,7 +228,7 @@ export interface CaseStakeholder {
 export interface CaseEvent {
   id: string;
   timestamp: string;
-  type: 'Manual' | 'System' | 'Task Completion';
+  type: 'Manual' | 'System' | 'Task Completion' | 'Rule Trigger';
   description: string;
   author: string;
 }

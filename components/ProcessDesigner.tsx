@@ -3,13 +3,14 @@ import React, { useState, useRef, useMemo } from 'react';
 import { ProcessStep, ProcessLink, ProcessStepType } from '../types';
 import { useBPM } from '../contexts/BPMContext';
 import { 
-  Save, ZoomIn, ZoomOut, Sparkles, Cpu, PenTool, PlayCircle, X, LayoutPanelLeft
+  Save, ZoomIn, ZoomOut, Sparkles, Cpu, PenTool, PlayCircle, X, LayoutPanelLeft, Trash2
 } from 'lucide-react';
 import { PaletteSidebar } from './designer/PaletteSidebar';
 import { NodeComponent } from './designer/NodeComponent';
 import { PropertiesPanel } from './designer/PropertiesPanel';
 import { getStepTypeMetadata } from './designer/designerUtils';
 import { generateProcessWorkflow, runWorkflowSimulation, SimulationResult } from '../services/geminiService';
+import { NexButton } from './shared/NexUI';
 
 const GRID_SIZE = 20;
 
@@ -43,7 +44,7 @@ export const ProcessDesigner: React.FC = () => {
   };
 
   const handleDeploy = async () => {
-    // CRITICAL FIX: Map visual links to logical nextStepIds before saving
+    // CRITICAL: Map visual links to logical nextStepIds before saving
     const connectedSteps = steps.map(step => {
         const outgoingLinks = links.filter(l => l.sourceId === step.id);
         return {
@@ -60,6 +61,14 @@ export const ProcessDesigner: React.FC = () => {
         version: 1 
     });
     addNotification('success', 'Process definition deployed successfully.');
+  };
+
+  const handleClear = () => {
+    if(window.confirm('Clear current design?')) {
+        setSteps([]);
+        setLinks([]);
+        setSelectedId(null);
+    }
   };
 
   const handleAiGenerate = async (e: React.FormEvent) => {
@@ -94,32 +103,44 @@ export const ProcessDesigner: React.FC = () => {
     setSelectedId(newNode.id);
   };
 
-  // ... Pointer handlers (simplified for brevity, logic same as before but grid size changed) ...
   const handlePointerDown = (e: React.PointerEvent) => {
     const target = e.target as HTMLElement;
     const nodeEl = target.closest('[data-node-id]');
     const handleEl = target.closest('[data-handle-id]');
     dragStart.current = { x: e.clientX, y: e.clientY };
     isDragging.current = true;
-    if (handleEl) { dragTarget.current = 'link'; activeId.current = handleEl.getAttribute('data-handle-id'); e.stopPropagation(); } 
-    else if (nodeEl) { dragTarget.current = 'node'; activeId.current = nodeEl.getAttribute('data-node-id'); setSelectedId(activeId.current); e.stopPropagation(); } 
-    else { dragTarget.current = 'viewport'; setSelectedId(null); }
+    
+    if (handleEl) { 
+        dragTarget.current = 'link'; 
+        activeId.current = handleEl.getAttribute('data-handle-id'); 
+        e.stopPropagation(); 
+    } else if (nodeEl) { 
+        dragTarget.current = 'node'; 
+        activeId.current = nodeEl.getAttribute('data-node-id'); 
+        setSelectedId(activeId.current); 
+        e.stopPropagation(); 
+    } else { 
+        dragTarget.current = 'viewport'; 
+        setSelectedId(null); 
+    }
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!isDragging.current) return;
     const dx = e.clientX - dragStart.current.x;
     const dy = e.clientY - dragStart.current.y;
-    if (dragTarget.current === 'viewport') { setViewport(prev => ({ ...prev, x: prev.x + dx, y: prev.y + dy })); } 
-    else if (dragTarget.current === 'node' && activeId.current) {
-      setSteps(prev => prev.map(s => s.id === activeId.current ? { ...s, position: { x: (s.position?.x || 0) + dx / viewport.zoom, y: (s.position?.y || 0) + dy / viewport.zoom } } : s));
+    
+    if (dragTarget.current === 'viewport') { 
+        setViewport(prev => ({ ...prev, x: prev.x + dx, y: prev.y + dy })); 
+    } else if (dragTarget.current === 'node' && activeId.current) {
+        setSteps(prev => prev.map(s => s.id === activeId.current ? { ...s, position: { x: (s.position?.x || 0) + dx / viewport.zoom, y: (s.position?.y || 0) + dy / viewport.zoom } } : s));
     } else if (dragTarget.current === 'link' && activeId.current) {
-      const sNode = steps.find(s => s.id === activeId.current);
-      if (sNode && sNode.position) {
-        const world = screenToWorld(e.clientX, e.clientY);
-        ghostLink.current = { x1: sNode.position.x + 200, y1: sNode.position.y + 40, x2: world.x, y2: world.y };
-        setViewport(v => ({...v}));
-      }
+        const sNode = steps.find(s => s.id === activeId.current);
+        if (sNode && sNode.position) {
+            const world = screenToWorld(e.clientX, e.clientY);
+            ghostLink.current = { x1: sNode.position.x + 200, y1: sNode.position.y + 40, x2: world.x, y2: world.y };
+            setViewport(v => ({...v})); // Force re-render for ghost link
+        }
     }
     dragStart.current = { x: e.clientX, y: e.clientY };
   };
@@ -128,16 +149,34 @@ export const ProcessDesigner: React.FC = () => {
     if (dragTarget.current === 'link' && activeId.current) {
       const targetEl = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-node-id]');
       const tId = targetEl?.getAttribute('data-node-id');
-      if (tId && tId !== activeId.current) setLinks(prev => [...prev, { id: `link-${Date.now()}`, sourceId: activeId.current!, targetId: tId }]);
+      
+      // CRITICAL FIX: Capture sourceId before resetting activeId ref to prevent race condition in setState
+      const sourceId = activeId.current;
+      
+      if (tId && sourceId && tId !== sourceId) {
+        setLinks(prev => {
+            // Prevent duplicate links
+            if (prev.some(l => l.sourceId === sourceId && l.targetId === tId)) return prev;
+            return [...prev, { id: `link-${Date.now()}`, sourceId, targetId: tId }];
+        });
+      }
     } else if (dragTarget.current === 'node' && activeId.current) {
        setSteps(prev => prev.map(s => s.id === activeId.current ? { ...s, position: { x: snapToGrid(s.position?.x || 0), y: snapToGrid(s.position?.y || 0) } } : s));
     }
-    isDragging.current = false; ghostLink.current = null; activeId.current = null; setViewport(v => ({...v}));
+    
+    isDragging.current = false; 
+    ghostLink.current = null; 
+    activeId.current = null; 
+    setViewport(v => ({...v}));
   };
 
   const selectedStep = useMemo(() => steps.find(s => s.id === selectedId), [selectedId, steps]);
   const updateStep = (updatedStep: ProcessStep) => setSteps(prev => prev.map(s => s.id === updatedStep.id ? updatedStep : s));
-  const deleteStep = (id: string) => { setSteps(prev => prev.filter(s => s.id !== id)); setLinks(prev => prev.filter(l => l.sourceId !== id && l.targetId !== id)); setSelectedId(null); };
+  const deleteStep = (id: string) => { 
+      setSteps(prev => prev.filter(s => s.id !== id)); 
+      setLinks(prev => prev.filter(l => l.sourceId !== id && l.targetId !== id)); 
+      setSelectedId(null); 
+  };
 
   return (
     <div className="h-[calc(100vh-100px)] flex flex-col bg-white border border-slate-300 rounded-sm shadow-sm overflow-hidden">
@@ -152,6 +191,7 @@ export const ProcessDesigner: React.FC = () => {
             <input className="h-7 w-64 bg-white border border-slate-300 rounded-sm px-2 text-xs" placeholder="Describe workflow for AI generation..." value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAiGenerate(e)} disabled={isGenerating}/>
             <button className="p-1 text-slate-500 hover:text-slate-900" onClick={() => setViewport(v => ({...v, zoom: v.zoom * 1.1}))}><ZoomIn size={16}/></button>
             <button className="p-1 text-slate-500 hover:text-slate-900" onClick={() => setViewport(v => ({...v, zoom: v.zoom / 1.1}))}><ZoomOut size={16}/></button>
+            <button className="p-1 text-slate-500 hover:text-rose-600" onClick={handleClear} title="Clear Canvas"><Trash2 size={16}/></button>
             <div className="h-4 w-px bg-slate-300 mx-1"></div>
             <button onClick={handleDeploy} className="flex items-center gap-1 px-3 py-1 bg-slate-800 text-white rounded-sm text-xs hover:bg-slate-900"><Save size={14}/> Save</button>
          </div>
@@ -169,16 +209,26 @@ export const ProcessDesigner: React.FC = () => {
         <div className="flex-1 relative bg-[#f0f2f5] overflow-hidden cursor-grab active:cursor-grabbing designer-grid"
              ref={canvasRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}>
            <div style={{ transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`, transformOrigin: '0 0' }}>
+              {/* SVG Overlay for Links - MUST be pointer-events-none to allow clicking nodes through it */}
               <svg className="overflow-visible absolute top-0 left-0 pointer-events-none">
                 <defs><marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/></marker></defs>
                 {links.map(l => {
-                  const s = steps.find(n => n.id === l.sourceId); const t = steps.find(n => n.id === l.targetId);
-                  if (!s || !t) return null;
-                  const x1=s.position!.x+200; const y1=s.position!.y+40; const x2=t.position!.x; const y2=t.position!.y+40;
+                  const s = steps.find(n => n.id === l.sourceId); 
+                  const t = steps.find(n => n.id === l.targetId);
+                  if (!s || !t || !s.position || !t.position) return null;
+                  
+                  // Calculate link coordinates based on node dimensions (200x80)
+                  const x1 = s.position.x + 200; 
+                  const y1 = s.position.y + 40; 
+                  const x2 = t.position.x; 
+                  const y2 = t.position.y + 40;
+                  
                   return <path key={l.id} d={`M ${x1} ${y1} C ${x1+50} ${y1}, ${x2-50} ${y2}, ${x2} ${y2}`} stroke="#64748b" strokeWidth="2" fill="none" markerEnd="url(#arrow)"/>;
                 })}
                 {ghostLink.current && <path d={`M ${ghostLink.current.x1} ${ghostLink.current.y1} L ${ghostLink.current.x2} ${ghostLink.current.y2}`} stroke="#94a3b8" strokeWidth="2" strokeDasharray="5,5" fill="none"/>}
               </svg>
+              
+              {/* Nodes Layer */}
               {steps.map(step => <NodeComponent key={step.id} step={step} isSelected={selectedId === step.id} />)}
            </div>
         </div>

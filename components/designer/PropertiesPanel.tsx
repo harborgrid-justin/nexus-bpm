@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { ProcessStep, UserRole } from '../../types';
 import { useBPM } from '../../contexts/BPMContext';
-import { MousePointer2, Trash2, Info, UserCheck, Cpu, Compass, X, ChevronDown, FunctionSquare, ExternalLink, Globe, Key, Clock, Code, Database, Mail, Terminal } from 'lucide-react';
+import { MousePointer2, Trash2, Info, UserCheck, Cpu, Compass, X, ChevronDown, FunctionSquare, ExternalLink, Globe, Key, Clock, Code, Database, Mail, Terminal, Shuffle } from 'lucide-react';
 import { NexButton, NexFormGroup } from '../shared/NexUI';
 import { getStepTypeMetadata } from './designerUtils';
 
@@ -75,6 +75,23 @@ export const PropertiesPanel = ({
             </NexFormGroup>
           </section>
 
+          {/* GLOBAL LOGIC WIRING (For all steps) */}
+          <section className="space-y-4 pt-4 border-t border-slate-200">
+             <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-slate-800 flex items-center gap-2"><Shuffle size={14} className="text-slate-400"/> Event Triggers</h4>
+             </div>
+             <NexFormGroup label="Bind Business Rule" helpText="Executes before this step starts">
+                 <select 
+                   className="prop-input" 
+                   value={step.businessRuleId || ''} 
+                   onChange={e => updateField('businessRuleId', e.target.value)}
+                 >
+                   <option value="">No Rule Bound</option>
+                   {rules.map(r => <option key={r.id} value={r.id}>[Rule] {r.name}</option>)}
+                 </select>
+             </NexFormGroup>
+          </section>
+
           {/* DYNAMIC CONFIGURATION LOGIC */}
           
           {/* COMMUNICATION CATEGORY */}
@@ -87,7 +104,7 @@ export const PropertiesPanel = ({
                       <input className="prop-input" placeholder="Notification Subject" value={step.data?.subject || ''} onChange={e => updateDataField('subject', e.target.value)} />
                   </NexFormGroup>
                   <NexFormGroup label="Message Template">
-                      <textarea className="prop-input h-24 font-mono text-xs" placeholder="Hello ${userName}..." value={step.data?.body || ''} onChange={e => updateDataField('body', e.target.value)} />
+                      <textarea className="prop-input h-24 font-mono textxs" placeholder="Hello ${userName}..." value={step.data?.body || ''} onChange={e => updateDataField('body', e.target.value)} />
                   </NexFormGroup>
               </section>
           )}
@@ -111,41 +128,6 @@ export const PropertiesPanel = ({
                           <span className="text-xs font-mono w-8">{step.data?.temp || 0.7}</span>
                       </div>
                   </NexFormGroup>
-              </section>
-          )}
-
-          {/* DATA & INTEGRATION */}
-          {(step.type === 'sql-query' || step.type === 'db-provision') && (
-              <section className="space-y-4">
-                  <NexFormGroup label="Connection String">
-                      <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-sm px-2">
-                          <Database size={14} className="text-slate-400"/>
-                          <input className="bg-transparent w-full py-2 outline-none text-xs font-mono" type="password" placeholder="postgres://user:pass@host..." value={step.data?.conn || ''} onChange={e => updateDataField('conn', e.target.value)} />
-                      </div>
-                  </NexFormGroup>
-                  <NexFormGroup label="SQL Query">
-                      <textarea className="prop-input h-32 font-mono text-xs bg-slate-800 text-green-400" placeholder="SELECT * FROM orders WHERE..." value={step.data?.query || ''} onChange={e => updateDataField('query', e.target.value)} />
-                  </NexFormGroup>
-              </section>
-          )}
-
-          {step.type === 'rest-api' && (
-              <section className="space-y-4">
-                  <NexFormGroup label="Endpoint URL">
-                      <input className="prop-input font-mono" placeholder="https://api.stripe.com/v1/..." value={step.data?.url || ''} onChange={e => updateDataField('url', e.target.value)} />
-                  </NexFormGroup>
-                  <div className="grid grid-cols-2 gap-4">
-                      <NexFormGroup label="Method">
-                          <select className="prop-input" value={step.data?.method || 'GET'} onChange={e => updateDataField('method', e.target.value)}>
-                              <option>GET</option><option>POST</option><option>PUT</option><option>DELETE</option>
-                          </select>
-                      </NexFormGroup>
-                      <NexFormGroup label="Auth">
-                          <select className="prop-input" value={step.data?.auth || 'None'} onChange={e => updateDataField('auth', e.target.value)}>
-                              <option>None</option><option>Bearer</option><option>Basic</option><option>API Key</option>
-                          </select>
-                      </NexFormGroup>
-                  </div>
               </section>
           )}
 
@@ -193,7 +175,7 @@ export const PropertiesPanel = ({
               </section>
           )}
 
-          {/* USER TASKS (LEGACY SUPPORT) */}
+          {/* USER TASKS */}
           {step.type === 'user-task' && (
               <section className="space-y-4">
                   <NexFormGroup label="Role Assignment">
