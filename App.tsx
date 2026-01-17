@@ -4,7 +4,7 @@ import {
   LayoutDashboard, CheckSquare, PenTool, BarChart3, Menu, X, Bell, 
   Search, Layers, Settings as SettingsIcon, ShieldCheck, 
   Fingerprint, Briefcase, FunctionSquare, Info, CheckCircle, AlertCircle, ChevronRight, Loader2,
-  Plus, Zap, MoreHorizontal, UserCircle, Sparkles, ChevronDown, Database
+  Plus, Zap, MoreHorizontal, UserCircle, Sparkles, ChevronDown, Database, LogIn
 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { TaskInbox } from './components/TaskInbox';
@@ -23,6 +23,7 @@ import { CaseViewer } from './components/CaseViewer';
 import { RulesEngineView } from './components/RulesEngineView';
 import { ViewState } from './types';
 import { BPMProvider, useBPM } from './contexts/BPMContext';
+import { NexButton } from './components/shared/NexUI';
 
 const ToastContainer = () => {
   const { notifications, removeNotification, navigateTo } = useBPM();
@@ -66,7 +67,7 @@ const NavItem = ({ view, icon: Icon, label, active }: { view: ViewState; icon: R
 };
 
 const AppContent: React.FC = () => {
-  const { nav, navigateTo, viewingInstanceId, closeInstanceViewer, currentUser, loading } = useBPM();
+  const { nav, navigateTo, viewingInstanceId, closeInstanceViewer, currentUser, loading, reseedSystem } = useBPM();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const renderCurrentView = () => {
@@ -87,11 +88,29 @@ const AppContent: React.FC = () => {
     }
   }
 
-  if (loading && !currentUser) {
+  if (loading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-[#eaebef] flex-col gap-4">
         <Loader2 className="animate-spin text-blue-700" size={32} />
         <p className="text-slate-600 font-medium text-xs">Initializing Enterprise Environment...</p>
+      </div>
+    );
+  }
+
+  // Handle case where database is empty and no user exists (e.g. after reset)
+  if (!currentUser) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-[#f0f2f5]">
+        <div className="bg-white p-8 rounded-sm shadow-xl border border-slate-300 max-w-md w-full text-center space-y-6">
+           <div className="w-16 h-16 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center mx-auto">
+              <LogIn size={32} />
+           </div>
+           <div>
+             <h2 className="text-xl font-bold text-slate-900 mb-2">Welcome to NexFlow</h2>
+             <p className="text-sm text-slate-500">The system appears to be fresh. Please initialize the database to begin.</p>
+           </div>
+           <NexButton variant="primary" onClick={reseedSystem} className="w-full justify-center py-3" icon={Database}>Initialize Demo Data</NexButton>
+        </div>
       </div>
     );
   }
@@ -133,11 +152,11 @@ const AppContent: React.FC = () => {
         <div className="p-4 border-t border-slate-200 bg-slate-50">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-sm bg-blue-100 border border-blue-200 flex items-center justify-center text-blue-700 font-bold text-xs">
-              {currentUser?.name?.charAt(0)}
+              {currentUser.name.charAt(0)}
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-slate-800 truncate">{currentUser?.name}</p>
-              <p className="text-[10px] text-slate-500 truncate">{currentUser?.email}</p>
+              <p className="text-xs font-semibold text-slate-800 truncate">{currentUser.name}</p>
+              <p className="text-[10px] text-slate-500 truncate">{currentUser.email}</p>
             </div>
           </div>
         </div>

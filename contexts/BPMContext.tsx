@@ -156,7 +156,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         delegations: d,
         rules: bRules,
         decisionTables: tables,
-        currentUser: prev.currentUser || u[0],
+        currentUser: prev.currentUser || u[0] || null,
         loading: false
       }));
     } catch (e) {
@@ -351,9 +351,10 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const claimTask = async (id: string) => { 
+      if (!state.currentUser) return;
       const t = state.tasks.find(t => t.id === id);
       if (t) {
-        const ut = { ...t, assignee: state.currentUser!.id, status: TaskStatus.CLAIMED };
+        const ut = { ...t, assignee: state.currentUser.id, status: TaskStatus.CLAIMED };
         await dbService.add('tasks', ut);
         setState(produce(draft => { draft.tasks = draft.tasks.map(x => x.id === id ? ut : x); }));
         addAudit('TASK_CLAIM', 'Task', id, `Claimed responsibility`);
@@ -393,9 +394,10 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const addTaskComment = async (tid: string, text: string) => {
+      if (!state.currentUser) return;
       const t = state.tasks.find(t => t.id === tid);
       if (t) {
-        const c: Comment = { id: `c-${Date.now()}`, userId: state.currentUser!.id, userName: state.currentUser!.name, text, timestamp: new Date().toISOString() };
+        const c: Comment = { id: `c-${Date.now()}`, userId: state.currentUser.id, userName: state.currentUser.name, text, timestamp: new Date().toISOString() };
         const ut = { ...t, comments: [...t.comments, c] };
         await dbService.add('tasks', ut);
         setState(produce(draft => { draft.tasks = draft.tasks.map(x => x.id === tid ? ut : x); }));
@@ -411,10 +413,11 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // --- Case Methods ---
   const createCase = async (t: string, d: string) => {
+    if (!state.currentUser) return 'error';
     const nc: Case = {
       id: `case-${Date.now()}`, title: t, description: d, status: 'Open', priority: TaskPriority.MEDIUM, createdAt: new Date().toISOString(),
-      stakeholders: [{ userId: state.currentUser!.id, role: 'Owner' }], data: {}, timeline: [{ id: 'evt-1', timestamp: new Date().toISOString(), type: 'Manual', description: 'Case opened.', author: state.currentUser!.name }],
-      attachments: [], policies: [], domainId: state.currentUser!.domainId
+      stakeholders: [{ userId: state.currentUser.id, role: 'Owner' }], data: {}, timeline: [{ id: 'evt-1', timestamp: new Date().toISOString(), type: 'Manual', description: 'Case opened.', author: state.currentUser.name }],
+      attachments: [], policies: [], domainId: state.currentUser.domainId
     };
     await dbService.add('cases', nc);
     setState(produce(draft => { draft.cases.push(nc); }));
@@ -569,9 +572,10 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const createDelegation = async (toUserId: string, scope: 'All' | 'Critical Only') => {
+    if (!state.currentUser) return;
     const newDel: Delegation = {
       id: `del-${Date.now()}`,
-      fromUserId: state.currentUser!.id,
+      fromUserId: state.currentUser.id,
       toUserId,
       startDate: new Date().toISOString(),
       endDate: new Date(Date.now() + 86400000 * 7).toISOString(),

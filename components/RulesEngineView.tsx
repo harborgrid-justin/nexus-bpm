@@ -5,7 +5,7 @@ import { BusinessRule, RuleCondition, RuleAction, DecisionTable, Condition, Cond
 import { 
   FunctionSquare, Plus, BrainCircuit, Table, TestTube, Trash2, Save, 
   Upload, Play, GitMerge, MoreVertical, X, FileJson, Copy, 
-  ChevronRight, List, PenTool, Database, Code, Sparkles, PlusCircle
+  ChevronRight, List, PenTool, Database, Code, Sparkles, PlusCircle, Search
 } from 'lucide-react';
 import { produce } from 'immer';
 import { NexButton } from './shared/NexUI';
@@ -191,7 +191,13 @@ const ConditionGroupEditor = ({ group, onUpdate, path }: { group: ConditionGroup
 };
 
 // --- Visual Rule Builder ---
-const RuleBuilder = ({ rule, onSave, onDelete }: { rule: BusinessRule, onSave: (r: BusinessRule) => void, onDelete: (id: string) => void }) => {
+interface RuleBuilderProps {
+  rule: BusinessRule;
+  onSave: (r: BusinessRule) => void;
+  onDelete: (id: string) => void;
+}
+
+const RuleBuilder: React.FC<RuleBuilderProps> = ({ rule, onSave, onDelete }) => {
     const [localRule, setLocalRule] = useState<BusinessRule>(rule);
     const summary = useMemo(() => generateConditionSummary(localRule.conditions), [localRule.conditions]);
 
@@ -275,7 +281,13 @@ const RuleBuilder = ({ rule, onSave, onDelete }: { rule: BusinessRule, onSave: (
 };
 
 // --- Visual Table Builder (Simplified) ---
-const TableBuilder = ({ table, onSave, onDelete }: { table: DecisionTable, onSave: (t: DecisionTable) => void, onDelete: (id: string) => void }) => {
+interface TableBuilderProps {
+  table: DecisionTable;
+  onSave: (t: DecisionTable) => void;
+  onDelete: (id: string) => void;
+}
+
+const TableBuilder: React.FC<TableBuilderProps> = ({ table, onSave, onDelete }) => {
     const [localTable, setLocalTable] = useState<DecisionTable>(table);
 
     const updateTable = (updater: (draft: DecisionTable) => void) => {
@@ -335,8 +347,9 @@ const TableBuilder = ({ table, onSave, onDelete }: { table: DecisionTable, onSav
 
 // --- Main View ---
 export const RulesEngineView: React.FC = () => {
-    const { rules, decisionTables, saveRule, deleteRule, saveDecisionTable, deleteDecisionTable } = useBPM();
+    const { rules, decisionTables, saveRule, deleteRule, saveDecisionTable, deleteDecisionTable, reseedSystem } = useBPM();
     const [selectedAsset, setSelectedAsset] = useState<{type: 'rule' | 'table', id: string} | null>(null);
+    const [search, setSearch] = useState('');
 
     const createNew = (type: 'rule' | 'table') => {
         if (type === 'rule') {
@@ -366,53 +379,83 @@ export const RulesEngineView: React.FC = () => {
         setSelectedAsset(null);
     }
 
-    const currentAsset = selectedAsset?.type === 'rule' 
-        ? rules.find(r => r.id === selectedAsset.id) 
-        : decisionTables.find(t => t.id === selectedAsset.id);
+    const filteredRules = rules.filter(r => r.name.toLowerCase().includes(search.toLowerCase()));
+    const filteredTables = decisionTables.filter(t => t.name.toLowerCase().includes(search.toLowerCase()));
+
+    // FIX: Safely retrieve current asset, preventing null check errors on ID access
+    const currentAsset = selectedAsset 
+        ? (selectedAsset.type === 'rule' 
+            ? rules.find(r => r.id === selectedAsset.id) 
+            : decisionTables.find(t => t.id === selectedAsset.id))
+        : null;
 
     return (
         <div className="h-[calc(100vh-140px)] flex flex-col md:flex-row bg-white rounded-sm border border-slate-300 overflow-hidden shadow-sm animate-fade-in">
             {/* Assets Sidebar */}
             <aside className="w-full md:w-72 bg-slate-50 border-r border-slate-300 flex flex-col shrink-0">
-                <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-                    <h3 className="text-xs font-bold text-slate-800 uppercase">Library</h3>
-                    <div className="flex gap-1">
-                        <IconButton icon={BrainCircuit} onClick={() => createNew('rule')} tooltip="New Rule" className="bg-white border border-slate-300 shadow-sm" />
-                        <IconButton icon={Table} onClick={() => createNew('table')} tooltip="New Table" className="bg-white border border-slate-300 shadow-sm" />
+                <div className="p-3 border-b border-slate-200 bg-white">
+                    <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-xs font-bold text-slate-800 uppercase">Library</h3>
+                        <div className="flex gap-1">
+                            <IconButton icon={BrainCircuit} onClick={() => createNew('rule')} tooltip="New Rule" className="bg-white border border-slate-300 shadow-sm" />
+                            <IconButton icon={Table} onClick={() => createNew('table')} tooltip="New Table" className="bg-white border border-slate-300 shadow-sm" />
+                        </div>
+                    </div>
+                    <div className="relative">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={12}/>
+                        <input 
+                            className="w-full pl-7 pr-2 py-1.5 bg-slate-50 border border-slate-200 rounded-sm text-xs outline-none focus:bg-white focus:border-blue-500 transition-all" 
+                            placeholder="Search logic..."
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                        />
                     </div>
                 </div>
+                
                 <div className="overflow-y-auto no-scrollbar flex-1 p-3 space-y-6">
-                    <section>
-                      <h4 className="text-[10px] font-bold text-slate-400 uppercase mb-2 px-2">Rules</h4>
-                      <div className="space-y-1">
-                        {rules.map(r => (
-                          <button 
-                            key={r.id} 
-                            onClick={() => setSelectedAsset({type: 'rule', id: r.id})} 
-                            className={`w-full text-left px-3 py-2 rounded-sm flex items-center gap-3 transition-all border ${selectedAsset?.id === r.id ? 'bg-white border-blue-500 text-blue-700 shadow-sm border-l-4' : 'border-transparent text-slate-600 hover:bg-white hover:border-slate-200'}`}
-                          >
-                            <BrainCircuit size={16} className={selectedAsset?.id === r.id ? 'text-blue-500' : 'text-slate-400'} />
-                            <span className="text-xs font-medium truncate">{r.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </section>
+                    {(rules.length === 0 && decisionTables.length === 0) && (
+                        <div className="p-4 text-center border border-dashed border-slate-300 rounded-sm bg-slate-100 flex flex-col items-center gap-2">
+                            <Sparkles size={24} className="text-blue-400"/>
+                            <p className="text-[10px] text-slate-500 font-medium">Library is empty.</p>
+                            <NexButton variant="primary" onClick={reseedSystem} className="w-full text-[10px]">Initialize Templates (100+)</NexButton>
+                        </div>
+                    )}
+
+                    {filteredRules.length > 0 && (
+                        <section>
+                        <h4 className="text-[10px] font-bold text-slate-400 uppercase mb-2 px-2 flex justify-between">Rules <span>{filteredRules.length}</span></h4>
+                        <div className="space-y-1">
+                            {filteredRules.map(r => (
+                            <button 
+                                key={r.id} 
+                                onClick={() => setSelectedAsset({type: 'rule', id: r.id})} 
+                                className={`w-full text-left px-3 py-2 rounded-sm flex items-center gap-3 transition-all border ${selectedAsset?.id === r.id ? 'bg-white border-blue-500 text-blue-700 shadow-sm border-l-4' : 'border-transparent text-slate-600 hover:bg-white hover:border-slate-200'}`}
+                            >
+                                <BrainCircuit size={16} className={selectedAsset?.id === r.id ? 'text-blue-500' : 'text-slate-400'} />
+                                <span className="text-xs font-medium truncate">{r.name}</span>
+                            </button>
+                            ))}
+                        </div>
+                        </section>
+                    )}
                     
-                    <section>
-                      <h4 className="text-[10px] font-bold text-slate-400 uppercase mb-2 px-2">Tables</h4>
-                      <div className="space-y-1">
-                        {decisionTables.map(t => (
-                          <button 
-                            key={t.id} 
-                            onClick={() => setSelectedAsset({type: 'table', id: t.id})} 
-                            className={`w-full text-left px-3 py-2 rounded-sm flex items-center gap-3 transition-all border ${selectedAsset?.id === t.id ? 'bg-white border-blue-500 text-blue-700 shadow-sm border-l-4' : 'border-transparent text-slate-600 hover:bg-white hover:border-slate-200'}`}
-                          >
-                            <Table size={16} className={selectedAsset?.id === t.id ? 'text-blue-500' : 'text-slate-400'} />
-                            <span className="text-xs font-medium truncate">{t.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </section>
+                    {filteredTables.length > 0 && (
+                        <section>
+                        <h4 className="text-[10px] font-bold text-slate-400 uppercase mb-2 px-2 flex justify-between">Tables <span>{filteredTables.length}</span></h4>
+                        <div className="space-y-1">
+                            {filteredTables.map(t => (
+                            <button 
+                                key={t.id} 
+                                onClick={() => setSelectedAsset({type: 'table', id: t.id})} 
+                                className={`w-full text-left px-3 py-2 rounded-sm flex items-center gap-3 transition-all border ${selectedAsset?.id === t.id ? 'bg-white border-blue-500 text-blue-700 shadow-sm border-l-4' : 'border-transparent text-slate-600 hover:bg-white hover:border-slate-200'}`}
+                            >
+                                <Table size={16} className={selectedAsset?.id === t.id ? 'text-blue-500' : 'text-slate-400'} />
+                                <span className="text-xs font-medium truncate">{t.name}</span>
+                            </button>
+                            ))}
+                        </div>
+                        </section>
+                    )}
                 </div>
             </aside>
 
@@ -421,8 +464,8 @@ export const RulesEngineView: React.FC = () => {
                 <div className="flex-1 overflow-y-auto no-scrollbar">
                     {selectedAsset && currentAsset ? (
                         selectedAsset.type === 'rule' 
-                            ? <RuleBuilder rule={currentAsset as BusinessRule} onSave={saveRule} onDelete={handleDelete} />
-                            : <TableBuilder table={currentAsset as DecisionTable} onSave={saveDecisionTable} onDelete={handleDelete} />
+                            ? <RuleBuilder key={currentAsset.id} rule={currentAsset as BusinessRule} onSave={saveRule} onDelete={handleDelete} />
+                            : <TableBuilder key={currentAsset.id} table={currentAsset as DecisionTable} onSave={saveDecisionTable} onDelete={handleDelete} />
                     ) : (
                         <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-4">
                             <BrainCircuit size={48} strokeWidth={1} className="text-slate-200"/>
@@ -433,7 +476,7 @@ export const RulesEngineView: React.FC = () => {
             </main>
 
             {/* Test Sidebar */}
-            <aside className="w-full md:w-80 border-l border-slate-300 shrink-0">
+            <aside className="w-full md:w-80 border-l border-slate-300 shrink-0 hidden md:block">
                 <LiveTestPanel ruleId={selectedAsset?.id || null} rules={rules} decisionTables={decisionTables} />
             </aside>
         </div>
