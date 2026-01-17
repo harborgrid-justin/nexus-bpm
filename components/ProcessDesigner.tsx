@@ -42,6 +42,26 @@ export const ProcessDesigner: React.FC = () => {
     };
   };
 
+  const handleDeploy = async () => {
+    // CRITICAL FIX: Map visual links to logical nextStepIds before saving
+    const connectedSteps = steps.map(step => {
+        const outgoingLinks = links.filter(l => l.sourceId === step.id);
+        return {
+            ...step,
+            nextStepIds: outgoingLinks.map(l => l.targetId)
+        };
+    });
+
+    await deployProcess({ 
+        name: processName, 
+        steps: connectedSteps, 
+        links, 
+        isActive: true, 
+        version: 1 
+    });
+    addNotification('success', 'Process definition deployed successfully.');
+  };
+
   const handleAiGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!aiPrompt.trim()) return;
@@ -133,7 +153,7 @@ export const ProcessDesigner: React.FC = () => {
             <button className="p-1 text-slate-500 hover:text-slate-900" onClick={() => setViewport(v => ({...v, zoom: v.zoom * 1.1}))}><ZoomIn size={16}/></button>
             <button className="p-1 text-slate-500 hover:text-slate-900" onClick={() => setViewport(v => ({...v, zoom: v.zoom / 1.1}))}><ZoomOut size={16}/></button>
             <div className="h-4 w-px bg-slate-300 mx-1"></div>
-            <button onClick={() => deployProcess({ name: processName, steps, links, isActive: true, version: 1 })} className="flex items-center gap-1 px-3 py-1 bg-slate-800 text-white rounded-sm text-xs hover:bg-slate-900"><Save size={14}/> Save</button>
+            <button onClick={handleDeploy} className="flex items-center gap-1 px-3 py-1 bg-slate-800 text-white rounded-sm text-xs hover:bg-slate-900"><Save size={14}/> Save</button>
          </div>
       </div>
 

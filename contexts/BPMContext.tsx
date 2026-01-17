@@ -4,7 +4,8 @@ import { produce } from 'immer';
 import { 
   ProcessDefinition, ProcessInstance, Task, TaskStatus, TaskPriority, 
   ViewState, AuditLog, Comment, User, UserRole, UserGroup, Permission, 
-  Delegation, BusinessRule, DecisionTable, Case, CaseEvent, CasePolicy, CaseStakeholder
+  Delegation, BusinessRule, DecisionTable, Case, CaseEvent, CasePolicy, CaseStakeholder,
+  Condition
 } from '../types';
 import { dbService } from '../services/dbService';
 
@@ -322,6 +323,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!def) return;
 
     const currentStep = def.steps.find(s => s.id === task.stepId);
+    // CRITICAL FIX: Ensure next steps are actually retrieved
     const nextStepIds = currentStep?.nextStepIds || [];
 
     const updatedInstance = {
@@ -337,9 +339,40 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const updatedTask = { ...task, status: TaskStatus.COMPLETED };
     await dbService.add('tasks', updatedTask);
 
+    // CRITICAL FIX: Generate new tasks for the next steps
+    const newTasks: Task[] = [];
+    for (const nextId of nextStepIds) {
+        const nextStep = def.steps.find(s => s.id === nextId);
+        if (nextStep && nextStep.type === 'user-task') {
+            const nt: Task = {
+                id: `task-${Date.now()}-${nextId}`,
+                title: nextStep.name,
+                processName: def.name,
+                processInstanceId: instance.id,
+                assignee: 'Unassigned',
+                candidateRoles: nextStep.role ? [nextStep.role] : [],
+                candidateGroups: nextStep.groupId ? [nextStep.groupId] : [],
+                requiredSkills: nextStep.requiredSkills || [],
+                dueDate: new Date(Date.now() + 172800000).toISOString(),
+                status: TaskStatus.PENDING,
+                priority: TaskPriority.MEDIUM,
+                description: nextStep.description,
+                stepId: nextStep.id,
+                comments: [],
+                attachments: [],
+                isAdHoc: false,
+                caseId: instance.variables.caseId
+            };
+            newTasks.push(nt);
+            await dbService.add('tasks', nt);
+        }
+        // Future: Handle 'service-task' auto-execution here
+    }
+
     setState(produce(draft => {
       draft.instances = draft.instances.map(i => i.id === instance.id ? updatedInstance : i);
       draft.tasks = draft.tasks.map(t => t.id === taskId ? updatedTask : t);
+      draft.tasks.push(...newTasks);
     }));
 
     if (task.caseId) {
@@ -608,7 +641,47 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
   const saveDecisionTable = async (t: DecisionTable) => { await dbService.add('decisionTables', t); loadData(); };
   const deleteDecisionTable = async (id: string) => { await dbService.delete('decisionTables', id); loadData(); };
-  const executeRules = async (id: string, fact: any) => fact;
+  
+  // Rule Evaluation Logic
+  const executeRules = async (ruleId: string, fact: any): Promise<any> => {
+      const rule = state.rules.find(r => r.id === ruleId);
+      if (!rule) return { error: 'Rule not found' };
+
+      const getVal = (path: string, obj: any) => {
+          return path.split('.').reduce((acc, part) => acc && acc[part], obj);
+      };
+
+      const evalCondition = (cond: Condition): boolean => {
+          if ('children' in cond) {
+              const results = cond.children.map(evalCondition);
+              return cond.type === 'AND' ? results.every(r => r) : results.some(r => r);
+          } else {
+              const factVal = getVal(cond.fact, fact);
+              const targetVal = cond.value;
+              // Basic type coercion for comparison
+              switch(cond.operator) {
+                  case 'eq': return factVal == targetVal;
+                  case 'neq': return factVal != targetVal;
+                  case 'gt': return Number(factVal) > Number(targetVal);
+                  case 'lt': return Number(factVal) < Number(targetVal);
+                  case 'contains': return String(factVal).includes(String(targetVal));
+                  default: return false;
+              }
+          }
+      };
+
+      const isMatch = evalCondition(rule.conditions);
+      
+      if (isMatch) {
+          return {
+              matched: true,
+              action: rule.action.type,
+              params: rule.action.params,
+              ruleName: rule.name
+          };
+      }
+      return { matched: false };
+  };
 
   const contextValue: BPMContextType = {
     ...state,
