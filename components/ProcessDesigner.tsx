@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { ProcessStep, ProcessLink, ProcessStepType } from '../types';
 import { useBPM } from '../contexts/BPMContext';
 import { 
@@ -10,13 +10,13 @@ import { PaletteSidebar } from './designer/PaletteSidebar';
 import { NodeComponent } from './designer/NodeComponent';
 import { PropertiesPanel } from './designer/PropertiesPanel';
 import { getStepTypeMetadata } from './designer/designerUtils';
-import { generateProcessWorkflow, runWorkflowSimulation, SimulationResult } from '../services/geminiService';
-import { NexButton, NexModal } from './shared/NexUI';
+import { generateProcessWorkflow } from '../services/geminiService';
+import { NexButton } from './shared/NexUI';
 
 const GRID_SIZE = 20;
 
 export const ProcessDesigner: React.FC = () => {
-  const { deployProcess, roles, addNotification } = useBPM();
+  const { deployProcess, roles, addNotification, designerDraft, setDesignerDraft, navigateTo } = useBPM();
   const [processName, setProcessName] = useState('Strategic Workflow');
   const [steps, setSteps] = useState<ProcessStep[]>([]);
   const [links, setLinks] = useState<ProcessLink[]>([]);
@@ -26,9 +26,6 @@ export const ProcessDesigner: React.FC = () => {
   // AI States
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [simulationResults, setSimulationResults] = useState<SimulationResult[]>([]);
-  const [showSimModal, setShowSimModal] = useState(false);
-  const [isSimulating, setIsSimulating] = useState(false);
 
   const [paletteOpen, setPaletteOpen] = useState(true);
   
@@ -38,6 +35,19 @@ export const ProcessDesigner: React.FC = () => {
   const dragTarget = useRef<'viewport' | 'node' | 'link'>('viewport');
   const activeId = useRef<string | null>(null);
   const ghostLink = useRef<{x1: number, y1: number, x2: number, y2: number} | null>(null);
+
+  // Restore state from context if available
+  useEffect(() => {
+    if (designerDraft) {
+        setSteps(designerDraft.steps);
+        setLinks(designerDraft.links);
+    }
+  }, []);
+
+  // Persist state to context on change
+  useEffect(() => {
+    setDesignerDraft({ steps, links });
+  }, [steps, links, setDesignerDraft]);
 
   const snapToGrid = (val: number) => Math.round(val / GRID_SIZE) * GRID_SIZE;
   
@@ -103,16 +113,8 @@ export const ProcessDesigner: React.FC = () => {
       addNotification('error', 'Canvas is empty. Add steps to simulate.');
       return;
     }
-    setIsSimulating(true);
-    setShowSimModal(true);
-    try {
-      const results = await runWorkflowSimulation(steps);
-      setSimulationResults(results);
-    } catch (e) {
-      addNotification('error', 'Simulation failed.');
-    } finally {
-      setIsSimulating(false);
-    }
+    // State is already persisted in Context via useEffect
+    navigateTo('simulation-report');
   };
 
   const addNode = (type: ProcessStepType) => {
@@ -202,60 +204,6 @@ export const ProcessDesigner: React.FC = () => {
 
   return (
     <div className="h-[calc(100vh-100px)] flex flex-col bg-white border border-slate-300 rounded-sm shadow-sm overflow-hidden">
-      
-      {/* Simulation Modal */}
-      <NexModal isOpen={showSimModal} onClose={() => setShowSimModal(false)} title="Murder Board Simulation" size="xl">
-        <div className="space-y-6">
-           {isSimulating ? (
-             <div className="flex flex-col items-center justify-center py-12">
-               <Cpu size={48} className="text-blue-500 animate-pulse mb-4"/>
-               <p className="text-slate-600 font-bold">Agents are analyzing workflow topology...</p>
-               <p className="text-slate-400 text-xs mt-2">Running risk heuristics and compliance checks</p>
-             </div>
-           ) : (
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-               {simulationResults.map((agent, i) => (
-                 <div key={i} className={`p-4 border rounded-sm flex flex-col ${agent.sentiment === 'critical' ? 'bg-rose-50 border-rose-200' : agent.sentiment === 'positive' ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
-                    <div className="flex items-center gap-3 mb-3 pb-3 border-b border-black/5">
-                       <div className="w-10 h-10 rounded-sm bg-white flex items-center justify-center text-xl shadow-sm">
-                         {agent.agentName[0]}
-                       </div>
-                       <div>
-                         <h4 className="font-bold text-slate-900 text-sm">{agent.agentName}</h4>
-                         <p className="text-[10px] text-slate-500 uppercase font-bold">{agent.persona}</p>
-                       </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="text-2xl font-black text-slate-800">{agent.score}/100</div>
-                      {agent.score > 80 ? <ThumbsUp size={16} className="text-emerald-600"/> : <ThumbsDown size={16} className="text-rose-600"/>}
-                    </div>
-
-                    <p className="text-xs text-slate-700 leading-relaxed mb-4 flex-1">
-                      "{agent.critique}"
-                    </p>
-
-                    <div className="space-y-2">
-                       {agent.recommendations.map((rec, idx) => (
-                         <div key={idx} className="flex gap-2 items-start bg-white/50 p-2 rounded-sm text-[10px] font-medium text-slate-800">
-                            <Bot size={12} className="shrink-0 mt-0.5 text-blue-600"/>
-                            {rec}
-                         </div>
-                       ))}
-                    </div>
-                 </div>
-               ))}
-               {simulationResults.length === 0 && !isSimulating && (
-                 <div className="col-span-3 text-center py-8 text-slate-500">No simulation data available.</div>
-               )}
-             </div>
-           )}
-           <div className="flex justify-end pt-4 border-t border-slate-100">
-             <NexButton variant="primary" onClick={() => setShowSimModal(false)}>Return to Editor</NexButton>
-           </div>
-        </div>
-      </NexModal>
-
       {/* 1. Rigid Toolbar */}
       <div className="h-10 bg-slate-100 border-b border-slate-300 flex items-center justify-between px-3 shrink-0">
          <div className="flex items-center gap-3">

@@ -4,7 +4,7 @@ import {
   LayoutDashboard, CheckSquare, PenTool, BarChart3, Menu, X, Bell, 
   Search, Layers, Settings as SettingsIcon, ShieldCheck, 
   Fingerprint, Briefcase, FunctionSquare, Info, CheckCircle, AlertCircle, ChevronRight, Loader2,
-  Plus, Zap, MoreHorizontal, UserCircle, Sparkles, ChevronDown, Database, LogIn, Command
+  Plus, Zap, MoreHorizontal, UserCircle, Sparkles, ChevronDown, Database, LogIn, Command, Home, Calendar
 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { TaskInbox } from './components/TaskInbox';
@@ -22,6 +22,14 @@ import { CaseManagerView } from './components/CaseManagerView';
 import { CaseViewer } from './components/CaseViewer';
 import { RulesEngineView } from './components/RulesEngineView';
 import { CommandPalette } from './components/CommandPalette';
+// Import New Pages
+import { UserFormView, RoleFormView, GroupFormView, DelegationFormView } from './components/pages/IdentityPages';
+import { CaseCreateView, CaseEditView, CasePolicyView, CaseStakeholderView, CaseLaunchView } from './components/pages/CasePages';
+import { TaskReassignView, TaskMetadataView } from './components/pages/TaskPages';
+import { SimulationPage } from './components/pages/SimulationPage';
+import { RuleGenPage } from './components/pages/RuleGenPage';
+import { ResourcePlanner } from './components/pages/ResourcePlanner';
+
 import { ViewState } from './types';
 import { BPMProvider, useBPM } from './contexts/BPMContext';
 import { NexButton } from './components/shared/NexUI';
@@ -67,6 +75,35 @@ const NavItem = ({ view, icon: Icon, label, active }: { view: ViewState; icon: R
   );
 };
 
+// --- Breadcrumb Component ---
+const Breadcrumbs = ({ nav }: { nav: { view: ViewState, selectedId?: string } }) => {
+    const { addNotification } = useBPM();
+    const copyId = () => {
+        if(nav.selectedId) {
+            navigator.clipboard.writeText(nav.selectedId);
+            addNotification('info', `Copied ID: ${nav.selectedId}`);
+        }
+    };
+
+    const getViewName = (v: string) => v.charAt(0).toUpperCase() + v.slice(1).replace(/-/g, ' ');
+
+    return (
+        <div className="flex items-center gap-2 px-6 py-2 bg-slate-50 border-b border-slate-200 text-xs text-slate-500">
+            <Home size={12} className="text-slate-400"/>
+            <ChevronRight size={10} className="text-slate-300"/>
+            <span className="font-medium text-slate-700">{getViewName(nav.view)}</span>
+            {nav.selectedId && (
+                <>
+                    <ChevronRight size={10} className="text-slate-300"/>
+                    <button onClick={copyId} className="font-mono text-blue-600 hover:underline hover:text-blue-800" title="Click to Copy ID">
+                        {nav.selectedId}
+                    </button>
+                </>
+            )}
+        </div>
+    );
+};
+
 const AppContent: React.FC = () => {
   const { nav, navigateTo, viewingInstanceId, closeInstanceViewer, currentUser, loading, reseedSystem, notifications } = useBPM();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -85,6 +122,29 @@ const AppContent: React.FC = () => {
       case 'cases': return <CaseManagerView />;
       case 'case-viewer': return nav.selectedId ? <CaseViewer caseId={nav.selectedId} /> : <CaseManagerView />;
       case 'rules': return <RulesEngineView />;
+      case 'resource-planner': return <ResourcePlanner />;
+      
+      // Full Page Forms
+      case 'create-user':
+      case 'edit-user': return <UserFormView />;
+      case 'create-role':
+      case 'edit-role': return <RoleFormView />;
+      case 'create-group':
+      case 'edit-group': return <GroupFormView />;
+      case 'create-delegation': return <DelegationFormView />;
+      
+      case 'create-case': return <CaseCreateView />;
+      case 'edit-case': return <CaseEditView />;
+      case 'case-policy': return <CasePolicyView />;
+      case 'case-stakeholder': return <CaseStakeholderView />;
+      case 'case-launch': return <CaseLaunchView />;
+      
+      case 'task-reassign': return <TaskReassignView />;
+      case 'task-metadata': return <TaskMetadataView />;
+      
+      case 'simulation-report': return <SimulationPage />;
+      case 'ai-rule-gen': return <RuleGenPage />;
+      
       default: return <Dashboard />;
     }
   }
@@ -138,6 +198,7 @@ const AppContent: React.FC = () => {
             <div className="px-4 mb-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Configuration</div>
             <NavItem view="processes" icon={Layers} label="Process Registry" active={nav.view === 'processes'} />
             <NavItem view="designer" icon={PenTool} label="Workflow Designer" active={nav.view === 'designer'} />
+            <NavItem view="resource-planner" icon={Calendar} label="Resource Planner" active={nav.view === 'resource-planner'} />
             <NavItem view="rules" icon={FunctionSquare} label="Business Rules" active={nav.view === 'rules'} />
           </div>
           
@@ -194,6 +255,9 @@ const AppContent: React.FC = () => {
             <button className="text-slate-500 hover:text-blue-600 transition-colors"><SettingsIcon size={18}/></button>
           </div>
         </header>
+
+        {/* Breadcrumbs Navigation */}
+        <Breadcrumbs nav={nav} />
 
         {/* Content Canvas */}
         <main className="flex-1 overflow-y-auto p-6 bg-[#eaebef]">

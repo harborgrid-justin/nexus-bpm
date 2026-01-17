@@ -5,20 +5,11 @@ import { Briefcase, Plus, Search, Filter, Clock, ChevronRight, AlertCircle, X, S
 import { NexCard, NexButton, NexBadge } from './shared/NexUI';
 
 export const CaseManagerView: React.FC = () => {
-  const { cases, navigateTo, createCase, currentUser } = useBPM();
-  const [showCreate, setShowCreate] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newDesc, setNewDesc] = useState('');
+  const { cases, navigateTo, currentUser } = useBPM();
   
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMine, setFilterMine] = useState(false);
-
-  const handleCreate = async () => {
-    if (!newTitle) return;
-    await createCase(newTitle, newDesc);
-    setNewTitle(''); setNewDesc(''); setShowCreate(false);
-  };
 
   const filteredCases = cases.filter(c => {
       const matchSearch = c.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -36,43 +27,8 @@ export const CaseManagerView: React.FC = () => {
           <h2 className="text-xl font-bold text-slate-900 tracking-tight">Case Management</h2>
           <p className="text-xs text-slate-500 font-medium">Orchestrate complex non-linear workflows.</p>
         </div>
-        <NexButton variant="primary" icon={Plus} onClick={() => setShowCreate(true)}>New Case</NexButton>
+        <NexButton variant="primary" icon={Plus} onClick={() => navigateTo('create-case')}>New Case</NexButton>
       </header>
-
-      {showCreate && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[150] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-sm shadow-xl p-6 space-y-6 animate-slide-up border border-slate-300">
-             <div className="flex justify-between items-center">
-                <h3 className="text-lg font-bold text-slate-900">Initiate Case File</h3>
-                <button onClick={() => setShowCreate(false)} className="text-slate-400 hover:text-slate-600"><X size={18}/></button>
-             </div>
-             <div className="space-y-4">
-               <div className="space-y-1">
-                 <label className="prop-label">Case Identifier</label>
-                 <input 
-                   className="prop-input" 
-                   placeholder="e.g. Fraud Investigation #402" 
-                   value={newTitle} 
-                   onChange={e => setNewTitle(e.target.value)} 
-                 />
-               </div>
-               <div className="space-y-1">
-                 <label className="prop-label">Strategic Objective</label>
-                 <textarea 
-                   className="prop-input h-24 resize-none" 
-                   placeholder="Describe outcome..." 
-                   value={newDesc} 
-                   onChange={e => setNewDesc(e.target.value)} 
-                 />
-               </div>
-             </div>
-             <div className="flex gap-2 pt-2">
-               <NexButton variant="secondary" onClick={() => setShowCreate(false)} className="flex-1">Discard</NexButton>
-               <NexButton variant="primary" onClick={handleCreate} className="flex-1">Open Case</NexButton>
-             </div>
-          </div>
-        </div>
-      )}
 
       <div className="space-y-4">
         <div className="flex gap-2">

@@ -10,32 +10,13 @@ import { Permission, User } from '../types';
 import { TabBtn } from './identity/TabBtn';
 import { IntegrationCard } from './identity/IntegrationCard';
 import { PolicyItem } from './identity/PolicyItem';
-import { NexButton, NexBadge, NexCard, NexModal, NexFormGroup } from './shared/NexUI';
+import { NexButton, NexBadge, NexCard } from './shared/NexUI';
 
 export const IdentityView: React.FC = () => {
-  const { users, roles, groups, delegations, hasPermission, currentUser, revokeDelegation, createDelegation, createUser, updateUser, deleteUser, createRole, updateRole, deleteRole, createGroup, updateGroup, deleteGroup, addNotification } = useBPM();
+  const { users, roles, groups, delegations, hasPermission, currentUser, revokeDelegation, deleteUser, deleteRole, deleteGroup, addNotification, navigateTo } = useBPM();
   const [activeTab, setActiveTab] = useState<'profile' | 'users' | 'roles' | 'groups' | 'sso'>('profile');
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Modal States
-  const [showDelModal, setShowDelModal] = useState(false);
-  const [showUserModal, setShowUserModal] = useState(false);
-  const [showRoleModal, setShowRoleModal] = useState(false);
-  const [showGroupModal, setShowGroupModal] = useState(false);
-
-  // Edit Mode IDs (null = create)
-  const [editingUserId, setEditingUserId] = useState<string | null>(null);
-  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
-  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
-
-  // Form States
-  const [delTargetId, setDelTargetId] = useState('');
-  const [delScope, setDelScope] = useState<'All' | 'Critical Only'>('All');
-  
-  const [userForm, setUserForm] = useState({ name: '', email: '', roleId: '', groupId: '', location: '', skills: '' });
-  const [roleForm, setRoleForm] = useState({ name: '', permissions: [] as Permission[] });
-  const [groupForm, setGroupForm] = useState({ name: '', parentGroupId: '', description: '' });
-
   // Mock State for SSO Toggles (In prod this would be in Context)
   const [ssoState, setSsoState] = useState({ ldap: true, okta: false, workspace: true });
 
@@ -48,116 +29,12 @@ export const IdentityView: React.FC = () => {
 
   const myDelegations = delegations.filter(d => d.fromUserId === currentUser?.id);
 
-  // --- Handlers ---
-
   const toggleSSO = (key: keyof typeof ssoState) => {
       setSsoState(prev => {
           const newState = !prev[key];
           addNotification('info', `${(key as string).toUpperCase()} Integration ${newState ? 'Enabled' : 'Disabled'}`);
           return { ...prev, [key]: newState };
       });
-  };
-
-  const openCreateUser = () => {
-      setEditingUserId(null);
-      setUserForm({ name: '', email: '', roleId: '', groupId: '', location: '', skills: '' });
-      setShowUserModal(true);
-  };
-
-  const openEditUser = (u: User) => {
-      setEditingUserId(u.id);
-      setUserForm({ 
-          name: u.name, 
-          email: u.email, 
-          roleId: u.roleIds[0] || '', 
-          groupId: u.groupIds[0] || '', 
-          location: u.location, 
-          skills: u.skills.join(', ') 
-      });
-      setShowUserModal(true);
-  };
-
-  const handleSubmitUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const payload = {
-        name: userForm.name,
-        email: userForm.email,
-        roleIds: [userForm.roleId],
-        groupIds: [userForm.groupId],
-        location: userForm.location,
-        skills: userForm.skills.split(',').map(s => s.trim()),
-        status: 'Active' as const,
-        domainId: currentUser?.domainId || 'GLOBAL'
-    };
-
-    if (editingUserId) {
-        await updateUser(editingUserId, payload);
-    } else {
-        await createUser(payload);
-    }
-    setShowUserModal(false);
-  };
-
-  const handleDeactivateUser = async (id: string) => {
-      await updateUser(id, { status: 'Terminated' });
-  };
-
-  const openCreateRole = () => {
-      setEditingRoleId(null);
-      setRoleForm({ name: '', permissions: [] });
-      setShowRoleModal(true);
-  };
-
-  const openEditRole = (r: any) => {
-      setEditingRoleId(r.id);
-      setRoleForm({ name: r.name, permissions: r.permissions });
-      setShowRoleModal(true);
-  };
-
-  const handleSubmitRole = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editingRoleId) {
-        await updateRole(editingRoleId, roleForm);
-    } else {
-        await createRole(roleForm);
-    }
-    setShowRoleModal(false);
-  };
-
-  const openCreateGroup = () => {
-      setEditingGroupId(null);
-      setGroupForm({ name: '', parentGroupId: '', description: '' });
-      setShowGroupModal(true);
-  };
-
-  const openEditGroup = (g: any) => {
-      setEditingGroupId(g.id);
-      setGroupForm({ name: g.name, parentGroupId: g.parentGroupId || '', description: g.description });
-      setShowGroupModal(true);
-  };
-
-  const handleSubmitGroup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editingGroupId) {
-        await updateGroup(editingGroupId, groupForm);
-    } else {
-        await createGroup(groupForm);
-    }
-    setShowGroupModal(false);
-  };
-
-  const togglePermission = (p: Permission) => {
-    if (roleForm.permissions.includes(p)) {
-        setRoleForm({ ...roleForm, permissions: roleForm.permissions.filter(x => x !== p) });
-    } else {
-        setRoleForm({ ...roleForm, permissions: [...roleForm.permissions, p] });
-    }
-  };
-
-  const handleCreateDelegation = async () => {
-    if (!delTargetId) return;
-    await createDelegation(delTargetId, delScope);
-    setShowDelModal(false);
   };
 
   return (
@@ -175,104 +52,6 @@ export const IdentityView: React.FC = () => {
            <TabBtn active={activeTab === 'sso'} onClick={() => setActiveTab('sso')} icon={Fingerprint} label="Directory" />
         </div>
       </header>
-
-      {/* --- Modals --- */}
-      <NexModal isOpen={showDelModal} onClose={() => setShowDelModal(false)} title="Proxy Assignment">
-         <div className="space-y-4">
-            <NexFormGroup label="Assignee">
-                <select className="prop-input" value={delTargetId} onChange={e => setDelTargetId(e.target.value)}>
-                    <option value="">Select User...</option>
-                    {users.filter(u => u.id !== currentUser?.id).map(u => (
-                    <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
-                    ))}
-                </select>
-            </NexFormGroup>
-            <NexFormGroup label="Scope">
-                <div className="flex gap-2">
-                    <button onClick={() => setDelScope('All')} className={`flex-1 py-2 rounded-sm text-xs font-bold border transition-all ${delScope === 'All' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-300'}`}>Full</button>
-                    <button onClick={() => setDelScope('Critical Only')} className={`flex-1 py-2 rounded-sm text-xs font-bold border transition-all ${delScope === 'Critical Only' ? 'bg-rose-600 text-white border-rose-600' : 'bg-white text-slate-600 border-slate-300'}`}>Critical</button>
-                </div>
-            </NexFormGroup>
-            <NexButton variant="primary" onClick={handleCreateDelegation} className="w-full">Activate Proxy</NexButton>
-         </div>
-      </NexModal>
-
-      <NexModal isOpen={showUserModal} onClose={() => setShowUserModal(false)} title={editingUserId ? "Edit Profile" : "Provision New Identity"}>
-         <form onSubmit={handleSubmitUser} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-                <NexFormGroup label="Full Name">
-                    <input required className="prop-input" value={userForm.name} onChange={e => setUserForm({...userForm, name: e.target.value})} placeholder="e.g. Sarah Connor" />
-                </NexFormGroup>
-                <NexFormGroup label="Email Address">
-                    <input required type="email" className="prop-input" value={userForm.email} onChange={e => setUserForm({...userForm, email: e.target.value})} placeholder="corp@nexflow.com" />
-                </NexFormGroup>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-                <NexFormGroup label="Primary Role">
-                    <select required className="prop-input" value={userForm.roleId} onChange={e => setUserForm({...userForm, roleId: e.target.value})}>
-                        <option value="">Select Role...</option>
-                        {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                    </select>
-                </NexFormGroup>
-                <NexFormGroup label="Department Group">
-                    <select required className="prop-input" value={userForm.groupId} onChange={e => setUserForm({...userForm, groupId: e.target.value})}>
-                        <option value="">Select Group...</option>
-                        {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-                    </select>
-                </NexFormGroup>
-            </div>
-            <NexFormGroup label="Office Location">
-                <input className="prop-input" value={userForm.location} onChange={e => setUserForm({...userForm, location: e.target.value})} placeholder="e.g. London HQ" />
-            </NexFormGroup>
-            <NexFormGroup label="Skills (CSV)">
-                <input className="prop-input" value={userForm.skills} onChange={e => setUserForm({...userForm, skills: e.target.value})} placeholder="BPMN, Audit, Java..." />
-            </NexFormGroup>
-            <div className="flex justify-end pt-2">
-                <NexButton type="submit" variant="primary" icon={Plus}>{editingUserId ? "Update User" : "Provision User"}</NexButton>
-            </div>
-         </form>
-      </NexModal>
-
-      <NexModal isOpen={showRoleModal} onClose={() => setShowRoleModal(false)} title={editingRoleId ? "Edit Role" : "Define RBAC Role"} size="lg">
-         <form onSubmit={handleSubmitRole} className="space-y-4">
-            <NexFormGroup label="Role Name">
-                <input required className="prop-input" value={roleForm.name} onChange={e => setRoleForm({...roleForm, name: e.target.value})} placeholder="e.g. Compliance Auditor" />
-            </NexFormGroup>
-            <NexFormGroup label="Permission Scopes">
-                <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto p-2 border border-slate-200 rounded-sm bg-slate-50">
-                    {Object.values(Permission).map(p => (
-                        <label key={p} className="flex items-center gap-2 p-2 hover:bg-white border border-transparent hover:border-slate-200 rounded-sm cursor-pointer transition-all">
-                            <input type="checkbox" checked={roleForm.permissions.includes(p)} onChange={() => togglePermission(p)} className="rounded-sm border-slate-300 text-blue-600 focus:ring-blue-500" />
-                            <span className="text-xs font-medium text-slate-700">{p}</span>
-                        </label>
-                    ))}
-                </div>
-            </NexFormGroup>
-            <div className="flex justify-end pt-2">
-                <NexButton type="submit" variant="primary" icon={Shield}>{editingRoleId ? "Update Role" : "Create Role"}</NexButton>
-            </div>
-         </form>
-      </NexModal>
-
-      <NexModal isOpen={showGroupModal} onClose={() => setShowGroupModal(false)} title={editingGroupId ? "Edit Organization Unit" : "Create Organization Unit"}>
-         <form onSubmit={handleSubmitGroup} className="space-y-4">
-            <NexFormGroup label="Unit Name">
-                <input required className="prop-input" value={groupForm.name} onChange={e => setGroupForm({...groupForm, name: e.target.value})} placeholder="e.g. APAC Sales" />
-            </NexFormGroup>
-            <NexFormGroup label="Parent Unit">
-                <select className="prop-input" value={groupForm.parentGroupId} onChange={e => setGroupForm({...groupForm, parentGroupId: e.target.value})}>
-                    <option value="">Root Level</option>
-                    {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-                </select>
-            </NexFormGroup>
-            <NexFormGroup label="Description">
-                <textarea className="prop-input h-20 resize-none" value={groupForm.description} onChange={e => setGroupForm({...groupForm, description: e.target.value})} placeholder="Operational scope..." />
-            </NexFormGroup>
-            <div className="flex justify-end pt-2">
-                <NexButton type="submit" variant="primary" icon={Landmark}>{editingGroupId ? "Update Group" : "Establish Group"}</NexButton>
-            </div>
-         </form>
-      </NexModal>
 
       {/* --- Main Content --- */}
 
@@ -313,7 +92,7 @@ export const IdentityView: React.FC = () => {
                     </h3>
                     <p className="text-xs text-slate-500 mt-0.5">Manage temporary authority transfers.</p>
                  </div>
-                 <NexButton variant="secondary" onClick={() => setShowDelModal(true)} icon={PlusCircle}>New Record</NexButton>
+                 <NexButton variant="secondary" onClick={() => navigateTo('create-delegation')} icon={PlusCircle}>New Record</NexButton>
               </div>
               
               <div className="space-y-2">
@@ -358,7 +137,7 @@ export const IdentityView: React.FC = () => {
               />
             </div>
             {canManageUsers && (
-               <NexButton variant="primary" icon={UserPlus} onClick={openCreateUser}>Provision</NexButton>
+               <NexButton variant="primary" icon={UserPlus} onClick={() => navigateTo('create-user')}>Provision</NexButton>
             )}
           </div>
 
@@ -383,8 +162,7 @@ export const IdentityView: React.FC = () => {
                    </span>
                    {/* User Actions */}
                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                       <button onClick={() => openEditUser(user)} className="p-1 hover:bg-slate-100 rounded text-blue-600"><Edit size={14}/></button>
-                       <button onClick={() => handleDeactivateUser(user.id)} className="p-1 hover:bg-slate-100 rounded text-amber-600" title="Deactivate"><Slash size={14}/></button>
+                       <button onClick={() => navigateTo('edit-user', user.id)} className="p-1 hover:bg-slate-100 rounded text-blue-600"><Edit size={14}/></button>
                        <button onClick={() => deleteUser(user.id)} className="p-1 hover:bg-slate-100 rounded text-rose-600"><Trash2 size={14}/></button>
                    </div>
                 </div>
@@ -397,7 +175,7 @@ export const IdentityView: React.FC = () => {
       {activeTab === 'roles' && (
           <div className="space-y-4">
               <div className="flex justify-end">
-                  <NexButton variant="secondary" icon={Shield} onClick={openCreateRole}>Define Role</NexButton>
+                  <NexButton variant="secondary" icon={Shield} onClick={() => navigateTo('create-role')}>Define Role</NexButton>
               </div>
               <div className="grid gap-4">
                   {roles.map(role => (
@@ -414,7 +192,7 @@ export const IdentityView: React.FC = () => {
                                   {role.permissions.length > 5 && <span className="px-2 py-0.5 text-[9px] text-slate-400">+{role.permissions.length - 5} more</span>}
                               </div>
                               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button onClick={() => openEditRole(role)} className="p-1 hover:bg-slate-100 rounded text-blue-600"><Edit size={14}/></button>
+                                  <button onClick={() => navigateTo('edit-role', role.id)} className="p-1 hover:bg-slate-100 rounded text-blue-600"><Edit size={14}/></button>
                                   <button onClick={() => deleteRole(role.id)} className="p-1 hover:bg-slate-100 rounded text-rose-600"><Trash2 size={14}/></button>
                               </div>
                           </div>
@@ -427,13 +205,13 @@ export const IdentityView: React.FC = () => {
       {activeTab === 'groups' && (
           <div className="space-y-4">
               <div className="flex justify-end">
-                  <NexButton variant="secondary" icon={Landmark} onClick={openCreateGroup}>Create Group</NexButton>
+                  <NexButton variant="secondary" icon={Landmark} onClick={() => navigateTo('create-group')}>Create Group</NexButton>
               </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {groups.map(group => (
                       <NexCard key={group.id} className="p-4 group relative">
                           <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button onClick={() => openEditGroup(group)} className="p-1 hover:bg-slate-100 rounded text-blue-600"><Edit size={14}/></button>
+                              <button onClick={() => navigateTo('edit-group', group.id)} className="p-1 hover:bg-slate-100 rounded text-blue-600"><Edit size={14}/></button>
                               <button onClick={() => deleteGroup(group.id)} className="p-1 hover:bg-slate-100 rounded text-rose-600"><Trash2 size={14}/></button>
                           </div>
                           <div className="flex items-start justify-between mb-3">

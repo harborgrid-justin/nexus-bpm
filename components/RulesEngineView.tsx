@@ -6,11 +6,11 @@ import {
   FunctionSquare, Plus, BrainCircuit, Table, TestTube, Trash2, Save, 
   Upload, Play, GitMerge, MoreVertical, X, FileJson, Copy, 
   ChevronRight, List, PenTool, Database, Code, Sparkles, PlusCircle, Search,
-  MessageSquare, Zap, Activity, Info
+  MessageSquare, Zap, Activity, Info, Tag, Layers, ArrowUp, ArrowDown, Download, CheckCircle, AlertTriangle, Maximize2, Minimize2
 } from 'lucide-react';
 import { produce } from 'immer';
-import { NexButton, NexModal, NexFormGroup } from './shared/NexUI';
-import { generateRuleFromText, explainRuleLogic } from '../services/geminiService';
+import { NexButton, NexModal, NexFormGroup, NexBadge } from './shared/NexUI';
+import { explainRuleLogic } from '../services/geminiService';
 
 // --- Reusable UI Components ---
 const RuleInput = ({ value, onChange, ...props }: any) => (
@@ -32,11 +32,12 @@ const RuleSelect = ({ value, onChange, children }: any) => (
   </select>
 );
 
-const IconButton = ({ icon: Icon, onClick, tooltip, className }: any) => (
+const IconButton = ({ icon: Icon, onClick, tooltip, className, disabled }: any) => (
     <button 
       onClick={onClick} 
       title={tooltip} 
-      className={`p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 rounded-sm transition-all border border-transparent ${className}`}
+      disabled={disabled}
+      className={`p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 rounded-sm transition-all border border-transparent disabled:opacity-50 ${className}`}
     >
         <Icon size={16} />
     </button>
@@ -52,6 +53,14 @@ const generateConditionSummary = (condition: Condition): string => {
         return `(${condition.children.map(generateConditionSummary).join(` ${condition.type} `)})`;
     }
     return `"${condition.fact}" ${operatorToText(condition.operator)} "${condition.value}"`;
+};
+
+// Calculate Complexity Score (Depth + Count)
+const calculateComplexity = (condition: Condition, depth = 1): number => {
+    if ('children' in condition) {
+        return condition.children.reduce((acc, child) => acc + calculateComplexity(child, depth + 1), 0) + (depth > 3 ? 5 : 1);
+    }
+    return 1;
 };
 
 // --- Test Case Interface ---
@@ -234,15 +243,18 @@ interface RuleBuilderProps {
   rule: BusinessRule;
   onSave: (r: BusinessRule) => void;
   onDelete: (id: string) => void;
+  isFullscreen: boolean;
+  toggleFullscreen: () => void;
 }
 
-const RuleBuilder: React.FC<RuleBuilderProps> = ({ rule, onSave, onDelete }) => {
+const RuleBuilder: React.FC<RuleBuilderProps> = ({ rule, onSave, onDelete, isFullscreen, toggleFullscreen }) => {
     const [localRule, setLocalRule] = useState<BusinessRule>(rule);
     const { processes } = useBPM();
     const [explanation, setExplanation] = useState('');
-    const [generatingExplanation, setGeneratingExplanation] = useState(false);
+    const [newTag, setNewTag] = useState('');
 
     const summary = useMemo(() => generateConditionSummary(localRule.conditions), [localRule.conditions]);
+    const complexity = useMemo(() => calculateComplexity(localRule.conditions), [localRule.conditions]);
 
     // Calculate Dependencies
     const usedInProcesses = useMemo(() => {
@@ -264,48 +276,82 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({ rule, onSave, onDelete }) => 
         draft.action.params[key] = value;
     });
 
-    const handleSave = () => onSave(localRule);
-
-    const handleExplain = async () => {
-        setGeneratingExplanation(true);
-        const text = await explainRuleLogic(localRule);
-        setExplanation(text);
-        setGeneratingExplanation(false);
+    const handleSave = () => {
+        updateRule(d => { d.version = (d.version || 1) + 0.1; d.lastModified = new Date().toISOString(); });
+        onSave(localRule);
     };
 
+    const handleExplain = async () => {
+        const text = await explainRuleLogic(localRule);
+        setExplanation(text);
+    };
+
+    const addTag = () => {
+        if(newTag && !localRule.tags?.includes(newTag)) {
+            updateRule(d => { d.tags = [...(d.tags || []), newTag] });
+            setNewTag('');
+        }
+    };
+
+    const removeTag = (t: string) => updateRule(d => { d.tags = d.tags.filter(tag => tag !== t) });
+
     return (
-        <div className="p-6 space-y-8 animate-fade-in pb-20">
+        <div className={`p-6 space-y-8 animate-fade-in ${isFullscreen ? 'h-full overflow-y-auto' : 'pb-20'}`}>
             <div className="flex justify-between items-start gap-6 border-b border-slate-200 pb-6">
                 <div className="flex-1 w-full space-y-2">
-                    <input 
-                      value={localRule.name} 
-                      onChange={e => updateRule(draft => { draft.name = e.target.value })} 
-                      className="text-xl font-bold text-slate-900 bg-transparent border-b border-transparent focus:border-blue-500 outline-none w-full pb-1" 
-                    />
+                    <div className="flex items-center gap-2">
+                        <input 
+                        value={localRule.name} 
+                        onChange={e => updateRule(draft => { draft.name = e.target.value })} 
+                        className="text-xl font-bold text-slate-900 bg-transparent border-b border-transparent focus:border-blue-500 outline-none pb-1" 
+                        />
+                        <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-mono rounded-sm border border-slate-200">v{localRule.version?.toFixed(1) || '1.0'}</span>
+                        <button onClick={() => updateRule(d => { d.status = d.status === 'Active' ? 'Draft' : 'Active' })} className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-sm border ${localRule.status === 'Active' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
+                            {localRule.status || 'Draft'}
+                        </button>
+                    </div>
                     <textarea 
                       value={localRule.description} 
                       onChange={e => updateRule(draft => { draft.description = e.target.value })} 
                       className="w-full text-xs text-slate-500 bg-transparent outline-none resize-none" 
                       placeholder="Enter rule description..."
                     />
+                    <div className="flex items-center gap-2">
+                        {localRule.tags?.map(t => (
+                            <span key={t} className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[10px] border border-blue-100">
+                                <Tag size={10}/> {t} <button onClick={() => removeTag(t)}><X size={10}/></button>
+                            </span>
+                        ))}
+                        <div className="flex items-center gap-1">
+                            <input className="bg-transparent border-b border-slate-200 text-[10px] w-20 outline-none" placeholder="+ Tag" value={newTag} onChange={e => setNewTag(e.target.value)} onKeyDown={e => e.key === 'Enter' && addTag()} />
+                        </div>
+                    </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                    <button onClick={toggleFullscreen} className="p-2 text-slate-400 hover:text-slate-700"><Maximize2 size={16}/></button>
+                    <div className="h-6 w-px bg-slate-200 mx-2"></div>
                     <NexButton variant="danger" onClick={() => onDelete(rule.id)} icon={Trash2}>Delete</NexButton>
                     <NexButton variant="primary" onClick={handleSave} icon={Save}>Deploy</NexButton>
                 </div>
             </div>
 
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-sm font-mono text-xs text-slate-700 leading-relaxed relative group">
-               <span className="text-blue-600 font-bold">IF</span> {summary} <span className="text-blue-600 font-bold">THEN</span> {localRule.action.type}
-               <button onClick={handleExplain} className="absolute right-2 top-2 p-1.5 bg-white border border-slate-200 rounded text-slate-400 hover:text-blue-600 shadow-sm opacity-0 group-hover:opacity-100 transition-all flex items-center gap-2">
-                   <MessageSquare size={12}/> Explain
-               </button>
-               {explanation && (
-                   <div className="mt-2 pt-2 border-t border-slate-200 text-slate-600 italic flex items-start gap-2">
-                       <BotIcon className="shrink-0 text-blue-500" />
-                       {explanation}
-                   </div>
-               )}
+            <div className="flex gap-4">
+                <div className="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-sm font-mono text-xs text-slate-700 leading-relaxed relative group">
+                    <span className="text-blue-600 font-bold">IF</span> {summary} <span className="text-blue-600 font-bold">THEN</span> {localRule.action.type}
+                    <button onClick={handleExplain} className="absolute right-2 top-2 p-1.5 bg-white border border-slate-200 rounded text-slate-400 hover:text-blue-600 shadow-sm opacity-0 group-hover:opacity-100 transition-all flex items-center gap-2">
+                        <MessageSquare size={12}/> Explain
+                    </button>
+                    {explanation && (
+                        <div className="mt-2 pt-2 border-t border-slate-200 text-slate-600 italic flex items-start gap-2">
+                            <BotIcon className="shrink-0 text-blue-500" />
+                            {explanation}
+                        </div>
+                    )}
+                </div>
+                <div className="w-40 p-4 border border-slate-200 rounded-sm flex flex-col items-center justify-center">
+                    <div className={`text-2xl font-black ${complexity > 10 ? 'text-rose-500' : 'text-emerald-500'}`}>{complexity}</div>
+                    <div className="text-[10px] text-slate-400 uppercase font-bold">Complexity</div>
+                </div>
             </div>
 
             <section className="space-y-4">
@@ -371,15 +417,18 @@ const BotIcon = ({ className }: { className?: string }) => (
     <Sparkles size={14} className={className} />
 );
 
-// --- Visual Table Builder (Simplified) ---
+// --- Visual Table Builder ---
 interface TableBuilderProps {
   table: DecisionTable;
   onSave: (t: DecisionTable) => void;
   onDelete: (id: string) => void;
+  isFullscreen: boolean;
+  toggleFullscreen: () => void;
 }
 
-const TableBuilder: React.FC<TableBuilderProps> = ({ table, onSave, onDelete }) => {
+const TableBuilder: React.FC<TableBuilderProps> = ({ table, onSave, onDelete, isFullscreen, toggleFullscreen }) => {
     const [localTable, setLocalTable] = useState<DecisionTable>(table);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     const updateTable = (updater: (draft: DecisionTable) => void) => {
         setLocalTable(produce(localTable, updater));
@@ -390,13 +439,58 @@ const TableBuilder: React.FC<TableBuilderProps> = ({ table, onSave, onDelete }) 
         draft.rules.push(row);
     });
 
+    const moveRow = (idx: number, direction: -1 | 1) => updateTable(draft => {
+        if (idx + direction < 0 || idx + direction >= draft.rules.length) return;
+        const temp = draft.rules[idx];
+        draft.rules[idx] = draft.rules[idx + direction];
+        draft.rules[idx + direction] = temp;
+    });
+
+    const removeRow = (idx: number) => updateTable(draft => {
+        draft.rules.splice(idx, 1);
+    });
+
+    const handleExportCSV = () => {
+        const headers = [...localTable.inputs.map(i => `${i} (IN)`), ...localTable.outputs.map(o => `${o} (OUT)`)].join(',');
+        const rows = localTable.rules.map(r => r.join(',')).join('\n');
+        const blob = new Blob([`${headers}\n${rows}`], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${localTable.name.replace(/\s+/g, '_')}_v${localTable.version || 1}.csv`;
+        a.click();
+    };
+
+    const handleImportCSV = (e: ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            const text = evt.target?.result as string;
+            const rows = text.split('\n').filter(r => r.trim());
+            // Skip header, map rest
+            const newRules = rows.slice(1).map(r => r.split(',').map(c => c.trim()));
+            updateTable(d => { d.rules = newRules; });
+        };
+        reader.readAsText(file);
+    };
+
     return (
-        <div className="p-6 space-y-6">
+        <div className={`p-6 space-y-6 ${isFullscreen ? 'h-full overflow-y-auto' : ''}`}>
             <div className="flex justify-between items-start border-b border-slate-200 pb-4">
                 <div className="flex-1">
                     <input className="text-xl font-bold text-slate-900 bg-transparent outline-none w-full" value={localTable.name} onChange={e => updateTable(d => {d.name = e.target.value})} />
+                    <div className="flex gap-2 mt-1">
+                        <span className="text-xs text-slate-500 font-mono">v{localTable.version || 1}</span>
+                        <NexBadge variant={localTable.status === 'Active' ? 'emerald' : 'slate'}>{localTable.status || 'Draft'}</NexBadge>
+                    </div>
                 </div>
                 <div className="flex gap-2">
+                    <button onClick={toggleFullscreen} className="p-2 text-slate-400 hover:text-slate-700"><Maximize2 size={16}/></button>
+                    <div className="h-6 w-px bg-slate-200 mx-2"></div>
+                    <NexButton variant="secondary" onClick={handleExportCSV} icon={Download}>Export CSV</NexButton>
+                    <NexButton variant="secondary" onClick={() => fileInputRef.current?.click()} icon={Upload}>Import CSV</NexButton>
+                    <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleImportCSV} />
                     <NexButton variant="danger" onClick={() => onDelete(table.id)} icon={Trash2}>Delete</NexButton>
                     <NexButton variant="primary" onClick={() => onSave(localTable)} icon={Save}>Save</NexButton>
                 </div>
@@ -406,26 +500,35 @@ const TableBuilder: React.FC<TableBuilderProps> = ({ table, onSave, onDelete }) 
                 <table className="w-full text-xs text-left">
                     <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
+                            <th className="w-10 p-2 border-r border-slate-200"></th>
                             {localTable.inputs.map((col, i) => (
                                 <th key={`in-${i}`} className="p-2 border-r border-slate-200 bg-blue-50/50 text-blue-900 font-bold uppercase tracking-wider">{col} (IN)</th>
                             ))}
                             {localTable.outputs.map((col, i) => (
                                 <th key={`out-${i}`} className="p-2 border-r border-slate-200 bg-emerald-50/50 text-emerald-900 font-bold uppercase tracking-wider">{col} (OUT)</th>
                             ))}
+                            <th className="w-10 p-2"></th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white">
                         {localTable.rules.map((row, rIdx) => (
-                            <tr key={rIdx}>
+                            <tr key={rIdx} className="group">
+                                <td className="p-2 text-center text-slate-300 font-mono border-r border-slate-100">{rIdx + 1}</td>
                                 {row.map((cell, cIdx) => (
-                                    <td key={cIdx} className="p-0 border-r border-slate-100">
+                                    <td key={cIdx} className="p-0 border-r border-slate-100 relative">
                                         <input 
-                                            className="w-full p-2 outline-none border-none bg-transparent hover:bg-slate-50 focus:bg-blue-50 transition-colors"
+                                            className={`w-full p-2 outline-none border-none bg-transparent hover:bg-slate-50 focus:bg-blue-50 transition-colors ${!cell ? 'bg-rose-50/30' : ''}`}
                                             value={cell}
                                             onChange={e => updateTable(d => { d.rules[rIdx][cIdx] = e.target.value })} 
                                         />
+                                        {!cell && <div className="absolute top-0 right-0 w-2 h-2 bg-rose-400 rounded-bl-sm pointer-events-none"/>}
                                     </td>
                                 ))}
+                                <td className="p-1 flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onClick={() => moveRow(rIdx, -1)} className="text-slate-400 hover:text-blue-600"><ArrowUp size={12}/></button>
+                                    <button onClick={() => moveRow(rIdx, 1)} className="text-slate-400 hover:text-blue-600"><ArrowDown size={12}/></button>
+                                    <button onClick={() => removeRow(rIdx)} className="text-slate-400 hover:text-rose-600"><X size={12}/></button>
+                                </td>
                             </tr>
                         ))}
                     </tbody>
@@ -438,21 +541,18 @@ const TableBuilder: React.FC<TableBuilderProps> = ({ table, onSave, onDelete }) 
 
 // --- Main View ---
 export const RulesEngineView: React.FC = () => {
-    const { rules, decisionTables, saveRule, deleteRule, saveDecisionTable, deleteDecisionTable, reseedSystem } = useBPM();
+    const { rules, decisionTables, saveRule, deleteRule, saveDecisionTable, deleteDecisionTable, reseedSystem, navigateTo } = useBPM();
     const [selectedAsset, setSelectedAsset] = useState<{type: 'rule' | 'table', id: string} | null>(null);
     const [search, setSearch] = useState('');
-    
-    // AI Modal State
-    const [showAiModal, setShowAiModal] = useState(false);
-    const [aiPrompt, setAiPrompt] = useState('');
-    const [isGenerating, setIsGenerating] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     const createNew = (type: 'rule' | 'table') => {
         if (type === 'rule') {
             const newRule: BusinessRule = {
                 id: `rule-${Date.now()}`, name: 'New Rule', description: '',
                 conditions: { id: `group-${Date.now()}`, type: 'AND', children: [] },
-                action: { type: 'SET_VARIABLE', params: {} }, priority: 1
+                action: { type: 'SET_VARIABLE', params: {} }, priority: 1,
+                version: 1, status: 'Draft', tags: [], lastModified: new Date().toISOString()
             };
             saveRule(newRule);
             setSelectedAsset({type: 'rule', id: newRule.id});
@@ -462,34 +562,11 @@ export const RulesEngineView: React.FC = () => {
                 name: 'New Table', 
                 inputs: ['Amount', 'Category'], 
                 outputs: ['ApprovalLevel'], 
-                rules: [['< 1000', 'Office', 'Auto']]
+                rules: [['< 1000', 'Office', 'Auto']],
+                version: 1, status: 'Draft', tags: [], lastModified: new Date().toISOString()
             };
             saveDecisionTable(newTable);
             setSelectedAsset({type: 'table', id: newTable.id});
-        }
-    };
-    
-    const handleAiGenerate = async () => {
-        if (!aiPrompt.trim()) return;
-        setIsGenerating(true);
-        try {
-            const rulePart = await generateRuleFromText(aiPrompt);
-            const newRule: BusinessRule = {
-                id: `rule-${Date.now()}`,
-                name: rulePart.name || 'AI Generated Rule',
-                description: rulePart.description || aiPrompt,
-                conditions: (rulePart.conditions as ConditionGroup) || { id: `g-${Date.now()}`, type: 'AND', children: [] },
-                action: (rulePart.action as RuleAction) || { type: 'SET_VARIABLE', params: {} },
-                priority: rulePart.priority || 1
-            };
-            await saveRule(newRule);
-            setSelectedAsset({ type: 'rule', id: newRule.id });
-            setShowAiModal(false);
-            setAiPrompt('');
-        } catch (e) {
-            alert('Failed to generate rule. Please try again.');
-        } finally {
-            setIsGenerating(false);
         }
     };
     
@@ -508,33 +585,26 @@ export const RulesEngineView: React.FC = () => {
             : decisionTables.find(t => t.id === selectedAsset.id))
         : null;
 
+    if (isFullscreen && currentAsset && selectedAsset) {
+        return (
+            <div className="fixed inset-0 z-[100] bg-white">
+                 {selectedAsset.type === 'rule' 
+                    ? <RuleBuilder key={currentAsset.id} rule={currentAsset as BusinessRule} onSave={saveRule} onDelete={handleDelete} isFullscreen={true} toggleFullscreen={() => setIsFullscreen(false)} />
+                    : <TableBuilder key={currentAsset.id} table={currentAsset as DecisionTable} onSave={saveDecisionTable} onDelete={handleDelete} isFullscreen={true} toggleFullscreen={() => setIsFullscreen(false)} />
+                 }
+            </div>
+        );
+    }
+
     return (
         <div className="h-[calc(100vh-140px)] flex flex-col md:flex-row bg-white rounded-sm border border-slate-300 overflow-hidden shadow-sm animate-fade-in">
-            {/* AI Generator Modal */}
-            <NexModal isOpen={showAiModal} onClose={() => setShowAiModal(false)} title="Generate Logic with AI">
-                <div className="space-y-4">
-                    <p className="text-xs text-slate-500">Describe your business rule in natural language. The engine will structure it automatically.</p>
-                    <textarea 
-                        className="prop-input h-32 resize-none" 
-                        placeholder="e.g., If the invoice amount is greater than 50,000 and the vendor is new, route to the CFO for approval."
-                        value={aiPrompt}
-                        onChange={e => setAiPrompt(e.target.value)}
-                    />
-                    <div className="flex justify-end">
-                        <NexButton variant="primary" icon={Sparkles} onClick={handleAiGenerate} disabled={isGenerating}>
-                            {isGenerating ? 'Synthesizing...' : 'Generate Rule'}
-                        </NexButton>
-                    </div>
-                </div>
-            </NexModal>
-
             {/* Assets Sidebar */}
             <aside className="w-full md:w-72 bg-slate-50 border-r border-slate-300 flex flex-col shrink-0">
                 <div className="p-3 border-b border-slate-200 bg-white">
                     <div className="flex items-center justify-between mb-2">
                         <h3 className="text-xs font-bold text-slate-800 uppercase">Library</h3>
                         <div className="flex gap-1">
-                            <IconButton icon={Sparkles} onClick={() => setShowAiModal(true)} tooltip="AI Generate" className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white hover:text-white shadow-sm border-blue-600" />
+                            <IconButton icon={Sparkles} onClick={() => navigateTo('ai-rule-gen')} tooltip="AI Generate" className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white hover:text-white shadow-sm border-blue-600" />
                             <IconButton icon={BrainCircuit} onClick={() => createNew('rule')} tooltip="New Rule" className="bg-white border border-slate-300 shadow-sm" />
                             <IconButton icon={Table} onClick={() => createNew('table')} tooltip="New Table" className="bg-white border border-slate-300 shadow-sm" />
                         </div>
@@ -570,7 +640,13 @@ export const RulesEngineView: React.FC = () => {
                                 className={`w-full text-left px-3 py-2 rounded-sm flex items-center gap-3 transition-all border ${selectedAsset?.id === r.id ? 'bg-white border-blue-500 text-blue-700 shadow-sm border-l-4' : 'border-transparent text-slate-600 hover:bg-white hover:border-slate-200'}`}
                             >
                                 <BrainCircuit size={16} className={selectedAsset?.id === r.id ? 'text-blue-500' : 'text-slate-400'} />
-                                <span className="text-xs font-medium truncate">{r.name}</span>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs font-medium truncate">{r.name}</span>
+                                        {r.status === 'Draft' && <div className="w-1.5 h-1.5 rounded-full bg-amber-400"/>}
+                                    </div>
+                                    <p className="text-[9px] text-slate-400 truncate">v{r.version || 1}</p>
+                                </div>
                             </button>
                             ))}
                         </div>
@@ -588,7 +664,10 @@ export const RulesEngineView: React.FC = () => {
                                 className={`w-full text-left px-3 py-2 rounded-sm flex items-center gap-3 transition-all border ${selectedAsset?.id === t.id ? 'bg-white border-blue-500 text-blue-700 shadow-sm border-l-4' : 'border-transparent text-slate-600 hover:bg-white hover:border-slate-200'}`}
                             >
                                 <Table size={16} className={selectedAsset?.id === t.id ? 'text-blue-500' : 'text-slate-400'} />
-                                <span className="text-xs font-medium truncate">{t.name}</span>
+                                <div className="flex-1 min-w-0">
+                                    <span className="text-xs font-medium truncate">{t.name}</span>
+                                    <p className="text-[9px] text-slate-400 truncate">{t.inputs.length} IN • {t.outputs.length} OUT</p>
+                                </div>
                             </button>
                             ))}
                         </div>
@@ -602,8 +681,8 @@ export const RulesEngineView: React.FC = () => {
                 <div className="flex-1 overflow-y-auto no-scrollbar">
                     {selectedAsset && currentAsset ? (
                         selectedAsset.type === 'rule' 
-                            ? <RuleBuilder key={currentAsset.id} rule={currentAsset as BusinessRule} onSave={saveRule} onDelete={handleDelete} />
-                            : <TableBuilder key={currentAsset.id} table={currentAsset as DecisionTable} onSave={saveDecisionTable} onDelete={handleDelete} />
+                            ? <RuleBuilder key={currentAsset.id} rule={currentAsset as BusinessRule} onSave={saveRule} onDelete={handleDelete} isFullscreen={false} toggleFullscreen={() => setIsFullscreen(true)} />
+                            : <TableBuilder key={currentAsset.id} table={currentAsset as DecisionTable} onSave={saveDecisionTable} onDelete={handleDelete} isFullscreen={false} toggleFullscreen={() => setIsFullscreen(true)} />
                     ) : (
                         <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-4">
                             <BrainCircuit size={48} strokeWidth={1} className="text-slate-200"/>

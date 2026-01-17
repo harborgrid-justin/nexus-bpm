@@ -5,7 +5,7 @@ import {
   ProcessDefinition, ProcessInstance, Task, TaskStatus, TaskPriority, 
   ViewState, AuditLog, Comment, User, UserRole, UserGroup, Permission, 
   Delegation, BusinessRule, DecisionTable, Case, CaseEvent, CasePolicy, CaseStakeholder,
-  Condition, RuleAction
+  Condition, RuleAction, ProcessStep, ProcessLink
 } from '../types';
 import { dbService } from '../services/dbService';
 
@@ -31,13 +31,18 @@ interface BPMContextType {
   loading: boolean;
   globalSearch: string;
   setGlobalSearch: (s: string) => void;
-  nav: { view: ViewState; selectedId?: string; filter?: string };
+  // Enhanced Navigation State
+  nav: { view: ViewState; selectedId?: string; filter?: string; data?: any };
   delegations: Delegation[];
   rules: BusinessRule[];
   decisionTables: DecisionTable[];
   viewingInstanceId: string | null;
   
-  navigateTo: (view: ViewState, id?: string, filter?: string) => void;
+  // Designer Persistence
+  designerDraft: { steps: ProcessStep[], links: ProcessLink[] } | null;
+  setDesignerDraft: (draft: { steps: ProcessStep[], links: ProcessLink[] } | null) => void;
+
+  navigateTo: (view: ViewState, id?: string, filter?: string, data?: any) => void;
   openInstanceViewer: (id: string) => void;
   closeInstanceViewer: () => void;
   switchUser: (userId: string) => void;
@@ -122,10 +127,11 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     decisionTables: [] as DecisionTable[],
     notifications: [] as Notification[],
     globalSearch: '',
-    nav: { view: 'dashboard' } as { view: ViewState; selectedId?: string; filter?: string },
+    nav: { view: 'dashboard' } as { view: ViewState; selectedId?: string; filter?: string; data?: any },
     viewingInstanceId: null as string | null,
     currentUser: null as User | null,
-    loading: true
+    loading: true,
+    designerDraft: null as { steps: ProcessStep[], links: ProcessLink[] } | null
   });
 
   const loadData = useCallback(async () => {
@@ -196,9 +202,9 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const removeNotification = (id: string) => setState(produce(draft => { draft.notifications = draft.notifications.filter(n => n.id !== id); }));
 
-  const navigateTo = (view: ViewState, id?: string, filter?: string) => {
+  const navigateTo = (view: ViewState, id?: string, filter?: string, data?: any) => {
     setState(produce(draft => {
-      draft.nav = { view, selectedId: id, filter };
+      draft.nav = { view, selectedId: id, filter, data };
       draft.globalSearch = '';
     }));
   };
@@ -730,6 +736,8 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const contextValue: BPMContextType = {
     ...state,
     setGlobalSearch: (s) => setState(prev => ({ ...prev, globalSearch: s })),
+    // Add Designer state handler
+    setDesignerDraft: (draft) => setState(prev => ({ ...prev, designerDraft: draft })),
     navigateTo,
     openInstanceViewer: (id) => setState(prev => ({ ...prev, viewingInstanceId: id })),
     closeInstanceViewer: () => setState(prev => ({ ...prev, viewingInstanceId: null })),

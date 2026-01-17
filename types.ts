@@ -281,6 +281,10 @@ export interface BusinessRule {
   conditions: ConditionGroup;
   action: RuleAction;
   priority: number; // For execution order
+  version: number; // Added: v1.0
+  status: 'Draft' | 'Active' | 'Deprecated'; // Added: Lifecycle
+  tags: string[]; // Added: Categorization
+  lastModified: string; // Added: Audit
 }
 
 export interface DecisionTable {
@@ -289,6 +293,10 @@ export interface DecisionTable {
   inputs: string[]; // Fact names
   outputs: string[]; // Action param names
   rules: (string | number)[][]; // Matrix of values
+  version: number;
+  status: 'Draft' | 'Active' | 'Deprecated';
+  tags: string[];
+  lastModified: string;
 }
 
 // ---- ANALYTICS & GOVERNANCE ----
@@ -314,4 +322,15 @@ export type ViewState =
   | 'instance-viewer'
   | 'cases'
   | 'case-viewer'
-  | 'rules';
+  | 'rules'
+  | 'resource-planner' // New Planning View
+  // --- Form Pages (Replaces Modals) ---
+  | 'create-user' | 'edit-user'
+  | 'create-role' | 'edit-role'
+  | 'create-group' | 'edit-group'
+  | 'create-delegation'
+  | 'create-case' | 'edit-case'
+  | 'case-policy' | 'case-stakeholder' | 'case-launch'
+  | 'task-reassign' | 'task-metadata'
+  | 'simulation-report'
+  | 'ai-rule-gen';

@@ -5,41 +5,55 @@ import { useBPM } from '../contexts/BPMContext';
 import { 
   Search, CheckSquare, ShieldAlert, ChevronLeft, 
   Briefcase, Send, Layers, Clock, AlertCircle, UserPlus, Settings, Tag,
-  Filter, CheckCircle, XCircle, Play, StopCircle, Paperclip, LayoutGrid, List as ListIcon
+  Filter, CheckCircle, XCircle, Play, StopCircle, Paperclip, LayoutGrid, List as ListIcon, User, MoreHorizontal, Calendar
 } from 'lucide-react';
 import { NexBadge, NexButton, NexHistoryFeed, NexModal, NexFormGroup } from './shared/NexUI';
+
+// --- Utility: Relative Time ---
+const getRelativeTime = (isoString: string) => {
+    const date = new Date(isoString);
+    const now = new Date();
+    const diff = date.getTime() - now.getTime();
+    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    
+    if (days < 0) return `${Math.abs(days)} days ago`;
+    if (days === 0) return 'Today';
+    if (days === 1) return 'Tomorrow';
+    return `In ${days} days`;
+};
 
 interface ListItemProps {
   task: Task;
   isSelected: boolean;
   isMultiSelectMode: boolean;
   isChecked: boolean;
+  isCompact: boolean;
   onCheck: (id: string) => void;
   onClick: (task: Task) => void;
 }
 
-const ListItem: React.FC<ListItemProps> = ({ task, isSelected, isMultiSelectMode, isChecked, onCheck, onClick }) => {
+const ListItem: React.FC<ListItemProps> = ({ task, isSelected, isMultiSelectMode, isChecked, isCompact, onCheck, onClick }) => {
   return (
     <div 
       onClick={() => onClick(task)}
-      className={`px-4 py-3 border-b border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors group flex items-start gap-3 ${isSelected ? 'bg-blue-50 border-l-4 border-l-blue-600 pl-3' : 'border-l-4 border-l-transparent pl-3'}`}
+      className={`border-b border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors group flex items-start gap-3 ${isCompact ? 'px-3 py-2' : 'px-4 py-4'} ${isSelected ? 'bg-blue-50 border-l-4 border-l-blue-600 pl-2' : 'border-l-4 border-l-transparent pl-3'}`}
     >
       {isMultiSelectMode && (
           <div onClick={(e) => { e.stopPropagation(); onCheck(task.id); }} className={`w-4 h-4 mt-1 border rounded-sm flex items-center justify-center transition-all ${isChecked ? 'bg-blue-600 border-blue-600' : 'border-slate-300 bg-white'}`}>
               {isChecked && <CheckSquare size={10} className="text-white"/>}
           </div>
       )}
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         <div className="flex justify-between items-start mb-1">
-            <span className={`text-[13px] font-bold truncate pr-2 ${isSelected ? 'text-blue-800' : 'text-slate-800'}`}>{task.title}</span>
+            <span className={`font-bold truncate pr-2 ${isCompact ? 'text-xs' : 'text-sm'} ${isSelected ? 'text-blue-800' : 'text-slate-800'}`}>{task.title}</span>
             <div className="flex items-center gap-1">
                {(task.attachments?.length ?? 0) > 0 && <Paperclip size={12} className="text-slate-400"/>}
                {task.priority === TaskPriority.CRITICAL && <AlertCircle size={14} className="text-rose-600 shrink-0"/>}
             </div>
         </div>
-        <div className="flex justify-between items-center text-[11px] text-slate-500">
+        <div className="flex justify-between items-center text-[10px] text-slate-500">
             <span className="truncate max-w-[120px]">{task.processName}</span>
-            <span>{new Date(task.dueDate).toLocaleDateString()}</span>
+            <span className={`${new Date(task.dueDate) < new Date() ? 'text-rose-500 font-bold' : ''}`}>{getRelativeTime(task.dueDate)}</span>
         </div>
       </div>
     </div>
@@ -59,34 +73,38 @@ const KanbanCard: React.FC<{ task: Task, onClick: (t: Task) => void }> = ({ task
                 <NexBadge variant={task.priority === 'Critical' ? 'rose' : 'slate'}>{task.priority}</NexBadge>
             </div>
             <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[9px] text-slate-400">
-                <span>{new Date(task.dueDate).toLocaleDateString()}</span>
-                <span className="font-bold">{task.assignee === 'Unassigned' ? 'Pool' : task.assignee.split(' ')[0]}</span>
+                <span>{getRelativeTime(task.dueDate)}</span>
+                <div className="group relative">
+                    <span className="font-bold cursor-help border-b border-dotted border-slate-300">{task.assignee === 'Unassigned' ? 'Pool' : task.assignee.split(' ')[0]}</span>
+                    {task.assignee !== 'Unassigned' && (
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 p-2 bg-slate-800 text-white text-[10px] rounded-sm shadow-lg w-32 hidden group-hover:block z-10">
+                            <div className="font-bold mb-0.5">{task.assignee}</div>
+                            <div className="text-slate-400">Owner</div>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
 };
 
 export const TaskInbox: React.FC = () => {
-  const { tasks, completeTask, claimTask, releaseTask, addTaskComment, reassignTask, updateTaskMetadata, bulkCompleteTasks, currentUser, delegations, users, navigateTo, openInstanceViewer } = useBPM();
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const { tasks, completeTask, claimTask, releaseTask, addTaskComment, bulkCompleteTasks, currentUser, delegations, navigateTo, openInstanceViewer, nav } = useBPM();
+  
+  // Use nav.selectedId to control selection
+  const selectedTask = useMemo(() => tasks.find(t => t.id === nav.selectedId) || null, [tasks, nav.selectedId]);
+  const setSelectedTask = (t: Task | null) => navigateTo('inbox', t?.id);
+
   const [commentText, setCommentText] = useState('');
   
   // View State
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
+  const [density, setDensity] = useState<'compact' | 'comfy'>('comfy');
   const [localFilter, setLocalFilter] = useState('');
   const [sortBy, setSortBy] = useState<'dueDate' | 'priority'>('dueDate');
   const [filterProcess, setFilterProcess] = useState('All');
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
-  // Modal States
-  const [showReassign, setShowReassign] = useState(false);
-  const [reassignTarget, setReassignTarget] = useState('');
-  const [showMetadata, setShowMetadata] = useState(false);
-  
-  // Metadata Form State
-  const [metaPriority, setMetaPriority] = useState<TaskPriority>(TaskPriority.MEDIUM);
-  const [metaDueDate, setMetaDueDate] = useState('');
 
   // Derived Lists
   const delegateRules = delegations.filter(d => d.toUserId === currentUser?.id && d.isActive);
@@ -138,30 +156,6 @@ export const TaskInbox: React.FC = () => {
       setSelectedIds(newSet);
   };
 
-  const openReassign = () => { setReassignTarget(''); setShowReassign(true); };
-  const handleReassign = async () => {
-      if (selectedTask && reassignTarget) {
-          await reassignTask(selectedTask.id, reassignTarget);
-          setShowReassign(false);
-          setSelectedTask(null);
-      }
-  };
-
-  const openMetadata = () => {
-      if (selectedTask) {
-          setMetaPriority(selectedTask.priority);
-          setMetaDueDate(selectedTask.dueDate.split('T')[0]);
-          setShowMetadata(true);
-      }
-  };
-
-  const handleUpdateMetadata = async () => {
-      if (selectedTask) {
-          await updateTaskMetadata(selectedTask.id, { priority: metaPriority, dueDate: new Date(metaDueDate).toISOString() });
-          setShowMetadata(false);
-      }
-  };
-
   // Grouping for Kanban
   const kanbanColumns = useMemo(() => {
       return {
@@ -172,39 +166,8 @@ export const TaskInbox: React.FC = () => {
   }, [sortedTasks]);
 
   return (
-    <div className="flex h-[calc(100vh-120px)] bg-white border border-slate-300 rounded-sm shadow-sm overflow-hidden">
+    <div className="flex h-[calc(100vh-120px)] bg-white border border-slate-300 rounded-sm shadow-sm overflow-hidden animate-fade-in">
       
-      {/* --- Modals --- */}
-      <NexModal isOpen={showReassign} onClose={() => setShowReassign(false)} title="Transfer Ownership">
-          <div className="space-y-4">
-              <NexFormGroup label="New Owner">
-                  <select className="prop-input" value={reassignTarget} onChange={e => setReassignTarget(e.target.value)}>
-                      <option value="">Select Principal...</option>
-                      {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                  </select>
-              </NexFormGroup>
-              <div className="flex justify-end">
-                  <NexButton variant="primary" onClick={handleReassign} icon={UserPlus}>Confirm Transfer</NexButton>
-              </div>
-          </div>
-      </NexModal>
-
-      <NexModal isOpen={showMetadata} onClose={() => setShowMetadata(false)} title="Task Parameters">
-          <div className="space-y-4">
-              <NexFormGroup label="Priority Level">
-                  <select className="prop-input" value={metaPriority} onChange={e => setMetaPriority(e.target.value as TaskPriority)}>
-                      {Object.values(TaskPriority).map(p => <option key={p} value={p}>{p}</option>)}
-                  </select>
-              </NexFormGroup>
-              <NexFormGroup label="Due Date">
-                  <input type="date" className="prop-input" value={metaDueDate} onChange={e => setMetaDueDate(e.target.value)} />
-              </NexFormGroup>
-              <div className="flex justify-end">
-                  <NexButton variant="primary" onClick={handleUpdateMetadata} icon={Settings}>Update Task</NexButton>
-              </div>
-          </div>
-      </NexModal>
-
       {/* LEFT SIDE: List/Kanban Container */}
       <div className={`flex flex-col border-r border-slate-200 bg-white ${selectedTask ? 'hidden lg:flex w-full lg:w-96' : 'w-full'}`}>
         <div className="p-3 border-b border-slate-200 bg-slate-50 space-y-2">
@@ -224,15 +187,23 @@ export const TaskInbox: React.FC = () => {
                 </div>
            </div>
            
-           <div className="flex gap-1">
-               <select className="flex-1 py-1 px-2 text-[10px] bg-slate-100 border border-slate-200 rounded-sm outline-none" value={sortBy} onChange={e => setSortBy(e.target.value as any)}>
-                   <option value="dueDate">By Due Date</option>
-                   <option value="priority">By Priority</option>
-               </select>
-               <select className="flex-1 py-1 px-2 text-[10px] bg-slate-100 border border-slate-200 rounded-sm outline-none" value={filterProcess} onChange={e => setFilterProcess(e.target.value)}>
-                   <option value="All">All Flows</option>
-                   {processNames.map(p => <option key={p} value={p}>{p}</option>)}
-               </select>
+           <div className="flex gap-1 justify-between items-center">
+               <div className="flex gap-1 flex-1">
+                   <select className="flex-1 py-1 px-2 text-[10px] bg-slate-100 border border-slate-200 rounded-sm outline-none" value={sortBy} onChange={e => setSortBy(e.target.value as any)}>
+                       <option value="dueDate">By Due Date</option>
+                       <option value="priority">By Priority</option>
+                   </select>
+                   <select className="flex-1 py-1 px-2 text-[10px] bg-slate-100 border border-slate-200 rounded-sm outline-none" value={filterProcess} onChange={e => setFilterProcess(e.target.value)}>
+                       <option value="All">All Flows</option>
+                       {processNames.map(p => <option key={p} value={p}>{p}</option>)}
+                   </select>
+               </div>
+               
+               {viewMode === 'list' && (
+                   <button onClick={() => setDensity(d => d === 'compact' ? 'comfy' : 'compact')} className="p-1.5 text-slate-400 hover:text-slate-800" title="Toggle Density">
+                       {density === 'compact' ? <MoreHorizontal size={14}/> : <ListIcon size={14}/>}
+                   </button>
+               )}
            </div>
            {viewMode === 'list' && (
                <button 
@@ -262,19 +233,19 @@ export const TaskInbox: React.FC = () => {
             ) : (
                 <>
                     {myTasks.length > 0 && <div className="px-4 py-2 bg-slate-100 text-[10px] font-bold text-slate-500 uppercase border-y border-slate-200">My Worklist ({myTasks.length})</div>}
-                    {myTasks.map(t => <ListItem key={t.id} task={t} isSelected={selectedTask?.id === t.id} isMultiSelectMode={multiSelectMode} isChecked={selectedIds.has(t.id)} onCheck={toggleSelection} onClick={setSelectedTask} />)}
+                    {myTasks.map(t => <ListItem key={t.id} task={t} isSelected={selectedTask?.id === t.id} isMultiSelectMode={multiSelectMode} isChecked={selectedIds.has(t.id)} isCompact={density === 'compact'} onCheck={toggleSelection} onClick={setSelectedTask} />)}
                     
                     {delegatedTasks.length > 0 && (
                         <>
                         <div className="px-4 py-2 bg-slate-100 text-[10px] font-bold text-blue-600 uppercase border-y border-slate-200 flex items-center gap-2"><ShieldAlert size={10}/> Delegated</div>
-                        {delegatedTasks.map(t => <ListItem key={t.id} task={t} isSelected={selectedTask?.id === t.id} isMultiSelectMode={multiSelectMode} isChecked={selectedIds.has(t.id)} onCheck={toggleSelection} onClick={setSelectedTask} />)}
+                        {delegatedTasks.map(t => <ListItem key={t.id} task={t} isSelected={selectedTask?.id === t.id} isMultiSelectMode={multiSelectMode} isChecked={selectedIds.has(t.id)} isCompact={density === 'compact'} onCheck={toggleSelection} onClick={setSelectedTask} />)}
                         </>
                     )}
                     
                     {unassignedTasks.length > 0 && (
                         <>
                         <div className="px-4 py-2 bg-slate-100 text-[10px] font-bold text-slate-500 uppercase border-y border-slate-200">Unassigned ({unassignedTasks.length})</div>
-                        {unassignedTasks.map(t => <ListItem key={t.id} task={t} isSelected={selectedTask?.id === t.id} isMultiSelectMode={multiSelectMode} isChecked={selectedIds.has(t.id)} onCheck={toggleSelection} onClick={setSelectedTask} />)}
+                        {unassignedTasks.map(t => <ListItem key={t.id} task={t} isSelected={selectedTask?.id === t.id} isMultiSelectMode={multiSelectMode} isChecked={selectedIds.has(t.id)} isCompact={density === 'compact'} onCheck={toggleSelection} onClick={setSelectedTask} />)}
                         </>
                     )}
                 </>
@@ -319,10 +290,10 @@ export const TaskInbox: React.FC = () => {
                 ) : (
                     <>
                         <NexButton variant="secondary" onClick={() => releaseTask(selectedTask.id)} icon={XCircle}>Release</NexButton>
-                        <NexButton variant="secondary" onClick={openReassign} icon={UserPlus}>Reassign</NexButton>
+                        <NexButton variant="secondary" onClick={() => navigateTo('task-reassign', selectedTask.id)} icon={UserPlus}>Reassign</NexButton>
                     </>
                 )}
-                <NexButton variant="secondary" onClick={openMetadata} icon={Settings}>Metadata</NexButton>
+                <NexButton variant="secondary" onClick={() => navigateTo('task-metadata', selectedTask.id)} icon={Settings}>Metadata</NexButton>
                 <div className="h-6 w-px bg-slate-300 mx-2"></div>
                 <NexButton variant="secondary" onClick={() => openInstanceViewer(selectedTask.processInstanceId)} icon={Layers}>Diagram</NexButton>
                 {selectedTask.caseId && <NexButton variant="secondary" onClick={() => navigateTo('case-viewer', selectedTask.caseId)} icon={Briefcase}>Case</NexButton>}

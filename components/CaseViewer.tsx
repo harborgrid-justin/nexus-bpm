@@ -11,21 +11,6 @@ export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
   const { cases, tasks, processes, users, navigateTo, addCaseEvent, removeCaseEvent, addCasePolicy, removeCasePolicy, addCaseStakeholder, removeCaseStakeholder, updateCase, startProcess, currentUser, openInstanceViewer } = useBPM();
   const [activeTab, setActiveTab] = useState<'timeline' | 'tasks' | 'data' | 'content'>('timeline');
   const [note, setNote] = useState('');
-  
-  // Modals
-  const [showLaunchModal, setShowLaunchModal] = useState(false);
-  const [showPolicyModal, setShowPolicyModal] = useState(false);
-  const [showStakeholderModal, setShowStakeholderModal] = useState(false);
-  const [showEditCase, setShowEditCase] = useState(false);
-
-  // Forms
-  const [newPolicy, setNewPolicy] = useState('');
-  const [newStakeholderId, setNewStakeholderId] = useState('');
-  const [newStakeholderRole, setNewStakeholderRole] = useState('Consultant');
-  const [editTitle, setEditTitle] = useState('');
-  const [editDesc, setEditDesc] = useState('');
-
-  // Data Tab State
   const [caseData, setCaseData] = useState<string>('');
 
   const currentCase = cases.find(c => c.id === caseId);
@@ -45,39 +30,6 @@ export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
     if (!note.trim()) return;
     await addCaseEvent(caseId, note);
     setNote('');
-  };
-
-  const handleLaunchWorkflow = async (procId: string) => {
-    await startProcess(procId, { summary: `Auto-launched from case: ${currentCase.title}` }, caseId);
-    setShowLaunchModal(false);
-    setActiveTab('tasks');
-  };
-
-  const handleAddPolicy = async () => {
-      if (newPolicy) {
-          await addCasePolicy(caseId, newPolicy);
-          setShowPolicyModal(false);
-          setNewPolicy('');
-      }
-  };
-
-  const handleAddStakeholder = async () => {
-      if (newStakeholderId) {
-          await addCaseStakeholder(caseId, newStakeholderId, newStakeholderRole);
-          setShowStakeholderModal(false);
-          setNewStakeholderId('');
-      }
-  };
-
-  const openEdit = () => {
-      setEditTitle(currentCase.title);
-      setEditDesc(currentCase.description);
-      setShowEditCase(true);
-  };
-
-  const handleUpdateCase = async () => {
-      await updateCase(caseId, { title: editTitle, description: editDesc });
-      setShowEditCase(false);
   };
 
   const handleCloseCase = async () => {
@@ -115,94 +67,23 @@ export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-           <button onClick={openEdit} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-sm"><Edit size={16}/></button>
+           <button onClick={() => navigateTo('edit-case', currentCase.id)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-sm"><Edit size={16}/></button>
            {currentCase.status !== 'Closed' ? (
                 <NexButton variant="danger" icon={Lock} onClick={handleCloseCase}>Close Case</NexButton>
            ) : (
                 <NexButton variant="primary" icon={RotateCcw} onClick={handleReopenCase}>Reopen</NexButton>
            )}
            <div className="h-6 w-px bg-slate-300 mx-1"></div>
-           <NexButton variant="secondary" icon={Play} onClick={() => setShowLaunchModal(true)} disabled={currentCase.status === 'Closed'}>Action</NexButton>
+           <NexButton variant="secondary" icon={Play} onClick={() => navigateTo('case-launch', currentCase.id)} disabled={currentCase.status === 'Closed'}>Action</NexButton>
         </div>
       </header>
-
-      {/* --- Modals --- */}
-      <NexModal isOpen={showEditCase} onClose={() => setShowEditCase(false)} title="Edit Case Details">
-          <div className="space-y-4">
-              <NexFormGroup label="Case Title">
-                  <input className="prop-input" value={editTitle} onChange={e => setEditTitle(e.target.value)} />
-              </NexFormGroup>
-              <NexFormGroup label="Description">
-                  <textarea className="prop-input h-32 resize-none" value={editDesc} onChange={e => setEditDesc(e.target.value)} />
-              </NexFormGroup>
-              <div className="flex justify-end">
-                  <NexButton variant="primary" onClick={handleUpdateCase} icon={Edit}>Save Changes</NexButton>
-              </div>
-          </div>
-      </NexModal>
-
-      <NexModal isOpen={showPolicyModal} onClose={() => setShowPolicyModal(false)} title="Attach Policy">
-          <div className="space-y-4">
-              <NexFormGroup label="Policy Statement">
-                  <textarea className="prop-input h-32 resize-none" value={newPolicy} onChange={e => setNewPolicy(e.target.value)} placeholder="e.g. All refunds > $500 must have VP approval..." />
-              </NexFormGroup>
-              <div className="flex justify-end">
-                  <NexButton variant="primary" onClick={handleAddPolicy} icon={ShieldCheck}>Enforce Policy</NexButton>
-              </div>
-          </div>
-      </NexModal>
-
-      <NexModal isOpen={showStakeholderModal} onClose={() => setShowStakeholderModal(false)} title="Add Stakeholder">
-          <div className="space-y-4">
-              <NexFormGroup label="Principal">
-                  <select className="prop-input" value={newStakeholderId} onChange={e => setNewStakeholderId(e.target.value)}>
-                      <option value="">Select User...</option>
-                      {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                  </select>
-              </NexFormGroup>
-              <NexFormGroup label="Case Role">
-                  <select className="prop-input" value={newStakeholderRole} onChange={e => setNewStakeholderRole(e.target.value)}>
-                      <option>Consultant</option><option>Approver</option><option>Auditor</option><option>Observer</option>
-                  </select>
-              </NexFormGroup>
-              <div className="flex justify-end">
-                  <NexButton variant="primary" onClick={handleAddStakeholder} icon={Users}>Add to Case</NexButton>
-              </div>
-          </div>
-      </NexModal>
-
-      {showLaunchModal && (
-        <div className="absolute inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-6">
-           <div className="bg-white w-full max-w-md rounded-sm border border-slate-300 p-6 shadow-xl animate-slide-up space-y-4">
-              <div className="flex justify-between items-center">
-                 <h3 className="text-lg font-bold text-slate-900">Select Blueprint</h3>
-                 <button onClick={() => setShowLaunchModal(false)} className="p-1 text-slate-400 hover:text-slate-600"><X size={18}/></button>
-              </div>
-              <div className="space-y-2 max-h-80 overflow-y-auto border-t border-b border-slate-100 py-2">
-                 {processes.map(proc => (
-                   <button 
-                     key={proc.id} 
-                     onClick={() => handleLaunchWorkflow(proc.id)}
-                     className="w-full p-3 border border-slate-200 rounded-sm flex items-center justify-between hover:border-blue-400 hover:bg-blue-50 transition-all text-left group"
-                   >
-                     <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-sm bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-blue-600 group-hover:text-white transition-all"><Layers size={16}/></div>
-                        <span className="font-bold text-xs text-slate-800">{proc.name}</span>
-                     </div>
-                     <ChevronRight size={14} className="text-slate-300 group-hover:text-blue-600" />
-                   </button>
-                 ))}
-              </div>
-           </div>
-        </div>
-      )}
 
       <div className="flex-1 flex overflow-hidden">
         <aside className="w-64 border-r border-slate-200 flex flex-col hidden xl:flex p-4 bg-slate-50 space-y-6 overflow-y-auto">
            <div>
               <div className="flex justify-between items-center mb-2">
                   <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Stakeholders</h4>
-                  <button onClick={() => setShowStakeholderModal(true)} className="text-blue-600 hover:text-blue-700"><Plus size={12}/></button>
+                  <button onClick={() => navigateTo('case-stakeholder', currentCase.id)} className="text-blue-600 hover:text-blue-700"><Plus size={12}/></button>
               </div>
               <div className="space-y-2">
                  {currentCase.stakeholders.map((sh, i) => {
@@ -226,7 +107,7 @@ export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
            <div className="space-y-3 pt-3 border-t border-slate-200">
               <div className="flex justify-between items-center mb-1">
                   <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Active Policies</h4>
-                  <button onClick={() => setShowPolicyModal(true)} className="text-blue-600 hover:text-blue-700"><Plus size={12}/></button>
+                  <button onClick={() => navigateTo('case-policy', currentCase.id)} className="text-blue-600 hover:text-blue-700"><Plus size={12}/></button>
               </div>
               <div className="space-y-2">
                   {currentCase.policies.map((pol, i) => (
