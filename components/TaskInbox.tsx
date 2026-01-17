@@ -5,7 +5,7 @@ import { useBPM } from '../contexts/BPMContext';
 import { 
   Search, CheckSquare, ShieldAlert, ChevronLeft, 
   Briefcase, Send, Layers, Clock, AlertCircle, UserPlus, Settings, Tag,
-  Filter, CheckCircle, XCircle, Play, StopCircle, Paperclip
+  Filter, CheckCircle, XCircle, Play, StopCircle, Paperclip, LayoutGrid, List as ListIcon
 } from 'lucide-react';
 import { NexBadge, NexButton, NexHistoryFeed, NexModal, NexFormGroup } from './shared/NexUI';
 
@@ -46,12 +46,33 @@ const ListItem: React.FC<ListItemProps> = ({ task, isSelected, isMultiSelectMode
   );
 };
 
+// --- Kanban Card ---
+const KanbanCard: React.FC<{ task: Task, onClick: (t: Task) => void }> = ({ task, onClick }) => {
+    return (
+        <div onClick={() => onClick(task)} className="p-3 bg-white border border-slate-200 rounded-sm shadow-sm hover:shadow-md hover:border-blue-400 cursor-pointer transition-all flex flex-col gap-2 group">
+            <div className="flex justify-between items-start">
+                <span className="text-xs font-bold text-slate-800 line-clamp-2">{task.title}</span>
+                {task.priority === TaskPriority.CRITICAL && <AlertCircle size={12} className="text-rose-600 shrink-0 mt-0.5"/>}
+            </div>
+            <div className="flex justify-between items-center mt-1">
+                <span className="text-[10px] text-slate-500 truncate max-w-[100px]">{task.processName}</span>
+                <NexBadge variant={task.priority === 'Critical' ? 'rose' : 'slate'}>{task.priority}</NexBadge>
+            </div>
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[9px] text-slate-400">
+                <span>{new Date(task.dueDate).toLocaleDateString()}</span>
+                <span className="font-bold">{task.assignee === 'Unassigned' ? 'Pool' : task.assignee.split(' ')[0]}</span>
+            </div>
+        </div>
+    );
+};
+
 export const TaskInbox: React.FC = () => {
   const { tasks, completeTask, claimTask, releaseTask, addTaskComment, reassignTask, updateTaskMetadata, bulkCompleteTasks, currentUser, delegations, users, navigateTo, openInstanceViewer } = useBPM();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [commentText, setCommentText] = useState('');
   
   // View State
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const [localFilter, setLocalFilter] = useState('');
   const [sortBy, setSortBy] = useState<'dueDate' | 'priority'>('dueDate');
   const [filterProcess, setFilterProcess] = useState('All');
@@ -141,6 +162,15 @@ export const TaskInbox: React.FC = () => {
       }
   };
 
+  // Grouping for Kanban
+  const kanbanColumns = useMemo(() => {
+      return {
+          [TaskStatus.PENDING]: sortedTasks.filter(t => t.status === TaskStatus.PENDING),
+          [TaskStatus.CLAIMED]: sortedTasks.filter(t => t.status === TaskStatus.CLAIMED),
+          [TaskStatus.IN_PROGRESS]: sortedTasks.filter(t => t.status === TaskStatus.IN_PROGRESS),
+      };
+  }, [sortedTasks]);
+
   return (
     <div className="flex h-[calc(100vh-120px)] bg-white border border-slate-300 rounded-sm shadow-sm overflow-hidden">
       
@@ -175,18 +205,25 @@ export const TaskInbox: React.FC = () => {
           </div>
       </NexModal>
 
-      {/* Master List */}
-      <div className={`w-full lg:w-80 flex flex-col border-r border-slate-200 bg-white ${selectedTask ? 'hidden lg:flex' : 'flex'}`}>
+      {/* LEFT SIDE: List/Kanban Container */}
+      <div className={`flex flex-col border-r border-slate-200 bg-white ${selectedTask ? 'hidden lg:flex w-full lg:w-96' : 'w-full'}`}>
         <div className="p-3 border-b border-slate-200 bg-slate-50 space-y-2">
-           <div className="relative">
-             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"/>
-             <input 
-                className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-sm focus:ring-1 focus:ring-blue-500 outline-none" 
-                placeholder="Filter tasks..." 
-                value={localFilter}
-                onChange={e => setLocalFilter(e.target.value)}
-             />
+           <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                    <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"/>
+                    <input 
+                        className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                        placeholder="Filter tasks..." 
+                        value={localFilter}
+                        onChange={e => setLocalFilter(e.target.value)}
+                    />
+                </div>
+                <div className="flex bg-slate-200 p-0.5 rounded-sm shrink-0">
+                    <button onClick={() => setViewMode('list')} className={`p-1 rounded-sm ${viewMode === 'list' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}><ListIcon size={14}/></button>
+                    <button onClick={() => setViewMode('kanban')} className={`p-1 rounded-sm ${viewMode === 'kanban' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}><LayoutGrid size={14}/></button>
+                </div>
            </div>
+           
            <div className="flex gap-1">
                <select className="flex-1 py-1 px-2 text-[10px] bg-slate-100 border border-slate-200 rounded-sm outline-none" value={sortBy} onChange={e => setSortBy(e.target.value as any)}>
                    <option value="dueDate">By Due Date</option>
@@ -197,52 +234,74 @@ export const TaskInbox: React.FC = () => {
                    {processNames.map(p => <option key={p} value={p}>{p}</option>)}
                </select>
            </div>
-           <button 
-             onClick={() => setMultiSelectMode(!multiSelectMode)} 
-             className={`w-full py-1 text-[10px] font-bold uppercase rounded-sm border transition-all ${multiSelectMode ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200'}`}
-           >
-             {multiSelectMode ? 'Cancel Selection' : 'Bulk Actions'}
-           </button>
+           {viewMode === 'list' && (
+               <button 
+                onClick={() => setMultiSelectMode(!multiSelectMode)} 
+                className={`w-full py-1 text-[10px] font-bold uppercase rounded-sm border transition-all ${multiSelectMode ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200'}`}
+               >
+                {multiSelectMode ? 'Cancel Selection' : 'Bulk Actions'}
+               </button>
+           )}
         </div>
 
         {/* Bulk Action Bar */}
-        {multiSelectMode && selectedIds.size > 0 && (
+        {multiSelectMode && selectedIds.size > 0 && viewMode === 'list' && (
             <div className="bg-blue-50 border-b border-blue-100 p-2 flex gap-2 justify-center animate-slide-up">
                 <button onClick={() => handleBulkAction('approve')} className="flex-1 py-1 bg-emerald-600 text-white rounded-sm text-[10px] font-bold hover:bg-emerald-700">Approve ({selectedIds.size})</button>
                 <button onClick={() => handleBulkAction('reject')} className="flex-1 py-1 bg-rose-600 text-white rounded-sm text-[10px] font-bold hover:bg-rose-700">Reject ({selectedIds.size})</button>
             </div>
         )}
 
-        <div className="flex-1 overflow-y-auto no-scrollbar">
-          {sortedTasks.length === 0 ? (
-             <div className="p-8 text-center">
-                <CheckCircle size={32} className="mx-auto text-slate-200 mb-2"/>
-                <p className="text-xs text-slate-400 font-bold uppercase">All caught up</p>
-             </div>
-          ) : (
-             <>
-                {myTasks.length > 0 && <div className="px-4 py-2 bg-slate-100 text-[10px] font-bold text-slate-500 uppercase border-y border-slate-200">My Worklist ({myTasks.length})</div>}
-                {myTasks.map(t => <ListItem key={t.id} task={t} isSelected={selectedTask?.id === t.id} isMultiSelectMode={multiSelectMode} isChecked={selectedIds.has(t.id)} onCheck={toggleSelection} onClick={setSelectedTask} />)}
-                
-                {delegatedTasks.length > 0 && (
-                    <>
-                    <div className="px-4 py-2 bg-slate-100 text-[10px] font-bold text-blue-600 uppercase border-y border-slate-200 flex items-center gap-2"><ShieldAlert size={10}/> Delegated</div>
-                    {delegatedTasks.map(t => <ListItem key={t.id} task={t} isSelected={selectedTask?.id === t.id} isMultiSelectMode={multiSelectMode} isChecked={selectedIds.has(t.id)} onCheck={toggleSelection} onClick={setSelectedTask} />)}
-                    </>
-                )}
-                
-                {unassignedTasks.length > 0 && (
-                    <>
-                    <div className="px-4 py-2 bg-slate-100 text-[10px] font-bold text-slate-500 uppercase border-y border-slate-200">Unassigned ({unassignedTasks.length})</div>
-                    {unassignedTasks.map(t => <ListItem key={t.id} task={t} isSelected={selectedTask?.id === t.id} isMultiSelectMode={multiSelectMode} isChecked={selectedIds.has(t.id)} onCheck={toggleSelection} onClick={setSelectedTask} />)}
-                    </>
-                )}
-             </>
-          )}
-        </div>
+        {viewMode === 'list' ? (
+            <div className="flex-1 overflow-y-auto no-scrollbar">
+            {sortedTasks.length === 0 ? (
+                <div className="p-8 text-center">
+                    <CheckCircle size={32} className="mx-auto text-slate-200 mb-2"/>
+                    <p className="text-xs text-slate-400 font-bold uppercase">All caught up</p>
+                </div>
+            ) : (
+                <>
+                    {myTasks.length > 0 && <div className="px-4 py-2 bg-slate-100 text-[10px] font-bold text-slate-500 uppercase border-y border-slate-200">My Worklist ({myTasks.length})</div>}
+                    {myTasks.map(t => <ListItem key={t.id} task={t} isSelected={selectedTask?.id === t.id} isMultiSelectMode={multiSelectMode} isChecked={selectedIds.has(t.id)} onCheck={toggleSelection} onClick={setSelectedTask} />)}
+                    
+                    {delegatedTasks.length > 0 && (
+                        <>
+                        <div className="px-4 py-2 bg-slate-100 text-[10px] font-bold text-blue-600 uppercase border-y border-slate-200 flex items-center gap-2"><ShieldAlert size={10}/> Delegated</div>
+                        {delegatedTasks.map(t => <ListItem key={t.id} task={t} isSelected={selectedTask?.id === t.id} isMultiSelectMode={multiSelectMode} isChecked={selectedIds.has(t.id)} onCheck={toggleSelection} onClick={setSelectedTask} />)}
+                        </>
+                    )}
+                    
+                    {unassignedTasks.length > 0 && (
+                        <>
+                        <div className="px-4 py-2 bg-slate-100 text-[10px] font-bold text-slate-500 uppercase border-y border-slate-200">Unassigned ({unassignedTasks.length})</div>
+                        {unassignedTasks.map(t => <ListItem key={t.id} task={t} isSelected={selectedTask?.id === t.id} isMultiSelectMode={multiSelectMode} isChecked={selectedIds.has(t.id)} onCheck={toggleSelection} onClick={setSelectedTask} />)}
+                        </>
+                    )}
+                </>
+            )}
+            </div>
+        ) : (
+            <div className="flex-1 overflow-x-auto p-4 bg-slate-100 flex gap-4 min-w-0">
+                {[TaskStatus.PENDING, TaskStatus.CLAIMED, TaskStatus.IN_PROGRESS].map(status => (
+                    <div key={status} className="flex-1 min-w-[200px] flex flex-col h-full">
+                        <h4 className="text-[10px] font-bold text-slate-500 uppercase mb-2 flex justify-between">
+                            {status} <span className="bg-slate-200 px-1.5 rounded-full text-slate-600">{kanbanColumns[status]?.length || 0}</span>
+                        </h4>
+                        <div className="flex-1 bg-slate-100/50 rounded-sm overflow-y-auto space-y-2 pr-1">
+                            {(kanbanColumns[status] || []).map(t => (
+                                <KanbanCard key={t.id} task={t} onClick={setSelectedTask} />
+                            ))}
+                            {(kanbanColumns[status]?.length || 0) === 0 && (
+                                <div className="text-center py-8 text-slate-300 italic text-[10px] border border-dashed border-slate-300 rounded-sm">Empty</div>
+                            )}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        )}
       </div>
 
-      {/* Detail View */}
+      {/* RIGHT SIDE: Detail View */}
       <div className={`flex-1 flex flex-col bg-slate-50 ${selectedTask ? 'flex' : 'hidden lg:flex'}`}>
         {selectedTask ? (
           <>

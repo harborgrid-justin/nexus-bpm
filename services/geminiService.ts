@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { ProcessStep } from '../types';
+import { ProcessStep, BusinessRule } from '../types';
 
 const getClient = () => {
   if (!process.env.API_KEY) return null;
@@ -125,4 +125,45 @@ export const getProcessInsights = async (processData: any): Promise<string> => {
   } catch (error) {
     return "Analyzing workflow topology... focus on parallel gateway synchronization.";
   }
+};
+
+export const generateRuleFromText = async (prompt: string): Promise<Partial<BusinessRule>> => {
+  const ai = getClient();
+  if (!ai) throw new Error("AI not configured");
+
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `Translate this natural language business rule into a structured JSON object compatible with a rules engine.
+    User Input: "${prompt}"
+    
+    Structure:
+    - Conditions: nested groups (AND/OR). Operators: eq, neq, gt, lt, contains.
+    - Action: SET_VARIABLE, ROUTE_TO, or SEND_NOTIFICATION.
+    
+    Example Output:
+    {
+      "name": "High Value Invoice",
+      "description": "Auto-route high value invoices to CFO",
+      "conditions": { "id": "g1", "type": "AND", "children": [{ "id": "c1", "fact": "amount", "operator": "gt", "value": 50000 }] },
+      "action": { "type": "ROUTE_TO", "params": { "role": "CFO" } },
+      "priority": 1
+    }`,
+    config: {
+      responseMimeType: "application/json"
+    }
+  });
+
+  return JSON.parse(response.text || '{}');
+};
+
+export const explainRuleLogic = async (rule: BusinessRule): Promise<string> => {
+  const ai = getClient();
+  if (!ai) return "Logic explanation unavailable.";
+
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `Explain this business rule logic in one clear, professional sentence for a non-technical manager: ${JSON.stringify(rule)}`
+  });
+
+  return response.text || "Logic evaluation pending.";
 };

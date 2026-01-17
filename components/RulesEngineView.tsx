@@ -5,10 +5,12 @@ import { BusinessRule, RuleCondition, RuleAction, DecisionTable, Condition, Cond
 import { 
   FunctionSquare, Plus, BrainCircuit, Table, TestTube, Trash2, Save, 
   Upload, Play, GitMerge, MoreVertical, X, FileJson, Copy, 
-  ChevronRight, List, PenTool, Database, Code, Sparkles, PlusCircle, Search
+  ChevronRight, List, PenTool, Database, Code, Sparkles, PlusCircle, Search,
+  MessageSquare, Zap, Activity, Info
 } from 'lucide-react';
 import { produce } from 'immer';
-import { NexButton } from './shared/NexUI';
+import { NexButton, NexModal, NexFormGroup } from './shared/NexUI';
+import { generateRuleFromText, explainRuleLogic } from '../services/geminiService';
 
 // --- Reusable UI Components ---
 const RuleInput = ({ value, onChange, ...props }: any) => (
@@ -52,14 +54,12 @@ const generateConditionSummary = (condition: Condition): string => {
     return `"${condition.fact}" ${operatorToText(condition.operator)} "${condition.value}"`;
 };
 
-// --- Empty State Component ---
-const EmptyAssetSlot = ({ label, icon: Icon, onAdd }: { label: string, icon: React.ElementType, onAdd: () => void }) => (
-  <div className="p-6 border border-dashed border-slate-300 rounded-sm bg-slate-50 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-100 transition-all" onClick={onAdd}>
-    <Icon size={24} className="text-slate-300 mb-2" />
-    <p className="text-[10px] font-bold text-slate-500 uppercase mb-3">{label}</p>
-    <NexButton variant="secondary" onClick={(e) => { e.stopPropagation(); onAdd(); }} icon={Plus}>Create</NexButton>
-  </div>
-);
+// --- Test Case Interface ---
+interface TestCase {
+    id: string;
+    name: string;
+    input: string; // JSON string
+}
 
 // --- Live Test Panel Component ---
 const LiveTestPanel = ({ ruleId, rules, decisionTables }: { ruleId: string | null, rules: BusinessRule[], decisionTables: DecisionTable[] }) => {
@@ -67,6 +67,13 @@ const LiveTestPanel = ({ ruleId, rules, decisionTables }: { ruleId: string | nul
     const [inputData, setInputData] = useState('{\n  "invoice": {\n    "amount": 7500,\n    "region": "EMEA"\n  }\n}');
     const [output, setOutput] = useState<any>(null);
     const [isRunning, setIsRunning] = useState(false);
+    
+    // Saved Test Cases State
+    const [testCases, setTestCases] = useState<TestCase[]>([
+        { id: 'tc-1', name: 'Standard EMEA Invoice', input: '{\n  "invoice": {\n    "amount": 7500,\n    "region": "EMEA"\n  }\n}' },
+        { id: 'tc-2', name: 'High Value Fraud Check', input: '{\n  "invoice": {\n    "amount": 99000,\n    "isNew": true\n  }\n}' }
+    ]);
+    const [saveName, setSaveName] = useState('');
 
     const handleSimulate = async () => {
         if (!ruleId) return;
@@ -81,24 +88,56 @@ const LiveTestPanel = ({ ruleId, rules, decisionTables }: { ruleId: string | nul
             setIsRunning(false);
         }
     };
+
+    const loadTestCase = (tc: TestCase) => {
+        setInputData(tc.input);
+    };
+
+    const saveTestCase = () => {
+        if (!saveName) return;
+        setTestCases([...testCases, { id: `tc-${Date.now()}`, name: saveName, input: inputData }]);
+        setSaveName('');
+    };
     
     return (
         <div className="flex flex-col h-full bg-slate-50 border-l border-slate-300">
             <div className="p-3 border-b border-slate-200 bg-white">
-              <h3 className="text-xs font-bold text-slate-700 uppercase flex items-center gap-2"><TestTube size={14}/> Execution Sandbox</h3>
+              <h3 className="text-xs font-bold text-slate-700 uppercase flex items-center gap-2"><TestTube size={14}/> QA Laboratory</h3>
             </div>
-            <div className="p-4 space-y-4 flex-1 flex flex-col min-h-0 overflow-y-auto">
+            
+            <div className="p-4 space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto">
+                
+                {/* Saved Tests */}
+                <div className="space-y-2">
+                    <h4 className="text-[10px] font-bold text-slate-500 uppercase">Test Suite Library</h4>
+                    <div className="space-y-1">
+                        {testCases.map(tc => (
+                            <div key={tc.id} onClick={() => loadTestCase(tc)} className="flex items-center justify-between p-2 bg-white border border-slate-200 rounded-sm cursor-pointer hover:border-blue-400 group">
+                                <span className="text-xs font-medium text-slate-700">{tc.name}</span>
+                                <Play size={10} className="text-slate-300 group-hover:text-blue-600"/>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="flex gap-1 mt-2">
+                        <input className="prop-input py-1 text-[10px]" placeholder="New test name..." value={saveName} onChange={e => setSaveName(e.target.value)} />
+                        <NexButton size="sm" onClick={saveTestCase} icon={Save} disabled={!saveName}></NexButton>
+                    </div>
+                </div>
+
+                <div className="h-px bg-slate-200 w-full"></div>
+
                 <div className="space-y-1 flex-1 flex flex-col">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Input Vector (JSON)</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Live Input Vector (JSON)</label>
                     <textarea 
                       value={inputData} 
                       onChange={e => setInputData(e.target.value)} 
-                      className="flex-1 w-full bg-white text-slate-700 p-3 rounded-sm font-mono text-xs border border-slate-300 outline-none focus:border-blue-500 transition-all resize-none" 
+                      className="flex-1 w-full bg-white text-slate-700 p-3 rounded-sm font-mono text-xs border border-slate-300 outline-none focus:border-blue-500 transition-all resize-none min-h-[150px]" 
                     />
                 </div>
+                
                 <div className="space-y-1 flex-1 flex flex-col">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Result</label>
-                    <div className="flex-1 bg-white border border-slate-300 rounded-sm p-3 font-mono text-xs overflow-auto relative group">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Result Output</label>
+                    <div className={`flex-1 bg-white border rounded-sm p-3 font-mono text-xs overflow-auto relative ${output?.matched ? 'border-emerald-400 bg-emerald-50/10' : 'border-slate-300'}`}>
                         {output ? (
                           <pre className="text-slate-800">{JSON.stringify(output, null, 2)}</pre>
                         ) : (
@@ -199,7 +238,18 @@ interface RuleBuilderProps {
 
 const RuleBuilder: React.FC<RuleBuilderProps> = ({ rule, onSave, onDelete }) => {
     const [localRule, setLocalRule] = useState<BusinessRule>(rule);
+    const { processes } = useBPM();
+    const [explanation, setExplanation] = useState('');
+    const [generatingExplanation, setGeneratingExplanation] = useState(false);
+
     const summary = useMemo(() => generateConditionSummary(localRule.conditions), [localRule.conditions]);
+
+    // Calculate Dependencies
+    const usedInProcesses = useMemo(() => {
+        return processes.filter(p => 
+            p.steps.some(s => s.businessRuleId === rule.id || s.data?.ruleId === rule.id)
+        );
+    }, [rule.id, processes]);
 
     const updateRule = (updater: (draft: BusinessRule) => void) => {
         const nextState = produce(localRule, updater);
@@ -215,6 +265,13 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({ rule, onSave, onDelete }) => 
     });
 
     const handleSave = () => onSave(localRule);
+
+    const handleExplain = async () => {
+        setGeneratingExplanation(true);
+        const text = await explainRuleLogic(localRule);
+        setExplanation(text);
+        setGeneratingExplanation(false);
+    };
 
     return (
         <div className="p-6 space-y-8 animate-fade-in pb-20">
@@ -238,8 +295,17 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({ rule, onSave, onDelete }) => 
                 </div>
             </div>
 
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-sm font-mono text-xs text-slate-700 leading-relaxed">
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-sm font-mono text-xs text-slate-700 leading-relaxed relative group">
                <span className="text-blue-600 font-bold">IF</span> {summary} <span className="text-blue-600 font-bold">THEN</span> {localRule.action.type}
+               <button onClick={handleExplain} className="absolute right-2 top-2 p-1.5 bg-white border border-slate-200 rounded text-slate-400 hover:text-blue-600 shadow-sm opacity-0 group-hover:opacity-100 transition-all flex items-center gap-2">
+                   <MessageSquare size={12}/> Explain
+               </button>
+               {explanation && (
+                   <div className="mt-2 pt-2 border-t border-slate-200 text-slate-600 italic flex items-start gap-2">
+                       <BotIcon className="shrink-0 text-blue-500" />
+                       {explanation}
+                   </div>
+               )}
             </div>
 
             <section className="space-y-4">
@@ -274,11 +340,36 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({ rule, onSave, onDelete }) => 
                       </div>
                     </div>
                   )}
+                  {localRule.action.type === 'ROUTE_TO' && (
+                    <div className="space-y-1">
+                        <label className="prop-label">Target Role / Group</label>
+                        <input placeholder="e.g. 'Approver' or 'CFO'" value={localRule.action.params.role || localRule.action.params.group || ''} onChange={(e) => updateActionParam('role', e.target.value)} className="prop-input" />
+                    </div>
+                  )}
               </div>
+            </section>
+
+            <section className="space-y-2 pt-4 border-t border-slate-200">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Dependency Graph</h4>
+                {usedInProcesses.length === 0 ? (
+                    <p className="text-xs text-slate-400 italic">No active processes trigger this rule.</p>
+                ) : (
+                    <div className="flex flex-wrap gap-2">
+                        {usedInProcesses.map(p => (
+                            <div key={p.id} className="flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-100 rounded-sm text-blue-700 text-xs font-medium">
+                                <Activity size={12}/> {p.name}
+                            </div>
+                        ))}
+                    </div>
+                )}
             </section>
         </div>
     );
 };
+
+const BotIcon = ({ className }: { className?: string }) => (
+    <Sparkles size={14} className={className} />
+);
 
 // --- Visual Table Builder (Simplified) ---
 interface TableBuilderProps {
@@ -350,6 +441,11 @@ export const RulesEngineView: React.FC = () => {
     const { rules, decisionTables, saveRule, deleteRule, saveDecisionTable, deleteDecisionTable, reseedSystem } = useBPM();
     const [selectedAsset, setSelectedAsset] = useState<{type: 'rule' | 'table', id: string} | null>(null);
     const [search, setSearch] = useState('');
+    
+    // AI Modal State
+    const [showAiModal, setShowAiModal] = useState(false);
+    const [aiPrompt, setAiPrompt] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
 
     const createNew = (type: 'rule' | 'table') => {
         if (type === 'rule') {
@@ -373,6 +469,30 @@ export const RulesEngineView: React.FC = () => {
         }
     };
     
+    const handleAiGenerate = async () => {
+        if (!aiPrompt.trim()) return;
+        setIsGenerating(true);
+        try {
+            const rulePart = await generateRuleFromText(aiPrompt);
+            const newRule: BusinessRule = {
+                id: `rule-${Date.now()}`,
+                name: rulePart.name || 'AI Generated Rule',
+                description: rulePart.description || aiPrompt,
+                conditions: (rulePart.conditions as ConditionGroup) || { id: `g-${Date.now()}`, type: 'AND', children: [] },
+                action: (rulePart.action as RuleAction) || { type: 'SET_VARIABLE', params: {} },
+                priority: rulePart.priority || 1
+            };
+            await saveRule(newRule);
+            setSelectedAsset({ type: 'rule', id: newRule.id });
+            setShowAiModal(false);
+            setAiPrompt('');
+        } catch (e) {
+            alert('Failed to generate rule. Please try again.');
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+    
     const handleDelete = (id: string) => {
         if (selectedAsset?.type === 'rule') deleteRule(id);
         else deleteDecisionTable(id);
@@ -382,7 +502,6 @@ export const RulesEngineView: React.FC = () => {
     const filteredRules = rules.filter(r => r.name.toLowerCase().includes(search.toLowerCase()));
     const filteredTables = decisionTables.filter(t => t.name.toLowerCase().includes(search.toLowerCase()));
 
-    // FIX: Safely retrieve current asset, preventing null check errors on ID access
     const currentAsset = selectedAsset 
         ? (selectedAsset.type === 'rule' 
             ? rules.find(r => r.id === selectedAsset.id) 
@@ -391,12 +510,31 @@ export const RulesEngineView: React.FC = () => {
 
     return (
         <div className="h-[calc(100vh-140px)] flex flex-col md:flex-row bg-white rounded-sm border border-slate-300 overflow-hidden shadow-sm animate-fade-in">
+            {/* AI Generator Modal */}
+            <NexModal isOpen={showAiModal} onClose={() => setShowAiModal(false)} title="Generate Logic with AI">
+                <div className="space-y-4">
+                    <p className="text-xs text-slate-500">Describe your business rule in natural language. The engine will structure it automatically.</p>
+                    <textarea 
+                        className="prop-input h-32 resize-none" 
+                        placeholder="e.g., If the invoice amount is greater than 50,000 and the vendor is new, route to the CFO for approval."
+                        value={aiPrompt}
+                        onChange={e => setAiPrompt(e.target.value)}
+                    />
+                    <div className="flex justify-end">
+                        <NexButton variant="primary" icon={Sparkles} onClick={handleAiGenerate} disabled={isGenerating}>
+                            {isGenerating ? 'Synthesizing...' : 'Generate Rule'}
+                        </NexButton>
+                    </div>
+                </div>
+            </NexModal>
+
             {/* Assets Sidebar */}
             <aside className="w-full md:w-72 bg-slate-50 border-r border-slate-300 flex flex-col shrink-0">
                 <div className="p-3 border-b border-slate-200 bg-white">
                     <div className="flex items-center justify-between mb-2">
                         <h3 className="text-xs font-bold text-slate-800 uppercase">Library</h3>
                         <div className="flex gap-1">
+                            <IconButton icon={Sparkles} onClick={() => setShowAiModal(true)} tooltip="AI Generate" className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white hover:text-white shadow-sm border-blue-600" />
                             <IconButton icon={BrainCircuit} onClick={() => createNew('rule')} tooltip="New Rule" className="bg-white border border-slate-300 shadow-sm" />
                             <IconButton icon={Table} onClick={() => createNew('table')} tooltip="New Table" className="bg-white border border-slate-300 shadow-sm" />
                         </div>

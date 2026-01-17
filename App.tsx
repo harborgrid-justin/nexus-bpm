@@ -4,7 +4,7 @@ import {
   LayoutDashboard, CheckSquare, PenTool, BarChart3, Menu, X, Bell, 
   Search, Layers, Settings as SettingsIcon, ShieldCheck, 
   Fingerprint, Briefcase, FunctionSquare, Info, CheckCircle, AlertCircle, ChevronRight, Loader2,
-  Plus, Zap, MoreHorizontal, UserCircle, Sparkles, ChevronDown, Database, LogIn
+  Plus, Zap, MoreHorizontal, UserCircle, Sparkles, ChevronDown, Database, LogIn, Command
 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { TaskInbox } from './components/TaskInbox';
@@ -21,6 +21,7 @@ import { ProcessInstanceViewer } from './components/ProcessInstanceViewer';
 import { CaseManagerView } from './components/CaseManagerView';
 import { CaseViewer } from './components/CaseViewer';
 import { RulesEngineView } from './components/RulesEngineView';
+import { CommandPalette } from './components/CommandPalette';
 import { ViewState } from './types';
 import { BPMProvider, useBPM } from './contexts/BPMContext';
 import { NexButton } from './components/shared/NexUI';
@@ -181,6 +182,9 @@ const AppContent: React.FC = () => {
               <input className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-sm w-64 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="Global Search (ID, Task, Case)..." />
             </div>
             <div className="h-4 w-px bg-slate-300 mx-1"></div>
+            <div className="flex items-center gap-2 text-xs text-slate-400 font-medium px-2 py-1 bg-slate-50 rounded border border-slate-200 hidden lg:flex">
+               <Command size={10} /> + K
+            </div>
             <button className="text-slate-500 hover:text-blue-600 transition-colors relative">
               <Bell size={18}/>
               {notifications.length > 0 && (
@@ -200,6 +204,7 @@ const AppContent: React.FC = () => {
       </div>
 
       <DevToolbar />
+      <CommandPalette />
       <ToastContainer />
       {viewingInstanceId && <ProcessInstanceViewer instanceId={viewingInstanceId} onClose={closeInstanceViewer} />}
     </div>
