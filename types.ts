@@ -103,6 +103,10 @@ export interface Task {
   isAdHoc: boolean;
   caseId?: string;
   triggerSource?: 'Manual' | 'Rule' | 'System' | 'Escalation';
+  // New Features
+  tags?: string[];
+  isStarred?: boolean;
+  snoozeUntil?: string;
 }
 
 export type ProcessStepType = 

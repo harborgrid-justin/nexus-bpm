@@ -68,6 +68,9 @@ interface BPMContextType {
   updateTaskMetadata: (taskId: string, updates: Partial<Task>) => Promise<void>;
   addTaskComment: (taskId: string, text: string) => Promise<void>;
   bulkCompleteTasks: (taskIds: string[], action: 'approve' | 'reject') => Promise<void>;
+  toggleTaskStar: (taskId: string) => Promise<void>;
+  snoozeTask: (taskId: string, until: string) => Promise<void>;
+  createAdHocTask: (title: string, priority?: TaskPriority) => Promise<void>;
   
   // Case Management
   createCase: (title: string, description: string) => Promise<string>;
@@ -410,6 +413,16 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const task = state.tasks.find(t => t.id === taskId);
     if (!task) return;
 
+    // Handle Ad-Hoc Task
+    if (task.isAdHoc) {
+        const updatedTask = { ...task, status: TaskStatus.COMPLETED };
+        await dbService.add('tasks', updatedTask);
+        setState(produce(draft => { draft.tasks = draft.tasks.map(t => t.id === taskId ? updatedTask : t); }));
+        addAudit('TASK_COMPLETE', 'Task', taskId, `Resolved ad-hoc task: ${task.title}`);
+        addNotification('success', 'Task completed.');
+        return;
+    }
+
     const instance = state.instances.find(i => i.id === task.processInstanceId);
     if (!instance) return;
 
@@ -527,6 +540,46 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           await completeTask(id, action, `Bulk ${action} applied.`);
       }
       addNotification('success', `Bulk action processed for ${taskIds.length} tasks.`);
+  };
+
+  const toggleTaskStar = async (taskId: string) => {
+      const t = state.tasks.find(t => t.id === taskId);
+      if(t) {
+          const ut = { ...t, isStarred: !t.isStarred };
+          await dbService.add('tasks', ut);
+          setState(produce(draft => { draft.tasks = draft.tasks.map(x => x.id === taskId ? ut : x); }));
+      }
+  };
+
+  const snoozeTask = async (taskId: string, until: string) => {
+      const t = state.tasks.find(t => t.id === taskId);
+      if(t) {
+          const ut = { ...t, snoozeUntil: until };
+          await dbService.add('tasks', ut);
+          setState(produce(draft => { draft.tasks = draft.tasks.map(x => x.id === taskId ? ut : x); }));
+          addNotification('info', 'Task snoozed.');
+      }
+  };
+
+  const createAdHocTask = async (title: string, priority: TaskPriority = TaskPriority.MEDIUM) => {
+      if(!state.currentUser) return;
+      const newTask: Task = {
+          id: `task-adhoc-${Date.now()}`,
+          title,
+          processName: 'Ad-Hoc',
+          processInstanceId: 'adhoc',
+          assignee: state.currentUser.id,
+          candidateRoles: [], candidateGroups: [], requiredSkills: [],
+          dueDate: new Date(Date.now() + 86400000).toISOString(), // Tomorrow
+          status: TaskStatus.PENDING,
+          priority,
+          description: 'Quick task created by user',
+          stepId: 'adhoc',
+          comments: [], attachments: [], isAdHoc: true
+      };
+      await dbService.add('tasks', newTask);
+      setState(produce(draft => { draft.tasks.unshift(newTask); }));
+      addNotification('success', 'Task created');
   };
 
   // --- Case Methods ---
@@ -748,7 +801,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addNotification, removeNotification,
     deployProcess, updateProcess, deleteProcess, toggleProcessState,
     startProcess, suspendInstance, terminateInstance,
-    completeTask, claimTask, releaseTask, reassignTask, updateTaskMetadata, addTaskComment, bulkCompleteTasks,
+    completeTask, claimTask, releaseTask, reassignTask, updateTaskMetadata, addTaskComment, bulkCompleteTasks, toggleTaskStar, snoozeTask, createAdHocTask,
     createCase, updateCase, deleteCase, addCaseEvent, removeCaseEvent, addCasePolicy, removeCasePolicy, addCaseStakeholder, removeCaseStakeholder,
     createUser, updateUser, deleteUser, createRole, updateRole, deleteRole, createGroup, updateGroup, deleteGroup,
     createDelegation, revokeDelegation,
