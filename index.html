@@ -13,6 +13,7 @@
       :root {
         /* --- 1. PALETTE TOKENS --- */
         --brand-slate: #1e293b;
+        --brand-dark: #0f172a; /* slate-950 */
         --brand-blue: #0284c7;
         --brand-blue-hover: #0369a1;
         
@@ -22,6 +23,7 @@
         --surface-panel: #ffffff;
         --surface-subtle: #f8fafc; /* slate-50 */
         --surface-hover: #f1f5f9; /* slate-100 */
+        --surface-active: #eff6ff; /* blue-50 */
         
         /* Borders */
         --border-subtle: #e2e8f0; /* slate-200 */
@@ -41,7 +43,9 @@
 
         /* --- 2. DIMENSION TOKENS --- */
         --header-height: 56px;
+        --toolbar-height: 48px;
         --sidebar-width: 256px;
+        --inbox-list-width: 420px;
         --prop-panel-width: 288px;
         --node-width: 200px;
         --node-height: 80px;
@@ -82,6 +86,8 @@
       .bg-canvas { background-color: var(--surface-canvas); }
       .bg-panel { background-color: var(--surface-panel); }
       .bg-subtle { background-color: var(--surface-subtle); }
+      .bg-active { background-color: var(--surface-active); }
+      .bg-brand-slate { background-color: var(--brand-slate); }
       
       /* Borders */
       .border-subtle { border-color: var(--border-subtle); }
@@ -97,9 +103,8 @@
       /* Dimensions */
       .h-header { height: var(--header-height); }
       .w-sidebar { width: var(--sidebar-width); }
-      .w-node { width: var(--node-width); }
-      .h-node { height: var(--node-height); }
-      .top-header { top: var(--header-height); }
+      .w-inbox-list { width: var(--inbox-list-width); }
+      .h-content-area { height: calc(100vh - var(--header-height) - 48px); } /* Approximate content height */
       
       /* Z-Index */
       .z-sticky { z-index: var(--z-sticky); }

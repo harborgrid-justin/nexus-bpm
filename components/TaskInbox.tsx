@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Task, TaskStatus, TaskPriority } from '../types';
 import { useBPM } from '../contexts/BPMContext';
@@ -28,43 +29,43 @@ const getRelativeTime = (isoString: string) => {
 const TaskTableRow = ({ task, isSelected, onToggle, onClick, onStar, onSnooze }: any) => {
     const isOverdue = new Date(task.dueDate) < new Date();
     return (
-        <tr onClick={() => onClick(task)} className={`group border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer text-xs ${isSelected ? 'bg-blue-50/50' : ''}`}>
+        <tr onClick={() => onClick(task)} className={`group border-b border-subtle hover:bg-subtle transition-colors cursor-pointer text-base ${isSelected ? 'bg-active' : ''}`}>
             <td className="p-3 w-10 text-center" onClick={e => e.stopPropagation()}>
-                <input type="checkbox" checked={isSelected} onChange={() => onToggle(task.id)} className="rounded-sm border-slate-300 text-blue-600 focus:ring-blue-500" />
+                <input type="checkbox" checked={isSelected} onChange={() => onToggle(task.id)} className="rounded-base border-default text-blue-600 focus:ring-blue-500" />
             </td>
             <td className="p-3 w-8 text-center" onClick={e => { e.stopPropagation(); onStar(task.id); }}>
-                <Star size={14} className={task.isStarred ? "fill-amber-400 text-amber-400" : "text-slate-300 group-hover:text-slate-400"} />
+                <Star size={14} className={task.isStarred ? "fill-amber-400 text-amber-400" : "text-tertiary group-hover:text-secondary"} />
             </td>
-            <td className="p-3 font-medium text-slate-800">
+            <td className="p-3 font-medium text-primary">
                 <div className="flex flex-col">
                     <span>{task.title}</span>
-                    {task.isAdHoc && <span className="text-[9px] text-amber-600 italic">Ad-Hoc</span>}
+                    {task.isAdHoc && <span className="text-xs text-amber-600 italic">Ad-Hoc</span>}
                 </div>
             </td>
             <td className="p-3">
-                <span className={`px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase ${
+                <span className={`px-2 py-0.5 rounded-base text-xs font-bold uppercase ${
                     task.priority === 'Critical' ? 'bg-rose-100 text-rose-700' : 
-                    task.priority === 'High' ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-600'
+                    task.priority === 'High' ? 'bg-orange-100 text-orange-700' : 'bg-subtle text-secondary'
                 }`}>
                     {task.priority}
                 </span>
             </td>
-            <td className="p-3 text-slate-500 truncate max-w-[120px]">{task.processName}</td>
+            <td className="p-3 text-secondary truncate max-w-[120px]">{task.processName}</td>
             <td className="p-3">
-                <div className={`flex items-center gap-1 ${isOverdue ? 'text-rose-600 font-bold' : 'text-slate-600'}`}>
+                <div className={`flex items-center gap-1 ${isOverdue ? 'text-rose-600 font-bold' : 'text-secondary'}`}>
                     <Clock size={12}/> {getRelativeTime(task.dueDate)}
                 </div>
             </td>
             <td className="p-3">
                <div className="flex items-center gap-2">
-                   <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[9px] font-bold text-slate-600">
+                   <div className="w-5 h-5 rounded-full bg-subtle flex items-center justify-center text-xs font-bold text-secondary border border-default">
                        {task.assignee === 'Unassigned' ? '?' : task.assignee.charAt(0)}
                    </div>
-                   <span className="truncate max-w-[80px]">{task.assignee}</span>
+                   <span className="truncate max-w-[80px] text-secondary">{task.assignee}</span>
                </div>
             </td>
             <td className="p-3 w-10 text-right opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
-                <button onClick={() => onSnooze(task.id)} className="p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-slate-700"><PauseCircle size={14}/></button>
+                <button onClick={() => onSnooze(task.id)} className="p-1 hover:bg-subtle rounded-base text-tertiary hover:text-primary"><PauseCircle size={14}/></button>
             </td>
         </tr>
     );
@@ -77,35 +78,35 @@ const TaskListItem = ({ task, isSelected, isChecked, isCompact, onCheck, onClick
   return (
     <div 
       onClick={() => onClick(task)}
-      className={`border-b border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors group flex items-start gap-3 relative ${isCompact ? 'px-3 py-2' : 'px-4 py-3'} ${isSelected ? 'bg-blue-50 border-l-4 border-l-blue-600 pl-2' : 'border-l-4 border-l-transparent pl-3'}`}
+      className={`border-b border-subtle cursor-pointer hover:bg-subtle transition-colors group flex items-start gap-3 relative ${isCompact ? 'px-3 py-2' : 'px-4 py-3'} ${isSelected ? 'bg-active border-l-4 border-l-blue-600 pl-2' : 'border-l-4 border-l-transparent pl-3'}`}
     >
       <div className="pt-1 flex flex-col gap-2 items-center" onClick={e => e.stopPropagation()}>
-          <input type="checkbox" checked={isChecked} onChange={() => onCheck(task.id)} className="rounded-sm border-slate-300 text-blue-600 focus:ring-blue-500" />
+          <input type="checkbox" checked={isChecked} onChange={() => onCheck(task.id)} className="rounded-base border-default text-blue-600 focus:ring-blue-500" />
           <button onClick={() => onStar(task.id)} className="opacity-0 group-hover:opacity-100 transition-opacity">
-             <Star size={12} className={task.isStarred ? "fill-amber-400 text-amber-400 opacity-100" : "text-slate-300"} />
+             <Star size={12} className={task.isStarred ? "fill-amber-400 text-amber-400 opacity-100" : "text-tertiary"} />
           </button>
       </div>
       
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-start mb-0.5">
             <div className="flex items-center gap-2">
-                <span className={`font-bold truncate pr-2 ${isCompact ? 'text-xs' : 'text-sm'} ${isSelected ? 'text-blue-800' : 'text-slate-800'}`}>
+                <span className={`font-bold truncate pr-2 ${isCompact ? 'text-base' : 'text-sm'} ${isSelected ? 'text-blue-800' : 'text-primary'}`}>
                     {task.title}
                 </span>
-                {task.isAdHoc && <span className="bg-amber-100 text-amber-700 text-[9px] px-1 rounded font-bold">ADHOC</span>}
-                {task.tags?.map((t: string) => <span key={t} className="bg-slate-100 text-slate-500 text-[9px] px-1 rounded border border-slate-200">{t}</span>)}
+                {task.isAdHoc && <span className="bg-amber-100 text-amber-700 text-xs px-1 rounded-base font-bold">ADHOC</span>}
+                {task.tags?.map((t: string) => <span key={t} className="bg-subtle text-secondary text-xs px-1 rounded-base border border-default">{t}</span>)}
             </div>
             <div className="flex items-center gap-1">
-               {(task.attachments?.length ?? 0) > 0 && <Paperclip size={12} className="text-slate-400"/>}
+               {(task.attachments?.length ?? 0) > 0 && <Paperclip size={12} className="text-tertiary"/>}
                {task.priority === TaskPriority.CRITICAL && <AlertCircle size={14} className="text-rose-600 shrink-0 animate-pulse"/>}
             </div>
         </div>
         
-        <div className="flex justify-between items-center text-[10px] text-slate-500">
+        <div className="flex justify-between items-center text-xs text-secondary">
             <span className="truncate max-w-[150px] flex items-center gap-1"><Layers size={10}/> {task.processName}</span>
             <div className="flex items-center gap-2">
                 <span className={`${isOverdue ? 'text-rose-600 font-bold' : ''}`}>{getRelativeTime(task.dueDate)}</span>
-                <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 font-medium border border-slate-200">{task.status}</span>
+                <span className="bg-subtle px-1.5 py-0.5 rounded-base text-secondary font-medium border border-default">{task.status}</span>
             </div>
         </div>
       </div>
@@ -116,21 +117,21 @@ const TaskListItem = ({ task, isSelected, isChecked, isCompact, onCheck, onClick
 // --- Kanban Card ---
 const KanbanCard = ({ task, onClick, onStar }: any) => {
     return (
-        <div onClick={() => onClick(task)} className="p-3 bg-white border border-slate-200 rounded-sm shadow-sm hover:shadow-md hover:border-blue-400 cursor-pointer transition-all flex flex-col gap-2 group relative">
+        <div onClick={() => onClick(task)} className="p-3 bg-panel border border-default rounded-base shadow-sm hover:shadow-md hover:border-active cursor-pointer transition-all flex flex-col gap-2 group relative">
             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => { e.stopPropagation(); onStar(task.id); }}>
-                <Star size={12} className={task.isStarred ? "fill-amber-400 text-amber-400 opacity-100" : "text-slate-300"} />
+                <Star size={12} className={task.isStarred ? "fill-amber-400 text-amber-400 opacity-100" : "text-tertiary"} />
             </div>
             <div className="flex justify-between items-start pr-4">
-                <span className="text-xs font-bold text-slate-800 line-clamp-2">{task.title}</span>
+                <span className="text-sm font-bold text-primary line-clamp-2">{task.title}</span>
             </div>
             <div className="flex justify-between items-center mt-1">
-                <span className="text-[10px] text-slate-500 truncate max-w-[100px]">{task.processName}</span>
+                <span className="text-xs text-secondary truncate max-w-[100px]">{task.processName}</span>
                 <NexBadge variant={task.priority === 'Critical' ? 'rose' : 'slate'}>{task.priority}</NexBadge>
             </div>
-            <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[9px] text-slate-400">
+            <div className="pt-2 border-t border-subtle flex items-center justify-between text-xs text-tertiary">
                 <span>{getRelativeTime(task.dueDate)}</span>
                 <div className="flex items-center gap-1">
-                    <div className="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center font-bold text-[8px] border border-slate-200">
+                    <div className="w-4 h-4 rounded-full bg-subtle flex items-center justify-center font-bold text-[8px] border border-default">
                         {task.assignee === 'Unassigned' ? '?' : task.assignee.charAt(0)}
                     </div>
                 </div>
@@ -262,23 +263,23 @@ export const TaskInbox: React.FC = () => {
   // --- Rendering ---
 
   return (
-    <div className="flex h-[calc(100vh-100px)] bg-slate-50 border border-slate-300 rounded-sm shadow-sm overflow-hidden animate-fade-in">
+    <div className="flex h-content-area bg-canvas border border-default rounded-base shadow-sm overflow-hidden animate-fade-in">
       
-      {/* LEFT PANE: TASK LIST (Flexible Width) */}
-      <div className={`flex flex-col border-r border-slate-200 bg-white transition-all duration-300 ${selectedTask ? 'w-[450px] shrink-0 hidden xl:flex' : 'w-full'}`}>
+      {/* LEFT PANE: TASK LIST (Token Width) */}
+      <div className={`flex flex-col border-r border-default bg-panel transition-all duration-300 ${selectedTask ? 'w-inbox-list shrink-0 hidden xl:flex' : 'w-full'}`}>
         
         {/* 1. Header & Tabs */}
-        <div className="pt-3 px-3 bg-white border-b border-slate-200">
+        <div className="pt-3 px-3 bg-panel border-b border-subtle">
             <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2"><CheckSquare size={18} className="text-blue-600"/> Task Inbox</h2>
+                <h2 className="text-lg font-bold text-primary flex items-center gap-2"><CheckSquare size={18} className="text-blue-600"/> Task Inbox</h2>
                 <div className="flex gap-1">
-                    <button onClick={() => setViewMode('list')} title="List View" className={`p-1.5 rounded-sm ${viewMode === 'list' ? 'bg-blue-50 text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}><ListIcon size={16}/></button>
-                    <button onClick={() => setViewMode('table')} title="Table View" className={`p-1.5 rounded-sm ${viewMode === 'table' ? 'bg-blue-50 text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}><TableIcon size={16}/></button>
-                    <button onClick={() => setViewMode('kanban')} title="Kanban View" className={`p-1.5 rounded-sm ${viewMode === 'kanban' ? 'bg-blue-50 text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}><LayoutGrid size={16}/></button>
+                    <button onClick={() => setViewMode('list')} title="List View" className={`p-1.5 rounded-base ${viewMode === 'list' ? 'bg-active text-blue-600' : 'text-tertiary hover:text-secondary'}`}><ListIcon size={16}/></button>
+                    <button onClick={() => setViewMode('table')} title="Table View" className={`p-1.5 rounded-base ${viewMode === 'table' ? 'bg-active text-blue-600' : 'text-tertiary hover:text-secondary'}`}><TableIcon size={16}/></button>
+                    <button onClick={() => setViewMode('kanban')} title="Kanban View" className={`p-1.5 rounded-base ${viewMode === 'kanban' ? 'bg-active text-blue-600' : 'text-tertiary hover:text-secondary'}`}><LayoutGrid size={16}/></button>
                 </div>
             </div>
             
-            <div className="flex gap-6 text-xs font-bold text-slate-500 uppercase tracking-wide">
+            <div className="flex gap-6 text-xs font-bold text-secondary uppercase tracking-wide">
                 {[ 
                     { id: 'my', label: 'My Work' }, 
                     { id: 'team', label: 'Team Queue' }, 
@@ -288,7 +289,7 @@ export const TaskInbox: React.FC = () => {
                     <button 
                         key={tab.id} 
                         onClick={() => setActiveTab(tab.id as any)} 
-                        className={`pb-2 border-b-2 transition-colors ${activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent hover:text-slate-800'}`}
+                        className={`pb-2 border-b-2 transition-colors ${activeTab === tab.id ? 'border-active text-blue-600' : 'border-transparent hover:text-primary'}`}
                     >
                         {tab.label}
                     </button>
@@ -297,12 +298,12 @@ export const TaskInbox: React.FC = () => {
         </div>
 
         {/* 2. Toolbar & Quick Actions */}
-        <div className="p-2 bg-slate-50 border-b border-slate-200 space-y-2">
+        <div className="p-2 bg-subtle border-b border-subtle space-y-2">
             {/* Quick Create AdHoc */}
             <form onSubmit={handleQuickCreate} className="relative">
-                <Plus size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"/>
+                <Plus size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-tertiary"/>
                 <input 
-                    className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                    className="w-full pl-8 pr-3 py-1.5 text-xs border border-default rounded-base focus:ring-1 focus:ring-blue-500 outline-none" 
                     placeholder="Quick add personal task..." 
                     value={quickTaskTitle}
                     onChange={e => setQuickTaskTitle(e.target.value)}
@@ -311,9 +312,9 @@ export const TaskInbox: React.FC = () => {
 
             <div className="flex gap-2">
                 <div className="relative flex-1">
-                    <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"/>
+                    <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-tertiary"/>
                     <input 
-                        className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-sm outline-none" 
+                        className="w-full pl-8 pr-3 py-1.5 text-xs bg-panel border border-default rounded-base outline-none" 
                         placeholder="Search..." 
                         value={localSearch}
                         onChange={e => setLocalSearch(e.target.value)}
@@ -322,13 +323,13 @@ export const TaskInbox: React.FC = () => {
                 {/* Filter Chips */}
                 <button 
                     onClick={() => setQuickFilter(f => f === 'Critical' ? null : 'Critical')}
-                    className={`px-2 py-1 rounded-sm text-[10px] font-bold border ${quickFilter === 'Critical' ? 'bg-rose-100 text-rose-700 border-rose-200' : 'bg-white text-slate-500 border-slate-200'}`}
+                    className={`px-2 py-1 rounded-base text-xs font-bold border ${quickFilter === 'Critical' ? 'bg-rose-100 text-rose-700 border-rose-200' : 'bg-panel text-secondary border-default'}`}
                 >
                     Critical
                 </button>
                 <button 
                     onClick={() => setQuickFilter(f => f === 'Overdue' ? null : 'Overdue')}
-                    className={`px-2 py-1 rounded-sm text-[10px] font-bold border ${quickFilter === 'Overdue' ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-white text-slate-500 border-slate-200'}`}
+                    className={`px-2 py-1 rounded-base text-xs font-bold border ${quickFilter === 'Overdue' ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-panel text-secondary border-default'}`}
                 >
                     Overdue
                 </button>
@@ -336,22 +337,22 @@ export const TaskInbox: React.FC = () => {
 
             {/* Bulk Toolbar */}
             {selectedIds.size > 0 && (
-                <div className="flex items-center justify-between bg-blue-600 text-white px-3 py-1.5 rounded-sm shadow-md animate-slide-up">
-                    <span className="text-[10px] font-bold">{selectedIds.size} Selected</span>
+                <div className="flex items-center justify-between bg-blue-600 text-white px-3 py-1.5 rounded-base shadow-md animate-slide-up">
+                    <span className="text-xs font-bold">{selectedIds.size} Selected</span>
                     <div className="flex gap-2">
-                        <button onClick={() => handleBulkAction('complete')} className="hover:bg-blue-500 p-1 rounded"><CheckSquare size={14}/></button>
-                        <button onClick={() => handleBulkAction('claim')} className="hover:bg-blue-500 p-1 rounded"><UserPlus size={14}/></button>
-                        <button onClick={() => handleBulkAction('release')} className="hover:bg-blue-500 p-1 rounded"><XCircle size={14}/></button>
-                        <button onClick={handleExport} className="hover:bg-blue-500 p-1 rounded"><Download size={14}/></button>
+                        <button onClick={() => handleBulkAction('complete')} className="hover:bg-blue-500 p-1 rounded-base"><CheckSquare size={14}/></button>
+                        <button onClick={() => handleBulkAction('claim')} className="hover:bg-blue-500 p-1 rounded-base"><UserPlus size={14}/></button>
+                        <button onClick={() => handleBulkAction('release')} className="hover:bg-blue-500 p-1 rounded-base"><XCircle size={14}/></button>
+                        <button onClick={handleExport} className="hover:bg-blue-500 p-1 rounded-base"><Download size={14}/></button>
                     </div>
                 </div>
             )}
         </div>
 
         {/* 3. Task List Area */}
-        <div className="flex-1 overflow-y-auto bg-white min-h-0">
+        <div className="flex-1 overflow-y-auto bg-panel min-h-0">
             {viewMode === 'list' && (
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-subtle">
                     {filteredTasks.map(t => (
                         <TaskListItem 
                             key={t.id} 
@@ -369,7 +370,7 @@ export const TaskInbox: React.FC = () => {
 
             {viewMode === 'table' && (
                 <table className="w-full text-left border-collapse">
-                    <thead className="bg-slate-50 sticky top-0 z-10 text-[10px] font-bold text-slate-500 uppercase border-b border-slate-200">
+                    <thead className="bg-subtle sticky top-0 z-10 text-xs font-bold text-secondary uppercase border-b border-subtle">
                         <tr>
                             <th className="p-3 w-10 text-center"><input type="checkbox" onChange={toggleSelectAll} checked={selectedIds.size === filteredTasks.length && filteredTasks.length > 0} /></th>
                             <th className="p-3 w-8"></th>
@@ -397,11 +398,11 @@ export const TaskInbox: React.FC = () => {
             )}
 
             {viewMode === 'kanban' && (
-                <div className="flex gap-4 p-4 h-full overflow-x-auto bg-slate-100">
+                <div className="flex gap-4 p-4 h-full overflow-x-auto bg-canvas">
                     {[TaskStatus.PENDING, TaskStatus.CLAIMED, TaskStatus.IN_PROGRESS].map(status => (
                         <div key={status} className="flex-1 min-w-[200px] flex flex-col h-full">
-                            <h4 className="text-[10px] font-bold text-slate-500 uppercase mb-2 flex justify-between bg-slate-200 px-2 py-1 rounded-sm">
-                                {status} <span className="bg-white px-1.5 rounded-full text-slate-600">{filteredTasks.filter(t => t.status === status).length}</span>
+                            <h4 className="text-xs font-bold text-secondary uppercase mb-2 flex justify-between bg-subtle px-2 py-1 rounded-base border border-subtle">
+                                {status} <span className="bg-panel px-1.5 rounded-full text-primary border border-default">{filteredTasks.filter(t => t.status === status).length}</span>
                             </h4>
                             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
                                 {filteredTasks.filter(t => t.status === status).map(t => (
@@ -414,47 +415,47 @@ export const TaskInbox: React.FC = () => {
             )}
 
             {filteredTasks.length === 0 && (
-                <div className="flex flex-col items-center justify-center h-64 text-slate-400">
+                <div className="flex flex-col items-center justify-center h-64 text-tertiary">
                     <CheckSquare size={32} className="mb-2 opacity-50"/>
                     <p className="text-xs font-bold uppercase">No tasks found</p>
                 </div>
             )}
         </div>
         
-        <div className="p-2 border-t border-slate-200 bg-slate-50 text-[10px] text-slate-500 font-medium flex justify-between items-center">
+        <div className="p-2 border-t border-default bg-subtle text-xs text-secondary font-medium flex justify-between items-center">
             <span>{filteredTasks.length} items</span>
             <button onClick={() => setDensity(d => d === 'compact' ? 'comfy' : 'compact')} className="hover:text-blue-600">{density === 'compact' ? 'Comfy View' : 'Compact View'}</button>
         </div>
       </div>
 
       {/* RIGHT PANE: TASK PREVIEW (Fixed Width) */}
-      <div className={`flex-1 bg-slate-50 flex flex-col border-l border-slate-200 transition-all duration-300 ${!selectedTask ? 'hidden xl:hidden' : 'flex'}`}>
+      <div className={`flex-1 bg-subtle flex flex-col border-l border-default transition-all duration-300 ${!selectedTask ? 'hidden xl:hidden' : 'flex'}`}>
         {selectedTask ? (
           <>
-            <div className="h-12 bg-white border-b border-slate-200 flex items-center justify-between px-4 shadow-sm shrink-0">
+            <div className="h-12 bg-panel border-b border-subtle flex items-center justify-between px-4 shadow-sm shrink-0">
                <div className="flex items-center gap-2">
                    <button onClick={() => setSelectedTask(null)} className="xl:hidden mr-2"><ChevronLeft size={18}/></button>
                    <NexBadge variant={selectedTask.priority === 'Critical' ? 'rose' : 'blue'}>{selectedTask.priority}</NexBadge>
-                   <span className="text-xs text-slate-400 font-mono">{selectedTask.id}</span>
+                   <span className="text-xs text-tertiary font-mono">{selectedTask.id}</span>
                </div>
                <div className="flex items-center gap-1">
-                   <button onClick={() => navigateTo('task-reassign', selectedTask.id)} title="Reassign" className="p-1.5 hover:bg-slate-100 rounded text-slate-500"><UserPlus size={16}/></button>
-                   <button onClick={() => navigateTo('task-metadata', selectedTask.id)} title="Edit Metadata" className="p-1.5 hover:bg-slate-100 rounded text-slate-500"><Settings size={16}/></button>
-                   <button onClick={() => handleSnooze(selectedTask.id)} title="Snooze" className="p-1.5 hover:bg-slate-100 rounded text-slate-500"><PauseCircle size={16}/></button>
-                   <div className="h-4 w-px bg-slate-300 mx-1"></div>
-                   <button onClick={() => setSelectedTask(null)} title="Close Preview" className="p-1.5 hover:bg-slate-100 rounded text-slate-500"><X size={16}/></button>
+                   <button onClick={() => navigateTo('task-reassign', selectedTask.id)} title="Reassign" className="p-1.5 hover:bg-subtle rounded-base text-secondary"><UserPlus size={16}/></button>
+                   <button onClick={() => navigateTo('task-metadata', selectedTask.id)} title="Edit Metadata" className="p-1.5 hover:bg-subtle rounded-base text-secondary"><Settings size={16}/></button>
+                   <button onClick={() => handleSnooze(selectedTask.id)} title="Snooze" className="p-1.5 hover:bg-subtle rounded-base text-secondary"><PauseCircle size={16}/></button>
+                   <div className="h-4 w-px bg-default mx-1"></div>
+                   <button onClick={() => setSelectedTask(null)} title="Close Preview" className="p-1.5 hover:bg-subtle rounded-base text-secondary"><X size={16}/></button>
                </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
-               <div className="bg-white p-6 rounded-sm border border-slate-300 shadow-sm mb-4">
-                   <h2 className="text-lg font-bold text-slate-900 mb-2 leading-tight">{selectedTask.title}</h2>
-                   <div className="flex items-center gap-4 text-xs text-slate-500 mb-4 pb-4 border-b border-slate-100">
+               <div className="bg-panel p-6 rounded-base border border-default shadow-sm mb-4">
+                   <h2 className="text-lg font-bold text-primary mb-2 leading-tight">{selectedTask.title}</h2>
+                   <div className="flex items-center gap-4 text-xs text-secondary mb-4 pb-4 border-b border-subtle">
                        <span className="flex items-center gap-1"><Layers size={12}/> {selectedTask.processName}</span>
                        <span className="flex items-center gap-1"><User size={12}/> {selectedTask.assignee}</span>
                        <span className="flex items-center gap-1"><Calendar size={12}/> {new Date(selectedTask.dueDate).toLocaleDateString()}</span>
                    </div>
-                   <p className="text-sm text-slate-700 leading-relaxed mb-4">{selectedTask.description || "No description provided."}</p>
+                   <p className="text-base text-primary leading-relaxed mb-4">{selectedTask.description || "No description provided."}</p>
                    
                    {/* Context Actions */}
                    <div className="flex gap-2">
@@ -474,29 +475,29 @@ export const TaskInbox: React.FC = () => {
                </div>
 
                {/* Activity Stream */}
-               <div className="bg-white rounded-sm border border-slate-300 shadow-sm flex flex-col">
-                   <div className="p-3 bg-slate-50 border-b border-slate-200">
-                       <h3 className="text-xs font-bold text-slate-700 uppercase">Discussion</h3>
+               <div className="bg-panel rounded-base border border-default shadow-sm flex flex-col">
+                   <div className="p-3 bg-subtle border-b border-subtle">
+                       <h3 className="text-xs font-bold text-secondary uppercase">Discussion</h3>
                    </div>
                    <div className="p-4 flex-1">
                        <NexHistoryFeed history={selectedTask.comments} />
                    </div>
-                   <div className="p-3 border-t border-slate-200 bg-slate-50 flex gap-2">
+                   <div className="p-3 border-t border-subtle bg-subtle flex gap-2">
                        <input 
-                           className="flex-1 bg-white border border-slate-300 rounded-sm px-3 text-xs outline-none focus:border-blue-500"
+                           className="flex-1 bg-panel border border-default rounded-base px-3 text-base outline-none focus:border-blue-500"
                            placeholder="Type a comment..."
                            value={commentText}
                            onChange={e => setCommentText(e.target.value)}
                            onKeyDown={e => e.key === 'Enter' && (addTaskComment(selectedTask.id, commentText), setCommentText(''))}
                        />
-                       <button onClick={() => { addTaskComment(selectedTask.id, commentText); setCommentText(''); }} className="p-2 bg-blue-600 text-white rounded-sm hover:bg-blue-700"><Send size={14}/></button>
+                       <button onClick={() => { addTaskComment(selectedTask.id, commentText); setCommentText(''); }} className="p-2 bg-blue-600 text-white rounded-base hover:bg-blue-700"><Send size={14}/></button>
                    </div>
                </div>
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
-             <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center mb-4">
+          <div className="flex-1 flex flex-col items-center justify-center text-tertiary">
+             <div className="w-16 h-16 bg-subtle rounded-full flex items-center justify-center mb-4 border border-default">
                  <LayoutGrid size={32} className="opacity-50"/>
              </div>
              <p className="text-sm font-medium">Select a task to view details</p>

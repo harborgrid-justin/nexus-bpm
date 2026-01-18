@@ -37,7 +37,7 @@ const IconButton = ({ icon: Icon, onClick, tooltip, className, disabled }: any) 
       onClick={onClick} 
       title={tooltip} 
       disabled={disabled}
-      className={`p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 rounded-sm transition-all border border-transparent disabled:opacity-50 ${className}`}
+      className={`p-2 text-secondary hover:bg-subtle hover:text-primary rounded-base transition-all border border-transparent disabled:opacity-50 ${className}`}
     >
         <Icon size={16} />
     </button>
@@ -109,55 +109,55 @@ const LiveTestPanel = ({ ruleId, rules, decisionTables }: { ruleId: string | nul
     };
     
     return (
-        <div className="flex flex-col h-full bg-slate-50 border-l border-slate-300">
-            <div className="p-3 border-b border-slate-200 bg-white">
-              <h3 className="text-xs font-bold text-slate-700 uppercase flex items-center gap-2"><TestTube size={14}/> QA Laboratory</h3>
+        <div className="flex flex-col h-full bg-subtle">
+            <div className="p-3 border-b border-default bg-panel">
+              <h3 className="text-xs font-bold text-secondary uppercase flex items-center gap-2"><TestTube size={14}/> QA Laboratory</h3>
             </div>
             
             <div className="p-4 space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto">
                 
                 {/* Saved Tests */}
                 <div className="space-y-2">
-                    <h4 className="text-[10px] font-bold text-slate-500 uppercase">Test Suite Library</h4>
+                    <h4 className="text-xs font-bold text-secondary uppercase">Test Suite Library</h4>
                     <div className="space-y-1">
                         {testCases.map(tc => (
-                            <div key={tc.id} onClick={() => loadTestCase(tc)} className="flex items-center justify-between p-2 bg-white border border-slate-200 rounded-sm cursor-pointer hover:border-blue-400 group">
-                                <span className="text-xs font-medium text-slate-700">{tc.name}</span>
-                                <Play size={10} className="text-slate-300 group-hover:text-blue-600"/>
+                            <div key={tc.id} onClick={() => loadTestCase(tc)} className="flex items-center justify-between p-2 bg-panel border border-default rounded-base cursor-pointer hover:border-active group">
+                                <span className="text-xs font-medium text-primary">{tc.name}</span>
+                                <Play size={10} className="text-tertiary group-hover:text-blue-600"/>
                             </div>
                         ))}
                     </div>
                     <div className="flex gap-1 mt-2">
-                        <input className="prop-input py-1 text-[10px]" placeholder="New test name..." value={saveName} onChange={e => setSaveName(e.target.value)} />
+                        <input className="prop-input py-1 text-xs" placeholder="New test name..." value={saveName} onChange={e => setSaveName(e.target.value)} />
                         <NexButton size="sm" onClick={saveTestCase} icon={Save} disabled={!saveName}></NexButton>
                     </div>
                 </div>
 
-                <div className="h-px bg-slate-200 w-full"></div>
+                <div className="h-px bg-default w-full"></div>
 
                 <div className="space-y-1 flex-1 flex flex-col">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Live Input Vector (JSON)</label>
+                    <label className="text-xs font-bold text-secondary uppercase">Live Input Vector (JSON)</label>
                     <textarea 
                       value={inputData} 
                       onChange={e => setInputData(e.target.value)} 
-                      className="flex-1 w-full bg-white text-slate-700 p-3 rounded-sm font-mono text-xs border border-slate-300 outline-none focus:border-blue-500 transition-all resize-none min-h-[150px]" 
+                      className="flex-1 w-full bg-panel text-primary p-3 rounded-base font-mono text-xs border border-default outline-none focus:border-active transition-all resize-none min-h-[150px]" 
                     />
                 </div>
                 
                 <div className="space-y-1 flex-1 flex flex-col">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Result Output</label>
-                    <div className={`flex-1 bg-white border rounded-sm p-3 font-mono text-xs overflow-auto relative ${output?.matched ? 'border-emerald-400 bg-emerald-50/10' : 'border-slate-300'}`}>
+                    <label className="text-xs font-bold text-secondary uppercase">Result Output</label>
+                    <div className={`flex-1 bg-panel border rounded-base p-3 font-mono text-xs overflow-auto relative ${output?.matched ? 'border-emerald-400 bg-emerald-50/10' : 'border-default'}`}>
                         {output ? (
-                          <pre className="text-slate-800">{JSON.stringify(output, null, 2)}</pre>
+                          <pre className="text-primary">{JSON.stringify(output, null, 2)}</pre>
                         ) : (
-                          <div className="h-full flex flex-col items-center justify-center text-slate-300 italic">
+                          <div className="h-full flex flex-col items-center justify-center text-tertiary italic">
                             Awaiting Execution...
                           </div>
                         )}
                     </div>
                 </div>
             </div>
-            <div className="p-4 border-t border-slate-200 bg-white">
+            <div className="p-4 border-t border-default bg-panel">
                 <NexButton variant="primary" onClick={handleSimulate} disabled={!ruleId || isRunning} className="w-full" icon={Play}>Run Simulation</NexButton>
             </div>
         </div>
@@ -166,7 +166,7 @@ const LiveTestPanel = ({ ruleId, rules, decisionTables }: { ruleId: string | nul
 
 // --- Condition Components ---
 const ConditionEditor = ({ condition, onUpdate, onDelete }: { condition: RuleCondition, onUpdate: (c: RuleCondition) => void, onDelete: () => void }) => (
-    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2 bg-slate-50 border border-slate-200 rounded-sm">
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2 bg-subtle border border-default rounded-base">
         <div className="flex-1">
           <RuleInput placeholder="fact (e.g. invoice.amount)" value={condition.fact} onChange={(val: string) => onUpdate({ ...condition, fact: val })} />
         </div>
@@ -177,7 +177,7 @@ const ConditionEditor = ({ condition, onUpdate, onDelete }: { condition: RuleCon
         </div>
         <div className="flex-1 flex gap-2">
           <RuleInput placeholder="Value" value={condition.value} onChange={(val: string) => onUpdate({ ...condition, value: val })} />
-          <button onClick={onDelete} className="p-2 bg-white border border-slate-300 text-rose-500 hover:bg-rose-50 hover:border-rose-300 rounded-sm"><X size={14}/></button>
+          <button onClick={onDelete} className="p-2 bg-panel border border-default text-rose-500 hover:bg-rose-50 hover:border-rose-300 rounded-base"><X size={14}/></button>
         </div>
     </div>
 );
@@ -211,20 +211,20 @@ const ConditionGroupEditor = ({ group, onUpdate, path }: { group: ConditionGroup
     });
 
     return (
-        <div className={`p-4 rounded-sm space-y-3 border ${group.type === 'AND' ? 'bg-blue-50/10 border-blue-200' : 'bg-amber-50/10 border-amber-200'}`}>
+        <div className={`p-4 rounded-base space-y-3 border ${group.type === 'AND' ? 'bg-blue-50/10 border-blue-200' : 'bg-amber-50/10 border-amber-200'}`}>
             <div className="flex items-center justify-between">
                 <button 
                   onClick={toggleType} 
-                  className={`px-3 py-1 rounded-sm text-[10px] font-bold uppercase transition-all border ${group.type === 'AND' ? 'bg-blue-600 text-white border-blue-700' : 'bg-amber-500 text-white border-amber-600'}`}
+                  className={`px-3 py-1 rounded-base text-xs font-bold uppercase transition-all border ${group.type === 'AND' ? 'bg-blue-600 text-white border-blue-700' : 'bg-amber-500 text-white border-amber-600'}`}
                 >
                   {group.type}
                 </button>
                 <div className="flex items-center gap-2">
-                    <NexButton variant="secondary" onClick={addCondition} icon={Plus} className="text-[10px] py-1">Condition</NexButton>
-                    <NexButton variant="secondary" onClick={addGroup} icon={GitMerge} className="text-[10px] py-1">Group</NexButton>
+                    <NexButton variant="secondary" onClick={addCondition} icon={Plus} className="text-xs py-1">Condition</NexButton>
+                    <NexButton variant="secondary" onClick={addGroup} icon={GitMerge} className="text-xs py-1">Group</NexButton>
                 </div>
             </div>
-            <div className="pl-4 space-y-2 border-l-2 border-slate-200">
+            <div className="pl-4 space-y-2 border-l-2 border-default">
                 {group.children.map((child, i) => (
                     <div key={child.id}>
                         {'children' in child 
@@ -297,71 +297,71 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({ rule, onSave, onDelete, isFul
 
     return (
         <div className={`p-6 space-y-8 animate-fade-in ${isFullscreen ? 'h-full overflow-y-auto' : 'pb-20'}`}>
-            <div className="flex justify-between items-start gap-6 border-b border-slate-200 pb-6">
+            <div className="flex justify-between items-start gap-6 border-b border-default pb-6">
                 <div className="flex-1 w-full space-y-2">
                     <div className="flex items-center gap-2">
                         <input 
                         value={localRule.name} 
                         onChange={e => updateRule(draft => { draft.name = e.target.value })} 
-                        className="text-xl font-bold text-slate-900 bg-transparent border-b border-transparent focus:border-blue-500 outline-none pb-1" 
+                        className="text-xl font-bold text-primary bg-transparent border-b border-transparent focus:border-active outline-none pb-1" 
                         />
-                        <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-mono rounded-sm border border-slate-200">v{localRule.version?.toFixed(1) || '1.0'}</span>
-                        <button onClick={() => updateRule(d => { d.status = d.status === 'Active' ? 'Draft' : 'Active' })} className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-sm border ${localRule.status === 'Active' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
+                        <span className="px-2 py-0.5 bg-subtle text-secondary text-xs font-mono rounded-base border border-default">v{localRule.version?.toFixed(1) || '1.0'}</span>
+                        <button onClick={() => updateRule(d => { d.status = d.status === 'Active' ? 'Draft' : 'Active' })} className={`px-2 py-0.5 text-xs font-bold uppercase rounded-base border ${localRule.status === 'Active' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>
                             {localRule.status || 'Draft'}
                         </button>
                     </div>
                     <textarea 
                       value={localRule.description} 
                       onChange={e => updateRule(draft => { draft.description = e.target.value })} 
-                      className="w-full text-xs text-slate-500 bg-transparent outline-none resize-none" 
+                      className="w-full text-xs text-secondary bg-transparent outline-none resize-none" 
                       placeholder="Enter rule description..."
                     />
                     <div className="flex items-center gap-2">
                         {localRule.tags?.map(t => (
-                            <span key={t} className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[10px] border border-blue-100">
+                            <span key={t} className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs border border-blue-100">
                                 <Tag size={10}/> {t} <button onClick={() => removeTag(t)}><X size={10}/></button>
                             </span>
                         ))}
                         <div className="flex items-center gap-1">
-                            <input className="bg-transparent border-b border-slate-200 text-[10px] w-20 outline-none" placeholder="+ Tag" value={newTag} onChange={e => setNewTag(e.target.value)} onKeyDown={e => e.key === 'Enter' && addTag()} />
+                            <input className="bg-transparent border-b border-default text-xs w-20 outline-none" placeholder="+ Tag" value={newTag} onChange={e => setNewTag(e.target.value)} onKeyDown={e => e.key === 'Enter' && addTag()} />
                         </div>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                    <button onClick={toggleFullscreen} className="p-2 text-slate-400 hover:text-slate-700"><Maximize2 size={16}/></button>
-                    <div className="h-6 w-px bg-slate-200 mx-2"></div>
+                    <button onClick={toggleFullscreen} className="p-2 text-tertiary hover:text-primary"><Maximize2 size={16}/></button>
+                    <div className="h-6 w-px bg-default mx-2"></div>
                     <NexButton variant="danger" onClick={() => onDelete(rule.id)} icon={Trash2}>Delete</NexButton>
                     <NexButton variant="primary" onClick={handleSave} icon={Save}>Deploy</NexButton>
                 </div>
             </div>
 
             <div className="flex gap-4">
-                <div className="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-sm font-mono text-xs text-slate-700 leading-relaxed relative group">
+                <div className="flex-1 p-4 bg-subtle border border-default rounded-base font-mono text-xs text-primary leading-relaxed relative group">
                     <span className="text-blue-600 font-bold">IF</span> {summary} <span className="text-blue-600 font-bold">THEN</span> {localRule.action.type}
-                    <button onClick={handleExplain} className="absolute right-2 top-2 p-1.5 bg-white border border-slate-200 rounded text-slate-400 hover:text-blue-600 shadow-sm opacity-0 group-hover:opacity-100 transition-all flex items-center gap-2">
+                    <button onClick={handleExplain} className="absolute right-2 top-2 p-1.5 bg-panel border border-default rounded text-tertiary hover:text-blue-600 shadow-sm opacity-0 group-hover:opacity-100 transition-all flex items-center gap-2">
                         <MessageSquare size={12}/> Explain
                     </button>
                     {explanation && (
-                        <div className="mt-2 pt-2 border-t border-slate-200 text-slate-600 italic flex items-start gap-2">
+                        <div className="mt-2 pt-2 border-t border-default text-secondary italic flex items-start gap-2">
                             <BotIcon className="shrink-0 text-blue-500" />
                             {explanation}
                         </div>
                     )}
                 </div>
-                <div className="w-40 p-4 border border-slate-200 rounded-sm flex flex-col items-center justify-center">
+                <div className="w-40 p-4 border border-default rounded-base flex flex-col items-center justify-center">
                     <div className={`text-2xl font-black ${complexity > 10 ? 'text-rose-500' : 'text-emerald-500'}`}>{complexity}</div>
-                    <div className="text-[10px] text-slate-400 uppercase font-bold">Complexity</div>
+                    <div className="text-xs text-secondary uppercase font-bold">Complexity</div>
                 </div>
             </div>
 
             <section className="space-y-4">
-              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Conditions</h4>
+              <h4 className="text-xs font-bold text-primary uppercase tracking-wider">Conditions</h4>
               <ConditionGroupEditor group={localRule.conditions} onUpdate={handleConditionsUpdate} path="conditions" />
             </section>
 
             <section className="space-y-4">
-              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Action</h4>
-              <div className="p-4 border border-slate-300 rounded-sm space-y-4 bg-white">
+              <h4 className="text-xs font-bold text-primary uppercase tracking-wider">Action</h4>
+              <div className="p-4 border border-default rounded-base space-y-4 bg-panel">
                   <div className="space-y-1">
                     <label className="prop-label">Type</label>
                     <select 
@@ -395,14 +395,14 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({ rule, onSave, onDelete, isFul
               </div>
             </section>
 
-            <section className="space-y-2 pt-4 border-t border-slate-200">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Dependency Graph</h4>
+            <section className="space-y-2 pt-4 border-t border-default">
+                <h4 className="text-xs font-bold text-tertiary uppercase tracking-wider mb-2">Dependency Graph</h4>
                 {usedInProcesses.length === 0 ? (
-                    <p className="text-xs text-slate-400 italic">No active processes trigger this rule.</p>
+                    <p className="text-xs text-tertiary italic">No active processes trigger this rule.</p>
                 ) : (
                     <div className="flex flex-wrap gap-2">
                         {usedInProcesses.map(p => (
-                            <div key={p.id} className="flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-100 rounded-sm text-blue-700 text-xs font-medium">
+                            <div key={p.id} className="flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-100 rounded-base text-blue-700 text-xs font-medium">
                                 <Activity size={12}/> {p.name}
                             </div>
                         ))}
@@ -477,17 +477,17 @@ const TableBuilder: React.FC<TableBuilderProps> = ({ table, onSave, onDelete, is
 
     return (
         <div className={`p-6 space-y-6 ${isFullscreen ? 'h-full overflow-y-auto' : ''}`}>
-            <div className="flex justify-between items-start border-b border-slate-200 pb-4">
+            <div className="flex justify-between items-start border-b border-default pb-4">
                 <div className="flex-1">
-                    <input className="text-xl font-bold text-slate-900 bg-transparent outline-none w-full" value={localTable.name} onChange={e => updateTable(d => {d.name = e.target.value})} />
+                    <input className="text-xl font-bold text-primary bg-transparent outline-none w-full" value={localTable.name} onChange={e => updateTable(d => {d.name = e.target.value})} />
                     <div className="flex gap-2 mt-1">
-                        <span className="text-xs text-slate-500 font-mono">v{localTable.version || 1}</span>
+                        <span className="text-xs text-secondary font-mono">v{localTable.version || 1}</span>
                         <NexBadge variant={localTable.status === 'Active' ? 'emerald' : 'slate'}>{localTable.status || 'Draft'}</NexBadge>
                     </div>
                 </div>
                 <div className="flex gap-2">
-                    <button onClick={toggleFullscreen} className="p-2 text-slate-400 hover:text-slate-700"><Maximize2 size={16}/></button>
-                    <div className="h-6 w-px bg-slate-200 mx-2"></div>
+                    <button onClick={toggleFullscreen} className="p-2 text-tertiary hover:text-primary"><Maximize2 size={16}/></button>
+                    <div className="h-6 w-px bg-default mx-2"></div>
                     <NexButton variant="secondary" onClick={handleExportCSV} icon={Download}>Export CSV</NexButton>
                     <NexButton variant="secondary" onClick={() => fileInputRef.current?.click()} icon={Upload}>Import CSV</NexButton>
                     <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleImportCSV} />
@@ -496,28 +496,28 @@ const TableBuilder: React.FC<TableBuilderProps> = ({ table, onSave, onDelete, is
                 </div>
             </div>
             
-            <div className="overflow-x-auto border border-slate-300 rounded-sm">
+            <div className="overflow-x-auto border border-default rounded-base">
                 <table className="w-full text-xs text-left">
-                    <thead className="bg-slate-50 border-b border-slate-200">
+                    <thead className="bg-subtle border-b border-default">
                         <tr>
-                            <th className="w-10 p-2 border-r border-slate-200"></th>
+                            <th className="w-10 p-2 border-r border-default"></th>
                             {localTable.inputs.map((col, i) => (
-                                <th key={`in-${i}`} className="p-2 border-r border-slate-200 bg-blue-50/50 text-blue-900 font-bold uppercase tracking-wider">{col} (IN)</th>
+                                <th key={`in-${i}`} className="p-2 border-r border-default bg-blue-50/50 text-blue-900 font-bold uppercase tracking-wider">{col} (IN)</th>
                             ))}
                             {localTable.outputs.map((col, i) => (
-                                <th key={`out-${i}`} className="p-2 border-r border-slate-200 bg-emerald-50/50 text-emerald-900 font-bold uppercase tracking-wider">{col} (OUT)</th>
+                                <th key={`out-${i}`} className="p-2 border-r border-default bg-emerald-50/50 text-emerald-900 font-bold uppercase tracking-wider">{col} (OUT)</th>
                             ))}
                             <th className="w-10 p-2"></th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 bg-white">
+                    <tbody className="divide-y divide-subtle bg-panel">
                         {localTable.rules.map((row, rIdx) => (
                             <tr key={rIdx} className="group">
-                                <td className="p-2 text-center text-slate-300 font-mono border-r border-slate-100">{rIdx + 1}</td>
+                                <td className="p-2 text-center text-tertiary font-mono border-r border-subtle">{rIdx + 1}</td>
                                 {row.map((cell, cIdx) => (
-                                    <td key={cIdx} className="p-0 border-r border-slate-100 relative">
+                                    <td key={cIdx} className="p-0 border-r border-subtle relative">
                                         <input 
-                                            className={`w-full p-2 outline-none border-none bg-transparent hover:bg-slate-50 focus:bg-blue-50 transition-colors ${!cell ? 'bg-rose-50/30' : ''}`}
+                                            className={`w-full p-2 outline-none border-none bg-transparent hover:bg-subtle focus:bg-blue-50 transition-colors ${!cell ? 'bg-rose-50/30' : ''}`}
                                             value={cell}
                                             onChange={e => updateTable(d => { d.rules[rIdx][cIdx] = e.target.value })} 
                                         />
@@ -525,9 +525,9 @@ const TableBuilder: React.FC<TableBuilderProps> = ({ table, onSave, onDelete, is
                                     </td>
                                 ))}
                                 <td className="p-1 flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => moveRow(rIdx, -1)} className="text-slate-400 hover:text-blue-600"><ArrowUp size={12}/></button>
-                                    <button onClick={() => moveRow(rIdx, 1)} className="text-slate-400 hover:text-blue-600"><ArrowDown size={12}/></button>
-                                    <button onClick={() => removeRow(rIdx)} className="text-slate-400 hover:text-rose-600"><X size={12}/></button>
+                                    <button onClick={() => moveRow(rIdx, -1)} className="text-tertiary hover:text-blue-600"><ArrowUp size={12}/></button>
+                                    <button onClick={() => moveRow(rIdx, 1)} className="text-tertiary hover:text-blue-600"><ArrowDown size={12}/></button>
+                                    <button onClick={() => removeRow(rIdx)} className="text-tertiary hover:text-rose-600"><X size={12}/></button>
                                 </td>
                             </tr>
                         ))}
@@ -587,7 +587,7 @@ export const RulesEngineView: React.FC = () => {
 
     if (isFullscreen && currentAsset && selectedAsset) {
         return (
-            <div className="fixed inset-0 z-[100] bg-white">
+            <div className="fixed inset-0 z-[100] bg-panel">
                  {selectedAsset.type === 'rule' 
                     ? <RuleBuilder key={currentAsset.id} rule={currentAsset as BusinessRule} onSave={saveRule} onDelete={handleDelete} isFullscreen={true} toggleFullscreen={() => setIsFullscreen(false)} />
                     : <TableBuilder key={currentAsset.id} table={currentAsset as DecisionTable} onSave={saveDecisionTable} onDelete={handleDelete} isFullscreen={true} toggleFullscreen={() => setIsFullscreen(false)} />
@@ -597,22 +597,22 @@ export const RulesEngineView: React.FC = () => {
     }
 
     return (
-        <div className="h-[calc(100vh-140px)] flex flex-col md:flex-row bg-white rounded-sm border border-slate-300 overflow-hidden shadow-sm animate-fade-in">
+        <div className="h-content-area flex flex-col md:flex-row bg-panel rounded-base border border-default overflow-hidden shadow-sm animate-fade-in">
             {/* Assets Sidebar */}
-            <aside className="w-full md:w-72 bg-slate-50 border-r border-slate-300 flex flex-col shrink-0">
-                <div className="p-3 border-b border-slate-200 bg-white">
+            <aside className="w-full md:w-[var(--prop-panel-width)] bg-subtle border-r border-default flex flex-col shrink-0">
+                <div className="p-3 border-b border-default bg-panel">
                     <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-xs font-bold text-slate-800 uppercase">Library</h3>
+                        <h3 className="text-xs font-bold text-primary uppercase">Library</h3>
                         <div className="flex gap-1">
                             <IconButton icon={Sparkles} onClick={() => navigateTo('ai-rule-gen')} tooltip="AI Generate" className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white hover:text-white shadow-sm border-blue-600" />
-                            <IconButton icon={BrainCircuit} onClick={() => createNew('rule')} tooltip="New Rule" className="bg-white border border-slate-300 shadow-sm" />
-                            <IconButton icon={Table} onClick={() => createNew('table')} tooltip="New Table" className="bg-white border border-slate-300 shadow-sm" />
+                            <IconButton icon={BrainCircuit} onClick={() => createNew('rule')} tooltip="New Rule" className="bg-panel border border-default shadow-sm" />
+                            <IconButton icon={Table} onClick={() => createNew('table')} tooltip="New Table" className="bg-panel border border-default shadow-sm" />
                         </div>
                     </div>
                     <div className="relative">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={12}/>
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-tertiary" size={12}/>
                         <input 
-                            className="w-full pl-7 pr-2 py-1.5 bg-slate-50 border border-slate-200 rounded-sm text-xs outline-none focus:bg-white focus:border-blue-500 transition-all" 
+                            className="w-full pl-7 pr-2 py-1.5 bg-subtle border border-default rounded-base text-xs outline-none focus:bg-panel focus:border-active transition-all" 
                             placeholder="Search logic..."
                             value={search}
                             onChange={e => setSearch(e.target.value)}
@@ -622,30 +622,30 @@ export const RulesEngineView: React.FC = () => {
                 
                 <div className="overflow-y-auto no-scrollbar flex-1 p-3 space-y-6">
                     {(rules.length === 0 && decisionTables.length === 0) && (
-                        <div className="p-4 text-center border border-dashed border-slate-300 rounded-sm bg-slate-100 flex flex-col items-center gap-2">
+                        <div className="p-4 text-center border border-dashed border-default rounded-base bg-subtle flex flex-col items-center gap-2">
                             <Sparkles size={24} className="text-blue-400"/>
-                            <p className="text-[10px] text-slate-500 font-medium">Library is empty.</p>
-                            <NexButton variant="primary" onClick={reseedSystem} className="w-full text-[10px]">Initialize Templates (100+)</NexButton>
+                            <p className="text-xs text-secondary font-medium">Library is empty.</p>
+                            <NexButton variant="primary" onClick={reseedSystem} className="w-full text-xs">Initialize Templates (100+)</NexButton>
                         </div>
                     )}
 
                     {filteredRules.length > 0 && (
                         <section>
-                        <h4 className="text-[10px] font-bold text-slate-400 uppercase mb-2 px-2 flex justify-between">Rules <span>{filteredRules.length}</span></h4>
+                        <h4 className="text-xs font-bold text-tertiary uppercase mb-2 px-2 flex justify-between">Rules <span>{filteredRules.length}</span></h4>
                         <div className="space-y-1">
                             {filteredRules.map(r => (
                             <button 
                                 key={r.id} 
                                 onClick={() => setSelectedAsset({type: 'rule', id: r.id})} 
-                                className={`w-full text-left px-3 py-2 rounded-sm flex items-center gap-3 transition-all border ${selectedAsset?.id === r.id ? 'bg-white border-blue-500 text-blue-700 shadow-sm border-l-4' : 'border-transparent text-slate-600 hover:bg-white hover:border-slate-200'}`}
+                                className={`w-full text-left px-3 py-2 rounded-base flex items-center gap-3 transition-all border ${selectedAsset?.id === r.id ? 'bg-panel border-active text-blue-700 shadow-sm border-l-4' : 'border-transparent text-secondary hover:bg-panel hover:border-subtle'}`}
                             >
-                                <BrainCircuit size={16} className={selectedAsset?.id === r.id ? 'text-blue-500' : 'text-slate-400'} />
+                                <BrainCircuit size={16} className={selectedAsset?.id === r.id ? 'text-blue-500' : 'text-tertiary'} />
                                 <div className="flex-1 min-w-0">
                                     <div className="flex justify-between items-center">
                                         <span className="text-xs font-medium truncate">{r.name}</span>
                                         {r.status === 'Draft' && <div className="w-1.5 h-1.5 rounded-full bg-amber-400"/>}
                                     </div>
-                                    <p className="text-[9px] text-slate-400 truncate">v{r.version || 1}</p>
+                                    <p className="text-[9px] text-tertiary truncate">v{r.version || 1}</p>
                                 </div>
                             </button>
                             ))}
@@ -655,18 +655,18 @@ export const RulesEngineView: React.FC = () => {
                     
                     {filteredTables.length > 0 && (
                         <section>
-                        <h4 className="text-[10px] font-bold text-slate-400 uppercase mb-2 px-2 flex justify-between">Tables <span>{filteredTables.length}</span></h4>
+                        <h4 className="text-xs font-bold text-tertiary uppercase mb-2 px-2 flex justify-between">Tables <span>{filteredTables.length}</span></h4>
                         <div className="space-y-1">
                             {filteredTables.map(t => (
                             <button 
                                 key={t.id} 
                                 onClick={() => setSelectedAsset({type: 'table', id: t.id})} 
-                                className={`w-full text-left px-3 py-2 rounded-sm flex items-center gap-3 transition-all border ${selectedAsset?.id === t.id ? 'bg-white border-blue-500 text-blue-700 shadow-sm border-l-4' : 'border-transparent text-slate-600 hover:bg-white hover:border-slate-200'}`}
+                                className={`w-full text-left px-3 py-2 rounded-base flex items-center gap-3 transition-all border ${selectedAsset?.id === t.id ? 'bg-panel border-active text-blue-700 shadow-sm border-l-4' : 'border-transparent text-secondary hover:bg-panel hover:border-subtle'}`}
                             >
-                                <Table size={16} className={selectedAsset?.id === t.id ? 'text-blue-500' : 'text-slate-400'} />
+                                <Table size={16} className={selectedAsset?.id === t.id ? 'text-blue-500' : 'text-tertiary'} />
                                 <div className="flex-1 min-w-0">
                                     <span className="text-xs font-medium truncate">{t.name}</span>
-                                    <p className="text-[9px] text-slate-400 truncate">{t.inputs.length} IN • {t.outputs.length} OUT</p>
+                                    <p className="text-[9px] text-tertiary truncate">{t.inputs.length} IN • {t.outputs.length} OUT</p>
                                 </div>
                             </button>
                             ))}
@@ -677,14 +677,14 @@ export const RulesEngineView: React.FC = () => {
             </aside>
 
             {/* Main Builder Area */}
-            <main className="flex-1 flex flex-col min-w-0 bg-white">
+            <main className="flex-1 flex flex-col min-w-0 bg-panel">
                 <div className="flex-1 overflow-y-auto no-scrollbar">
                     {selectedAsset && currentAsset ? (
                         selectedAsset.type === 'rule' 
                             ? <RuleBuilder key={currentAsset.id} rule={currentAsset as BusinessRule} onSave={saveRule} onDelete={handleDelete} isFullscreen={false} toggleFullscreen={() => setIsFullscreen(true)} />
                             : <TableBuilder key={currentAsset.id} table={currentAsset as DecisionTable} onSave={saveDecisionTable} onDelete={handleDelete} isFullscreen={false} toggleFullscreen={() => setIsFullscreen(true)} />
                     ) : (
-                        <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-4">
+                        <div className="h-full flex flex-col items-center justify-center text-tertiary gap-4">
                             <BrainCircuit size={48} strokeWidth={1} className="text-slate-200"/>
                             <p className="text-sm font-medium">Select an asset to configure logic.</p>
                         </div>
@@ -693,7 +693,7 @@ export const RulesEngineView: React.FC = () => {
             </main>
 
             {/* Test Sidebar */}
-            <aside className="w-full md:w-80 border-l border-slate-300 shrink-0 hidden md:block">
+            <aside className="w-full md:w-[var(--prop-panel-width)] border-l border-default shrink-0 hidden md:block">
                 <LiveTestPanel ruleId={selectedAsset?.id || null} rules={rules} decisionTables={decisionTables} />
             </aside>
         </div>
