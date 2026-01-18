@@ -23,7 +23,7 @@ import dagre from 'dagre';
 import { ProcessStep, ProcessLink, ProcessStepType, ProcessDefinition } from '../types';
 import { useBPM } from '../contexts/BPMContext';
 import { 
-  Save, Sparkles, Cpu, LayoutPanelLeft, Trash2, Thermometer, Layout, Settings, FileText, Globe, AlertTriangle
+  Save, Sparkles, Cpu, LayoutPanelLeft, Trash2, Thermometer, Layout, Settings, FileText, Globe, AlertTriangle, PanelRight, X
 } from 'lucide-react';
 import { PaletteSidebar } from './designer/PaletteSidebar';
 import { NodeComponent } from './designer/NodeComponent';
@@ -83,12 +83,15 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => 
 };
 
 // --- Process Properties Panel ---
-const ProcessSettingsPanel = ({ meta, onChange }: { meta: Partial<ProcessDefinition>, onChange: (upd: Partial<ProcessDefinition>) => void }) => {
+const ProcessSettingsPanel = ({ meta, onChange, onClose }: { meta: Partial<ProcessDefinition>, onChange: (upd: Partial<ProcessDefinition>) => void, onClose: () => void }) => {
     return (
         <aside className="w-[320px] h-full bg-white border-l border-slate-300 flex flex-col shadow-xl z-20">
-            <div className="h-10 flex items-center px-4 border-b border-slate-300 bg-slate-50 gap-2">
-                <Settings size={14} className="text-slate-500"/>
-                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Process Settings</h3>
+            <div className="h-10 flex items-center justify-between px-4 border-b border-slate-300 bg-slate-50">
+                <div className="flex items-center gap-2">
+                    <Settings size={14} className="text-slate-500"/>
+                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Process Settings</h3>
+                </div>
+                <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={14}/></button>
             </div>
             <div className="p-6 space-y-6 overflow-y-auto flex-1">
                 <NexFormGroup label="Process Name">
@@ -132,12 +135,12 @@ const DesignerFlow = ({
   onEdgesChange, 
   onConnect, 
   onNodeClick, 
-  onPaneClick,
-  onContextMenu,
-  onDrop,
-  onDragOver,
-  onLayout,
-  isValidConnection
+  onPaneClick, 
+  onContextMenu, 
+  onDrop, 
+  onDragOver, 
+  onLayout, 
+  isValidConnection 
 }: any) => {
   return (
     <div className="h-full w-full" onDrop={onDrop} onDragOver={onDragOver}>
@@ -203,7 +206,8 @@ export const ProcessDesigner: React.FC = () => {
   });
   
   // UI State
-  const [paletteOpen, setPaletteOpen] = useState(true);
+  const [leftOpen, setLeftOpen] = useState(true);
+  const [rightOpen, setRightOpen] = useState(true);
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(false);
@@ -366,7 +370,8 @@ export const ProcessDesigner: React.FC = () => {
 
     setNodes((nds) => nds.concat(newNode));
     setSelectedNodeId(id);
-  }, [setNodes]);
+    if (!rightOpen) setRightOpen(true);
+  }, [setNodes, rightOpen]);
 
   const updateSelectedStep = useCallback((updatedStep: ProcessStep) => {
     setNodes((nds) => nds.map((n) => {
@@ -390,6 +395,7 @@ export const ProcessDesigner: React.FC = () => {
         addNotification('error', `Deploy Failed: ${invalidNodes.length} steps have missing configuration. Check indicators.`);
         // Optionally select the first invalid node
         setSelectedNodeId(invalidNodes[0].id);
+        setRightOpen(true);
         return;
     }
 
@@ -516,13 +522,26 @@ export const ProcessDesigner: React.FC = () => {
     return node ? node.data.step : undefined;
   }, [selectedNodeId, nodes]);
 
+  // When node selected, ensure right panel is open
+  useEffect(() => {
+      if (selectedNodeId && !rightOpen) {
+          setRightOpen(true);
+      }
+  }, [selectedNodeId]);
+
   return (
     <ReactFlowProvider>
       <div className="h-[calc(100vh-100px)] flex flex-col bg-panel border border-default rounded-base shadow-sm overflow-hidden">
         {/* 1. Rigid Toolbar */}
         <div className="h-header bg-subtle border-b border-default flex items-center justify-between px-3 shrink-0">
            <div className="flex items-center gap-3">
-              <button onClick={() => setPaletteOpen(!paletteOpen)} className={`p-1 rounded-base hover:bg-white border border-transparent hover:border-subtle ${paletteOpen ? 'text-blue-600' : 'text-secondary'}`}><LayoutPanelLeft size={16}/></button>
+              <button 
+                onClick={() => setLeftOpen(!leftOpen)} 
+                className={`p-1 rounded-base hover:bg-white border border-transparent hover:border-subtle ${leftOpen ? 'text-blue-600' : 'text-secondary'}`}
+                title="Toggle Library"
+              >
+                <LayoutPanelLeft size={16}/>
+              </button>
               <div className="h-4 w-px bg-default"></div>
               {/* Process Name Input */}
               <div className="flex flex-col justify-center">
@@ -550,16 +569,24 @@ export const ProcessDesigner: React.FC = () => {
 
               <button onClick={handleSimulation} className="flex items-center gap-1 px-3 py-1 bg-indigo-600 text-white rounded-base text-xs hover:bg-indigo-700 shadow-sm"><Cpu size={14}/> Simulate</button>
               <button onClick={handleDeploy} className="flex items-center gap-1 px-3 py-1 bg-brand-slate text-white rounded-base text-xs hover:bg-slate-900 shadow-sm"><Save size={14}/> Save</button>
+              
+              <div className="h-4 w-px bg-default mx-1"></div>
+              
+              <button 
+                onClick={() => setRightOpen(!rightOpen)} 
+                className={`p-1 rounded-base hover:bg-white border border-transparent hover:border-subtle ${rightOpen ? 'text-blue-600' : 'text-secondary'}`}
+                title="Toggle Properties"
+              >
+                <PanelRight size={16}/>
+              </button>
            </div>
         </div>
 
         <div className="flex-1 flex overflow-hidden">
-          {/* 2. Palette (Standard Sidebar) */}
-          {paletteOpen && (
-            <div className="w-56 border-r border-default bg-subtle overflow-y-auto z-10">
-               <PaletteSidebar onAddNode={(type) => addNode(type)} />
-            </div>
-          )}
+          {/* 2. Palette (Standard Sidebar) - Collapsible */}
+          <div className={`border-r border-default bg-subtle overflow-y-auto z-10 transition-all duration-300 ${leftOpen ? 'w-56' : 'w-0 border-none'}`}>
+             <PaletteSidebar onAddNode={(type) => addNode(type)} />
+          </div>
 
           {/* 3. React Flow Canvas */}
           <div className="flex-1 h-full bg-canvas relative">
@@ -579,12 +606,12 @@ export const ProcessDesigner: React.FC = () => {
              />
           </div>
 
-          {/* 4. Properties (Flexible Right Panel) */}
-          <div className="flex-none border-l border-default bg-panel overflow-y-auto shadow-xl z-20 transition-all duration-300 ease-in-out">
+          {/* 4. Properties (Flexible Right Panel) - Collapsible */}
+          <div className={`flex-none border-l border-default bg-panel overflow-hidden shadow-xl z-20 transition-all duration-300 ease-in-out ${rightOpen ? '' : '!w-0 !border-l-0'}`}>
              {selectedStep ? (
-               <PropertiesPanel step={selectedStep} onUpdate={updateSelectedStep} onDelete={deleteNode} roles={roles} />
+               <PropertiesPanel step={selectedStep} onUpdate={updateSelectedStep} onDelete={deleteNode} roles={roles} onClose={() => setRightOpen(false)} />
              ) : (
-               <ProcessSettingsPanel meta={processMeta} onChange={upd => setProcessMeta(prev => ({ ...prev, ...upd }))} />
+               <ProcessSettingsPanel meta={processMeta} onChange={upd => setProcessMeta(prev => ({ ...prev, ...upd }))} onClose={() => setRightOpen(false)} />
              )}
           </div>
         </div>

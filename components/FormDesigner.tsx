@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { FormDefinition, FormField, FormFieldType, FormValidation, FormVisibilityRule, FormFieldLayout, FormFieldAppearance, FormDataSource, FormBehavior } from '../types';
@@ -193,7 +194,7 @@ export const FormDesigner: React.FC = () => {
 
   const deleteField = (id: string) => {
     // Window Confirm Check (Check 8)
-    if (formDef.fields.find(f => f.id === id)?.type === 'section' && !window.confirm('Delete section?')) return;
+    if (formDef.fields.find(f => f.id === id)?.type === 'divider' && !window.confirm('Delete section?')) return;
     
     setFormDef(produce(draft => { draft.fields = draft.fields.filter(f => f.id !== id); }));
     setSelectedFieldId(null);
@@ -329,7 +330,6 @@ export const FormDesigner: React.FC = () => {
   // DropZone Component with Visual States
   const DropZone = ({ index }: { index: number }) => {
       const isActive = dropIndex === index && dragInfo !== null;
-      const isSelf = dragInfo?.type === 'field' && formDef.fields[index] && dragInfo.id === formDef.fields[index].id;
       
       // Visual feedback: Don't show drop zone if dropping immediately after self (Check 21)
       const draggedFieldIndex = dragInfo?.type === 'field' ? formDef.fields.findIndex(f => f.id === dragInfo.id) : -1;

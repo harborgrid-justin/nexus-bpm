@@ -34,12 +34,14 @@ export const PropertiesPanel = ({
   step, 
   onUpdate, 
   onDelete, 
-  roles 
+  roles,
+  onClose
 }: { 
   step: ProcessStep | undefined; 
   onUpdate: (step: ProcessStep) => void; 
   onDelete: (id: string) => void; 
   roles: UserRole[]; 
+  onClose?: () => void;
 }) => {
     const { rules, forms, navigateTo } = useBPM();
     const [activeTab, setActiveTab] = useState<'config' | 'data' | 'logic' | 'policy'>('config');
@@ -147,7 +149,10 @@ export const PropertiesPanel = ({
             <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">{meta.category}</h3>
             <span className="text-[10px] text-slate-400 font-mono">| {step.type}</span>
           </div>
-          <button onClick={() => onUpdate({ ...step, id: step.id } as any)} className="text-slate-400 hover:text-slate-800"><Minimize2 size={14}/></button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => onUpdate({ ...step, id: step.id } as any)} className="text-slate-400 hover:text-slate-800" title="Minimize/Refresh"><Minimize2 size={14}/></button>
+            {onClose && <button onClick={onClose} className="text-slate-400 hover:text-slate-800"><X size={14}/></button>}
+          </div>
         </div>
 
         {/* Identity Block (Always Visible) */}
