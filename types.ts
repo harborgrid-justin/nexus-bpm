@@ -1,5 +1,4 @@
 
-
 export enum TaskStatus {
   PENDING = 'Pending',
   CLAIMED = 'Claimed',
@@ -328,7 +327,20 @@ export interface DecisionTable {
 }
 
 // ---- FORMS ENGINE (PHASE 2) ----
-export type FormFieldType = 'text' | 'number' | 'date' | 'select' | 'checkbox' | 'textarea' | 'email' | 'file';
+export type FormFieldType = 'text' | 'number' | 'date' | 'select' | 'checkbox' | 'textarea' | 'email' | 'file' | 'signature';
+
+export interface FormValidation {
+  min?: number;
+  max?: number;
+  pattern?: string;
+  message?: string;
+}
+
+export interface FormVisibilityRule {
+  targetFieldKey: string;
+  operator: 'eq' | 'neq' | 'contains' | 'truthy' | 'falsy';
+  value?: string;
+}
 
 export interface FormField {
   id: string;
@@ -339,6 +351,8 @@ export interface FormField {
   required: boolean;
   options?: string[]; // CSV for select options
   defaultValue?: string;
+  validation?: FormValidation;
+  visibility?: FormVisibilityRule;
 }
 
 export interface FormDefinition {

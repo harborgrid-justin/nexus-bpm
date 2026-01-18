@@ -9,7 +9,7 @@ import {
   Table as TableIcon, Download, Plus, Send, ChevronLeft, FormInput
 } from 'lucide-react';
 import { NexBadge, NexButton, NexHistoryFeed } from './shared/NexUI';
-import { FormRenderer } from './shared/FormRenderer';
+import { FormRenderer, validateForm } from './shared/FormRenderer';
 
 // --- Utility Functions ---
 const getRelativeTime = (isoString: string) => {
@@ -169,7 +169,7 @@ export const TaskInbox: React.FC = () => {
   const { 
       tasks, completeTask, claimTask, releaseTask, addTaskComment, bulkCompleteTasks, 
       currentUser, delegations, navigateTo, openInstanceViewer, nav, 
-      toggleTaskStar, snoozeTask, createAdHocTask, forms 
+      toggleTaskStar, snoozeTask, createAdHocTask, forms, addNotification
   } = useBPM();
   
   // -- Selection State --
@@ -193,13 +193,15 @@ export const TaskInbox: React.FC = () => {
   // -- Comment Input --
   const [commentText, setCommentText] = useState('');
 
-  // -- Form Data --
+  // -- Form Data & Validation --
   const [formData, setFormData] = useState<Record<string, any>>({});
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
       // Reset form data when task changes
       if (selectedTask) {
           setFormData(selectedTask.data || {});
+          setFormErrors({});
       }
   }, [selectedTask]);
 
@@ -297,6 +299,22 @@ export const TaskInbox: React.FC = () => {
 
   // Find linked form definition
   const activeForm = selectedTask?.formId ? forms.find(f => f.id === selectedTask.formId) : null;
+
+  const handleSubmit = async () => {
+      if (!selectedTask) return;
+      
+      // Validate form if exists
+      if (activeForm) {
+          const errors = validateForm(activeForm, formData);
+          if (Object.keys(errors).length > 0) {
+              setFormErrors(errors);
+              addNotification('error', 'Please correct the errors in the form.');
+              return;
+          }
+      }
+
+      await completeTask(selectedTask.id, 'approve', 'Completed from preview', formData);
+  };
 
   // --- Rendering ---
 
@@ -506,6 +524,7 @@ export const TaskInbox: React.FC = () => {
                                form={activeForm} 
                                data={formData} 
                                onChange={(k, v) => setFormData(prev => ({ ...prev, [k]: v }))} 
+                               errors={formErrors}
                            />
                        </div>
                    )}
@@ -517,7 +536,7 @@ export const TaskInbox: React.FC = () => {
                        )}
                        {selectedTask.status !== TaskStatus.COMPLETED && selectedTask.assignee !== 'Unassigned' && (
                            <>
-                            <NexButton variant="primary" onClick={() => completeTask(selectedTask.id, 'approve', 'Completed from preview', formData)} icon={CheckSquare}>Submit & Complete</NexButton>
+                            <NexButton variant="primary" onClick={handleSubmit} icon={CheckSquare}>Submit & Complete</NexButton>
                             <NexButton variant="secondary" onClick={() => releaseTask(selectedTask.id)} icon={XCircle}>Release</NexButton>
                            </>
                        )}
