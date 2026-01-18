@@ -135,6 +135,18 @@ export type ProcessStepType =
   // --- LOGIC & RULES ---
   | 'business-rule' | 'decision-table' | 'wait-state' | 'terminate-end' | 'loop-container';
 
+export interface IOMapping {
+  source: string; // e.g. "variables.orderId" or "result.id"
+  target: string; // e.g. "api.params.id" or "variables.externalId"
+  transform?: string; // Optional JS one-liner
+}
+
+export interface RetryPolicy {
+  enabled: boolean;
+  maxAttempts: number;
+  strategy: 'fixed' | 'exponential' | 'linear';
+  delayMs: number;
+}
 
 export interface ProcessStep {
   id: string;
@@ -152,9 +164,17 @@ export interface ProcessStep {
   data?: Record<string, any>; // For custom component properties
   
   // LOGIC WIRING
-  businessRuleId?: string; // Bind a rule to run on entry/exit
-  onEntryAction?: string;
-  onExitAction?: string;
+  businessRuleId?: string; // Bind a rule to run on entry
+  onEntryAction?: string; // Script or Action
+  onExitAction?: string; // Script or Action
+  
+  // DATA WIRING
+  inputs?: IOMapping[];
+  outputs?: IOMapping[];
+  
+  // EXECUTION POLICY
+  retryPolicy?: RetryPolicy;
+  isMultiInstance?: boolean;
 }
 
 export interface ProcessLink {
@@ -162,7 +182,8 @@ export interface ProcessLink {
   sourceId: string;
   targetId: string;
   label?: string;
-  condition?: string;
+  condition?: string; // CEL Expression
+  isDefault?: boolean;
 }
 
 export interface Swimlane {
