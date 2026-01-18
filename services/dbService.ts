@@ -150,7 +150,7 @@ export const MOCK_RULES: BusinessRule[] = [
   }, ['HR']),
   r({
     id: 'rule-hr-003', name: 'Visa Sponsorship', description: 'Trigger legal review for sponsorship', priority: 1,
-    conditions: { id: 'g13', type: 'AND', children: [{ id: 'c18', fact: 'candidate.needsVisa', operator: 'eq', value: true }] },
+    conditions: { id: 'g13', type: 'AND', children: [{ id: 'c18', fact: 'candidate.needsVisa', operator: 'eq', value: 'true' }] },
     action: { type: 'ROUTE_TO', params: { group: 'immigration-legal' } }
   }, ['HR', 'Legal']),
   r({
@@ -279,7 +279,7 @@ export const MOCK_RULES: BusinessRule[] = [
   }, ['IT']),
   r({
     id: 'rule-it-008', name: 'VPN Location', description: 'Flag logins from unexpected geo', priority: 2,
-    conditions: { id: 'g38', type: 'AND', children: [{ id: 'c49', fact: 'geo.match', operator: 'eq', value: false }] },
+    conditions: { id: 'g38', type: 'AND', children: [{ id: 'c49', fact: 'geo.match', operator: 'eq', value: 'false' }] },
     action: { type: 'SET_VARIABLE', params: { variableName: 'mfaChallenge', value: true } }
   }, ['IT', 'Security']),
   r({
