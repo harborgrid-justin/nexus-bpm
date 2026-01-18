@@ -1,14 +1,15 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Task, TaskStatus, TaskPriority } from '../types';
 import { useBPM } from '../contexts/BPMContext';
 import { 
   Search, CheckSquare, Layers, Clock, AlertCircle, UserPlus, Settings,
   CheckCircle, XCircle, Paperclip, LayoutGrid, List as ListIcon, 
   User, Calendar, Star, PauseCircle, ArrowDown, ArrowUp, X,
-  Table as TableIcon, Download, Plus, Send, ChevronLeft
+  Table as TableIcon, Download, Plus, Send, ChevronLeft, FormInput
 } from 'lucide-react';
 import { NexBadge, NexButton, NexHistoryFeed } from './shared/NexUI';
+import { FormRenderer } from './shared/FormRenderer';
 
 // --- Utility Functions ---
 const getRelativeTime = (isoString: string) => {
@@ -168,7 +169,7 @@ export const TaskInbox: React.FC = () => {
   const { 
       tasks, completeTask, claimTask, releaseTask, addTaskComment, bulkCompleteTasks, 
       currentUser, delegations, navigateTo, openInstanceViewer, nav, 
-      toggleTaskStar, snoozeTask, createAdHocTask 
+      toggleTaskStar, snoozeTask, createAdHocTask, forms 
   } = useBPM();
   
   // -- Selection State --
@@ -191,6 +192,16 @@ export const TaskInbox: React.FC = () => {
 
   // -- Comment Input --
   const [commentText, setCommentText] = useState('');
+
+  // -- Form Data --
+  const [formData, setFormData] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+      // Reset form data when task changes
+      if (selectedTask) {
+          setFormData(selectedTask.data || {});
+      }
+  }, [selectedTask]);
 
   // --- Derived Data & Filtering ---
   const delegateRules = delegations.filter(d => d.toUserId === currentUser?.id && d.isActive);
@@ -283,6 +294,9 @@ export const TaskInbox: React.FC = () => {
       tomorrow.setHours(9, 0, 0, 0);
       snoozeTask(taskId, tomorrow.toISOString());
   };
+
+  // Find linked form definition
+  const activeForm = selectedTask?.formId ? forms.find(f => f.id === selectedTask.formId) : null;
 
   // --- Rendering ---
 
@@ -481,6 +495,21 @@ export const TaskInbox: React.FC = () => {
                    </div>
                    <p className="text-base text-primary leading-relaxed mb-4">{selectedTask.description || "No description provided."}</p>
                    
+                   {/* DYNAMIC FORM RENDERING */}
+                   {activeForm && selectedTask.status !== TaskStatus.COMPLETED && selectedTask.assignee !== 'Unassigned' && (
+                       <div className="mb-6 p-4 bg-slate-50 border border-blue-200 rounded-sm">
+                           <div className="flex items-center gap-2 mb-4 text-blue-700">
+                               <FormInput size={16}/>
+                               <h4 className="text-sm font-bold uppercase">{activeForm.name}</h4>
+                           </div>
+                           <FormRenderer 
+                               form={activeForm} 
+                               data={formData} 
+                               onChange={(k, v) => setFormData(prev => ({ ...prev, [k]: v }))} 
+                           />
+                       </div>
+                   )}
+
                    {/* Context Actions */}
                    <div className="flex gap-2">
                        {selectedTask.status === TaskStatus.PENDING && selectedTask.assignee === 'Unassigned' && (
@@ -488,7 +517,7 @@ export const TaskInbox: React.FC = () => {
                        )}
                        {selectedTask.status !== TaskStatus.COMPLETED && selectedTask.assignee !== 'Unassigned' && (
                            <>
-                            <NexButton variant="primary" onClick={() => completeTask(selectedTask.id, 'approve', 'Completed from preview')} icon={CheckSquare}>Complete</NexButton>
+                            <NexButton variant="primary" onClick={() => completeTask(selectedTask.id, 'approve', 'Completed from preview', formData)} icon={CheckSquare}>Submit & Complete</NexButton>
                             <NexButton variant="secondary" onClick={() => releaseTask(selectedTask.id)} icon={XCircle}>Release</NexButton>
                            </>
                        )}

@@ -1,4 +1,5 @@
 
+
 export enum TaskStatus {
   PENDING = 'Pending',
   CLAIMED = 'Claimed',
@@ -107,6 +108,7 @@ export interface Task {
   tags?: string[];
   isStarred?: boolean;
   snoozeUntil?: string;
+  formId?: string; // Phase 2: Link to Form Definition
 }
 
 export type ProcessStepType = 
@@ -175,6 +177,7 @@ export interface ProcessStep {
   // EXECUTION POLICY
   retryPolicy?: RetryPolicy;
   isMultiInstance?: boolean;
+  formId?: string; // Phase 2: Form Binding
 }
 
 export interface ProcessLink {
@@ -213,7 +216,7 @@ export interface AuditLog {
   timestamp: string;
   userId: string;
   action: string;
-  entityType: 'Process' | 'Task' | 'Instance' | 'System' | 'User' | 'Case' | 'Rule';
+  entityType: 'Process' | 'Task' | 'Instance' | 'System' | 'User' | 'Case' | 'Rule' | 'Form';
   entityId: string;
   details: string;
   severity: 'Info' | 'Warning' | 'Alert';
@@ -324,6 +327,29 @@ export interface DecisionTable {
   lastModified: string;
 }
 
+// ---- FORMS ENGINE (PHASE 2) ----
+export type FormFieldType = 'text' | 'number' | 'date' | 'select' | 'checkbox' | 'textarea' | 'email' | 'file';
+
+export interface FormField {
+  id: string;
+  type: FormFieldType;
+  label: string;
+  key: string; // The variable name this binds to
+  placeholder?: string;
+  required: boolean;
+  options?: string[]; // CSV for select options
+  defaultValue?: string;
+}
+
+export interface FormDefinition {
+  id: string;
+  name: string;
+  description: string;
+  fields: FormField[];
+  version: number;
+  lastModified: string;
+}
+
 // ---- ANALYTICS & GOVERNANCE ----
 export interface AlertRule {
   id: string;
@@ -348,8 +374,10 @@ export type ViewState =
   | 'cases'
   | 'case-viewer'
   | 'rules'
-  | 'api-gateway' // Added for API Management
-  | 'resource-planner' // New Planning View
+  | 'api-gateway' 
+  | 'resource-planner'
+  | 'forms'         // Phase 2
+  | 'form-designer' // Phase 2
   // --- Form Pages (Replaces Modals) ---
   | 'create-user' | 'edit-user'
   | 'create-role' | 'edit-role'

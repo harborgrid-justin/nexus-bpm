@@ -5,7 +5,7 @@ import {
   ProcessDefinition, ProcessInstance, Task, TaskStatus, TaskPriority, 
   ViewState, AuditLog, Comment, User, UserRole, UserGroup, Permission, 
   Delegation, BusinessRule, DecisionTable, Case, CaseEvent, CasePolicy, CaseStakeholder,
-  Condition, RuleAction, ProcessStep, ProcessLink
+  Condition, RuleAction, ProcessStep, ProcessLink, FormDefinition
 } from '../types';
 import { dbService } from '../services/dbService';
 
@@ -37,6 +37,7 @@ interface BPMContextType {
   delegations: Delegation[];
   rules: BusinessRule[];
   decisionTables: DecisionTable[];
+  forms: FormDefinition[]; // Added
   viewingInstanceId: string | null;
   
   // Designer Persistence
@@ -66,7 +67,7 @@ interface BPMContextType {
   addInstanceComment: (instanceId: string, text: string) => Promise<void>;
   
   // Task Management
-  completeTask: (taskId: string, action: string, comments: string) => Promise<void>;
+  completeTask: (taskId: string, action: string, comments: string, formData?: any) => Promise<void>;
   claimTask: (taskId: string) => Promise<void>;
   releaseTask: (taskId: string) => Promise<void>;
   reassignTask: (taskId: string, userId: string) => Promise<void>;
@@ -95,6 +96,10 @@ interface BPMContextType {
   saveDecisionTable: (table: DecisionTable) => Promise<void>;
   deleteDecisionTable: (id: string) => Promise<void>;
   
+  // Form Management
+  saveForm: (form: FormDefinition) => Promise<void>;
+  deleteForm: (id: string) => Promise<void>;
+
   // Identity Management
   createUser: (user: Omit<User, 'id'>) => Promise<void>;
   updateUser: (id: string, updates: Partial<User>) => Promise<void>;
@@ -132,6 +137,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     delegations: [] as Delegation[],
     rules: [] as BusinessRule[],
     decisionTables: [] as DecisionTable[],
+    forms: [] as FormDefinition[],
     notifications: [] as Notification[],
     globalSearch: '',
     nav: { view: 'dashboard' } as { view: ViewState; selectedId?: string; filter?: string; data?: any },
@@ -143,7 +149,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const loadData = useCallback(async () => {
     try {
-      const [p, inst, t, c, logs, u, r, g, d, bRules, tables] = await Promise.all([
+      const [p, inst, t, c, logs, u, r, g, d, bRules, tables, f] = await Promise.all([
         dbService.getAll<ProcessDefinition>('processes'),
         dbService.getAll<ProcessInstance>('instances'),
         dbService.getAll<Task>('tasks'),
@@ -155,6 +161,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         dbService.getAll<Delegation>('delegations'),
         dbService.getAll<BusinessRule>('rules'),
         dbService.getAll<DecisionTable>('decisionTables'),
+        dbService.getAll<FormDefinition>('forms'),
       ]);
 
       setState(prev => ({
@@ -170,6 +177,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         delegations: d,
         rules: bRules,
         decisionTables: tables,
+        forms: f,
         currentUser: prev.currentUser || u[0] || null,
         loading: false
       }));
@@ -220,24 +228,21 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const rule = state.rules.find(r => r.id === ruleId);
       if (!rule) return { error: 'Rule definition not found', matched: false };
 
-      // Helper to access nested object properties (e.g. "invoice.amount")
       const getVal = (path: string, obj: any) => {
           return path.split('.').reduce((acc, part) => acc && acc[part], obj);
       };
 
       const evalCondition = (cond: Condition): boolean => {
           if ('children' in cond) {
-              if (!cond.children || cond.children.length === 0) return true; // Empty group is true by default
+              if (!cond.children || cond.children.length === 0) return true; 
               const results = cond.children.map(evalCondition);
               return cond.type === 'AND' ? results.every(r => r) : results.some(r => r);
           } else {
               const factVal = getVal(cond.fact, fact);
               const targetVal = cond.value;
               
-              // Handle undefined facts
               if (factVal === undefined) return false;
 
-              // Type Coercion for Numeric comparison
               const numFact = Number(factVal);
               const numTarget = Number(targetVal);
               const isNumeric = !isNaN(numFact) && !isNaN(numTarget) && targetVal !== '';
@@ -263,7 +268,6 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           action: isMatch ? rule.action : null
       };
 
-      // Only log significant rule executions
       if (isMatch) {
           addAudit('RULE_EXECUTE', 'Rule', rule.id, `Triggered: ${rule.name}`, 'Info');
       }
@@ -332,8 +336,6 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     await dbService.add('instances', newInstance);
     setState(produce(draft => { draft.instances.push(newInstance); }));
 
-    // Rule Evaluation at Start
-    // Logic: If start node has a rule, execute it
     if (startStep?.businessRuleId) {
         await executeRules(startStep.businessRuleId, inputData);
     }
@@ -356,7 +358,6 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const nextStep = def.steps.find(s => s.id === nextId);
           if (!nextStep) continue;
 
-          // DYNAMIC RULE BINDING
           let overrideRole = nextStep.role;
           if (nextStep.businessRuleId) {
              const result = await executeRules(nextStep.businessRuleId, instance.variables);
@@ -385,7 +386,8 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   attachments: [],
                   isAdHoc: false,
                   caseId: instance.variables.caseId,
-                  triggerSource: 'System'
+                  triggerSource: 'System',
+                  formId: nextStep.formId // CARRY OVER FORM ID
               };
               newTasks.push(nt);
               await dbService.add('tasks', nt);
@@ -432,14 +434,14 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // --- Task Methods ---
-  const completeTask = async (taskId: string, action: string, comments: string) => {
+  const completeTask = async (taskId: string, action: string, comments: string, formData?: any) => {
     if (!hasPermission(Permission.TASK_COMPLETE)) { addNotification('error', 'Permission denied'); return; }
 
     const task = state.tasks.find(t => t.id === taskId);
     if (!task) return;
 
     if (task.isAdHoc) {
-        const updatedTask = { ...task, status: TaskStatus.COMPLETED };
+        const updatedTask = { ...task, status: TaskStatus.COMPLETED, data: { ...task.data, ...formData } };
         await dbService.add('tasks', updatedTask);
         setState(produce(draft => { draft.tasks = draft.tasks.map(t => t.id === taskId ? updatedTask : t); }));
         addAudit('TASK_COMPLETE', 'Task', taskId, `Resolved ad-hoc task: ${task.title}`);
@@ -459,6 +461,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const updatedInstance = {
       ...instance,
       activeStepIds: nextStepIds,
+      variables: { ...instance.variables, ...formData }, // MERGE FORM DATA INTO VARIABLES
       status: (nextStepIds.length > 0 ? 'Active' : 'Completed') as any,
       history: [...instance.history, { 
         id: `h-${Date.now()}`, stepName: task.title, action: action, performer: state.currentUser?.name || 'Unknown', timestamp: new Date().toISOString(), comments
@@ -466,7 +469,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
     await dbService.add('instances', updatedInstance);
 
-    const updatedTask = { ...task, status: TaskStatus.COMPLETED };
+    const updatedTask = { ...task, status: TaskStatus.COMPLETED, data: { ...task.data, ...formData } };
     await dbService.add('tasks', updatedTask);
     
     setState(produce(draft => {
@@ -785,6 +788,12 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const saveDecisionTable = async (t: DecisionTable) => { await dbService.add('decisionTables', t); loadData(); };
   const deleteDecisionTable = async (id: string) => { await dbService.delete('decisionTables', id); loadData(); };
 
+  // --- Form Methods ---
+  const saveForm = async (f: FormDefinition) => {
+      await dbService.add('forms', f); addAudit('FORM_SAVE', 'Form', f.id, `Updated form: ${f.name}`); loadData();
+  };
+  const deleteForm = async (id: string) => { await dbService.delete('forms', id); loadData(); };
+
   const contextValue: BPMContextType = {
     ...state,
     setGlobalSearch: (s) => setState(prev => ({ ...prev, globalSearch: s })),
@@ -797,7 +806,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (u) { setState(prev => ({ ...prev, currentUser: u })); navigateTo('dashboard'); }
     },
     addNotification, removeNotification,
-    executeRules, // EXPOSED FOR TESTING AND RUNTIME
+    executeRules, 
     deployProcess, updateProcess, deleteProcess, toggleProcessState,
     startProcess, suspendInstance, terminateInstance, addInstanceComment,
     completeTask, claimTask, releaseTask, reassignTask, updateTaskMetadata, addTaskComment, bulkCompleteTasks, toggleTaskStar, snoozeTask, createAdHocTask,
@@ -805,6 +814,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     createUser, updateUser, deleteUser, createRole, updateRole, deleteRole, createGroup, updateGroup, deleteGroup,
     createDelegation, revokeDelegation,
     saveRule, deleteRule, cloneRule, saveDecisionTable, deleteDecisionTable,
+    saveForm, deleteForm,
     hasPermission,
     reseedSystem: async () => { await dbService.reseed(); loadData(); },
     resetSystem: async () => { await dbService.resetDB(); window.location.reload(); },

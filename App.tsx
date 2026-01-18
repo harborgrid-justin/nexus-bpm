@@ -4,7 +4,7 @@ import {
   LayoutDashboard, CheckSquare, PenTool, BarChart3, Menu, X, Bell, 
   Search, Layers, Settings as SettingsIcon, ShieldCheck, 
   Fingerprint, Briefcase, FunctionSquare, Info, CheckCircle, AlertCircle, ChevronRight, Loader2,
-  Plus, Zap, MoreHorizontal, UserCircle, Sparkles, ChevronDown, Database, LogIn, Command, Home, Calendar, Globe
+  Plus, Zap, MoreHorizontal, UserCircle, Sparkles, ChevronDown, Database, LogIn, Command, Home, Calendar, Globe, FormInput
 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { TaskInbox } from './components/TaskInbox';
@@ -21,7 +21,9 @@ import { ProcessInstanceViewer } from './components/ProcessInstanceViewer';
 import { CaseManagerView } from './components/CaseManagerView';
 import { CaseViewer } from './components/CaseViewer';
 import { RulesEngineView } from './components/RulesEngineView';
-import { ApiGatewayView } from './components/ApiGatewayView'; // Added import
+import { ApiGatewayView } from './components/ApiGatewayView'; 
+import { FormRepository } from './components/FormRepository'; // Added
+import { FormDesigner } from './components/FormDesigner'; // Added
 import { CommandPalette } from './components/CommandPalette';
 // Import New Pages
 import { UserFormView, RoleFormView, GroupFormView, DelegationFormView } from './components/pages/IdentityPages';
@@ -123,8 +125,10 @@ const AppContent: React.FC = () => {
       case 'cases': return <CaseManagerView />;
       case 'case-viewer': return nav.selectedId ? <CaseViewer caseId={nav.selectedId} /> : <CaseManagerView />;
       case 'rules': return <RulesEngineView />;
-      case 'api-gateway': return <ApiGatewayView />; // Added route
+      case 'api-gateway': return <ApiGatewayView />;
       case 'resource-planner': return <ResourcePlanner />;
+      case 'forms': return <FormRepository />;
+      case 'form-designer': return <FormDesigner />;
       
       // Full Page Forms
       case 'create-user':
@@ -199,6 +203,7 @@ const AppContent: React.FC = () => {
             <div className="px-4 mb-2 text-xs font-bold text-tertiary uppercase tracking-wider">Configuration</div>
             <NavItem view="processes" icon={Layers} label="Process Registry" active={nav.view === 'processes'} />
             <NavItem view="designer" icon={PenTool} label="Workflow Designer" active={nav.view === 'designer'} />
+            <NavItem view="forms" icon={FormInput} label="Form Builder" active={nav.view === 'forms'} />
             <NavItem view="resource-planner" icon={Calendar} label="Resource Planner" active={nav.view === 'resource-planner'} />
             <NavItem view="rules" icon={FunctionSquare} label="Business Rules" active={nav.view === 'rules'} />
             <NavItem view="api-gateway" icon={Globe} label="API Gateway" active={nav.view === 'api-gateway'} />

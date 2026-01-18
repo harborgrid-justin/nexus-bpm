@@ -5,7 +5,7 @@ import { useBPM } from '../../contexts/BPMContext';
 import { 
   Trash2, Compass, X, ExternalLink, 
   Settings, Database, RefreshCw, ArrowRightLeft, 
-  Braces, ShieldAlert, Plus, Minimize2, Key, Sparkles, FunctionSquare
+  Braces, ShieldAlert, Plus, Minimize2, Key, Sparkles, FunctionSquare, Layout
 } from 'lucide-react';
 import { NexFormGroup } from '../shared/NexUI';
 import { getStepTypeMetadata } from './designerUtils';
@@ -27,7 +27,7 @@ export const PropertiesPanel = ({
   onDelete: (id: string) => void; 
   roles: UserRole[]; 
 }) => {
-    const { rules, navigateTo } = useBPM();
+    const { rules, forms, navigateTo } = useBPM();
     const [activeTab, setActiveTab] = useState<'config' | 'data' | 'logic' | 'policy'>('config');
     
     if (!step) {
@@ -127,6 +127,19 @@ export const PropertiesPanel = ({
                 {/* User Task Specifics */}
                 {step.type === 'user-task' && (
                     <div className="space-y-4">
+                        <NexFormGroup label="User Interface">
+                            <div className="flex items-center gap-2">
+                                <Layout size={16} className="text-slate-400"/>
+                                <select className="prop-input" value={step.formId || ''} onChange={e => updateField('formId', e.target.value)}>
+                                    <option value="">Generic Task View</option>
+                                    {forms.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                                </select>
+                            </div>
+                            {step.formId && <button onClick={() => navigateTo('form-designer', step.formId)} className="text-[10px] text-blue-600 hover:underline mt-1 ml-6">Edit Form Definition</button>}
+                        </NexFormGroup>
+
+                        <div className="h-px bg-slate-200 my-2"></div>
+
                         <NexFormGroup label="Role Assignment">
                             <select className="prop-input" value={step.role || ''} onChange={e => updateField('role', e.target.value)}>
                                 <option value="">Unassigned</option>
@@ -135,14 +148,6 @@ export const PropertiesPanel = ({
                         </NexFormGroup>
                         <NexFormGroup label="Candidate Groups">
                             <input className="prop-input" placeholder="group1, group2" value={step.data?.candidateGroups || ''} onChange={e => updateDataField('candidateGroups', e.target.value)} />
-                        </NexFormGroup>
-                        <NexFormGroup label="SLA Deadline">
-                            <div className="flex gap-2">
-                                <input type="number" className="prop-input w-20" value={step.data?.slaValue || 2} onChange={e => updateDataField('slaValue', e.target.value)} />
-                                <select className="prop-input flex-1" value={step.data?.slaUnit || 'Days'} onChange={e => updateDataField('slaUnit', e.target.value)}>
-                                    <option>Hours</option><option>Days</option><option>Weeks</option>
-                                </select>
-                            </div>
                         </NexFormGroup>
                     </div>
                 )}
