@@ -52,24 +52,19 @@ export const ApiGatewayView: React.FC = () => {
   };
 
   // Local interpreter for Decision Tables since Context might only have Rule logic
+  // (Simplified for demo, real implementation would be in Context)
   const evaluateTableLocally = (tableId: string, input: any) => {
     const table = decisionTables.find(t => t.id === tableId);
     if (!table) return { error: 'Table not found' };
 
-    // Simple evaluation logic: Find first row where inputs match
-    // NOTE: This is a simplified "Equals" matcher for demo purposes
-    // A real engine would support range operators like the Rules engine
     for (const row of table.rules) {
         let match = true;
-        // Check inputs (first N columns)
         for (let i = 0; i < table.inputs.length; i++) {
             const colName = table.inputs[i];
             const ruleVal = row[i];
-            const inputVal = input[colName]; // Simple mapping, case sensitive
+            const inputVal = input[colName]; 
             
-            // Handle wildcard or simple equality
             if (ruleVal !== 'Any' && ruleVal !== inputVal && String(ruleVal) !== String(inputVal)) {
-                // Try simple numeric operators if string looks like "< 100"
                 if (typeof ruleVal === 'string' && (ruleVal.startsWith('<') || ruleVal.startsWith('>'))) {
                     const op = ruleVal.startsWith('<') ? 'lt' : 'gt';
                     const num = parseFloat(ruleVal.substring(1));
@@ -83,7 +78,6 @@ export const ApiGatewayView: React.FC = () => {
         }
 
         if (match) {
-            // Construct result object from output columns
             const result: any = { matched: true, rowId: table.rules.indexOf(row) + 1 };
             table.outputs.forEach((outCol, idx) => {
                 result[outCol] = row[table.inputs.length + idx];
@@ -103,10 +97,10 @@ export const ApiGatewayView: React.FC = () => {
         const payload = JSON.parse(testPayload);
         let result;
         
-        // Artificial delay for realism
-        await new Promise(r => setTimeout(r, 600));
+        await new Promise(r => setTimeout(r, 600)); // Sim Network Latency
 
         if (selectedEndpoint.type === 'Rule') {
+            // WIRE: Call the actual context logic
             result = await executeRules(selectedEndpoint.id, payload);
         } else {
             result = evaluateTableLocally(selectedEndpoint.id, payload);

@@ -17,7 +17,6 @@ export const ResourcePlanner = () => {
     const result = [];
     const start = new Date(startDate);
     start.setHours(0, 0, 0, 0);
-    // Align to Monday? Optional, currently just next 7 days from selected start
     for (let i = 0; i < 7; i++) {
         const d = new Date(start);
         d.setDate(start.getDate() + i);
@@ -226,7 +225,8 @@ export const ResourcePlanner = () => {
                                                         }`}
                                                         style={{ opacity: Math.min(1, 0.4 + (dayData.count * 0.15)) }}
                                                         title={dayData.tasks.map(t => `• ${t.title} (${t.priority})`).join('\n')}
-                                                        onClick={() => navigateTo('inbox', dayData.tasks[0]?.id)}
+                                                        // WIRE: Clicking day cell navigates to inbox filtered by user + date (conceptually, just user for now)
+                                                        onClick={() => navigateTo('inbox', undefined, undefined, { assignee: row.user.id })}
                                                     >
                                                         <span className="text-[10px] font-black">{dayData.count}</span>
                                                         {dayData.hasCritical && <Zap size={8} className="mt-0.5 animate-pulse"/>}

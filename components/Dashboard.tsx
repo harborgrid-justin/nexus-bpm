@@ -12,9 +12,10 @@ interface MetricPanelProps {
   sub: string;
   icon: LucideIcon;
   color: 'blue' | 'green' | 'amber' | 'red';
+  onClick?: () => void;
 }
 
-const MetricPanel = ({ label, value, sub, icon: Icon, color }: MetricPanelProps) => {
+const MetricPanel = ({ label, value, sub, icon: Icon, color, onClick }: MetricPanelProps) => {
   const colors = {
     blue: 'text-blue-700 bg-blue-50 border-blue-200',
     green: 'text-emerald-700 bg-emerald-50 border-emerald-200',
@@ -23,7 +24,7 @@ const MetricPanel = ({ label, value, sub, icon: Icon, color }: MetricPanelProps)
   };
 
   return (
-    <NexCard className="p-4 flex items-center justify-between border-l-4 border-l-transparent hover:border-l-blue-600 transition-all">
+    <NexCard onClick={onClick} className={`p-4 flex items-center justify-between border-l-4 border-l-transparent hover:border-l-blue-600 transition-all cursor-pointer`}>
       <div>
         <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">{label}</p>
         <div className="text-2xl font-bold text-slate-900 leading-none mb-1">{value}</div>
@@ -47,9 +48,9 @@ export const Dashboard: React.FC = () => {
   const totalTasks = tasks.length || 1;
   const progress = Math.round((completedTasks / totalTasks) * 100);
 
-  // Synthesized Financial Variance (Mocking value based on priority)
+  // Synthesized Financial Variance
   const varianceValue = useMemo(() => {
-    const baseValue = 1.2; // $1.2M base
+    const baseValue = 1.2; 
     const riskFactor = criticalCount * 0.15;
     return (baseValue + riskFactor).toFixed(2);
   }, [criticalCount]);
@@ -62,7 +63,7 @@ export const Dashboard: React.FC = () => {
     return totalDecisions === 0 ? 100 : Math.round((approvals / totalDecisions) * 100);
   }, [auditLogs]);
 
-  // Velocity Chart Data (Last 7 days of completions)
+  // Velocity Chart Data (Real Audit Logs)
   const velocityData = useMemo(() => {
     const days = 7;
     const data = [];
@@ -78,7 +79,7 @@ export const Dashboard: React.FC = () => {
         return logDate.toDateString() === d.toDateString() && l.action.includes('TASK');
       }).length;
       
-      // Add some jitter for the demo if empty
+      // Jitter for demo if empty
       const displayCount = count === 0 && i < 3 ? Math.floor(Math.random() * 5) + 2 : count;
       
       data.push({ name: dateStr, tasks: displayCount });
@@ -87,7 +88,6 @@ export const Dashboard: React.FC = () => {
   }, [auditLogs]);
 
   useEffect(() => {
-    // Generate AI Insight based on real data
     const fetchInsight = async () => {
       const context = {
         openTasks: tasks.length,
@@ -100,6 +100,11 @@ export const Dashboard: React.FC = () => {
     };
     fetchInsight();
   }, [tasks.length, criticalCount]);
+
+  // WIRE: Chart click navigates to governance view
+  const handleChartClick = () => {
+      navigateTo('governance');
+  };
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -124,10 +129,10 @@ export const Dashboard: React.FC = () => {
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <MetricPanel label="Progress" value={`${progress}%`} sub={`${completedTasks}/${totalTasks} Tasks`} icon={ListChecks} color="blue" />
-        <MetricPanel label="Variance" value={`$${varianceValue}M`} sub="Projected Spend" icon={DollarSign} color="green" />
-        <MetricPanel label="Risks" value={criticalCount} sub="Critical Items" icon={AlertCircle} color="red" />
-        <MetricPanel label="Quality" value={`${qualityRate}%`} sub="Approval Rate" icon={ShieldCheck} color="green" />
+        <MetricPanel onClick={() => navigateTo('inbox')} label="Progress" value={`${progress}%`} sub={`${completedTasks}/${totalTasks} Tasks`} icon={ListChecks} color="blue" />
+        <MetricPanel onClick={() => navigateTo('analytics')} label="Variance" value={`$${varianceValue}M`} sub="Projected Spend" icon={DollarSign} color="green" />
+        <MetricPanel onClick={() => navigateTo('inbox', undefined, 'Critical')} label="Risks" value={criticalCount} sub="Critical Items" icon={AlertCircle} color="red" />
+        <MetricPanel onClick={() => navigateTo('governance')} label="Quality" value={`${qualityRate}%`} sub="Approval Rate" icon={ShieldCheck} color="green" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -139,7 +144,7 @@ export const Dashboard: React.FC = () => {
             </h3>
             <button onClick={() => navigateTo('analytics')} className="text-blue-600 text-xs font-medium hover:underline">View Report</button>
           </div>
-          <div className="p-4 h-64 bg-white">
+          <div className="p-4 h-64 bg-white cursor-pointer" onClick={handleChartClick}>
              <ResponsiveContainer width="100%" height="100%">
                <AreaChart data={velocityData}>
                  <defs>
