@@ -11,34 +11,106 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       :root {
+        /* --- 1. PALETTE TOKENS --- */
         --brand-slate: #1e293b;
         --brand-blue: #0284c7;
-        --ui-bg: #eaebef;
-        --text-base: 13px; /* Enterprise standard density */
+        --brand-blue-hover: #0369a1;
+        
+        /* Surfaces */
+        --surface-app: #eaebef;
+        --surface-canvas: #f0f2f5;
+        --surface-panel: #ffffff;
+        --surface-subtle: #f8fafc; /* slate-50 */
+        --surface-hover: #f1f5f9; /* slate-100 */
+        
+        /* Borders */
+        --border-subtle: #e2e8f0; /* slate-200 */
+        --border-default: #cbd5e1; /* slate-300 */
+        --border-active: #0284c7;
+        
+        /* Text */
+        --text-primary: #0f172a; /* slate-900 */
+        --text-secondary: #64748b; /* slate-500 */
+        --text-tertiary: #94a3b8; /* slate-400 */
+        
+        /* Semantic */
+        --color-success: #059669; /* emerald-600 */
+        --color-danger: #e11d48; /* rose-600 */
+        --color-warning: #d97706; /* amber-600 */
+        --color-info: #0284c7; /* blue-600 */
+
+        /* --- 2. DIMENSION TOKENS --- */
+        --header-height: 56px;
+        --sidebar-width: 256px;
+        --prop-panel-width: 288px;
+        --node-width: 200px;
+        --node-height: 80px;
+        --radius-base: 2px;
+        --radius-lg: 4px;
+        
+        /* --- 3. TYPOGRAPHY TOKENS --- */
+        --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+        --font-mono: 'JetBrains Mono', monospace;
+        --text-xs: 10px;
+        --text-sm: 11px;
+        --text-base: 13px;
+        
+        /* --- 4. Z-INDEX SCALE --- */
+        --z-base: 0;
+        --z-node: 10;
+        --z-node-active: 20;
+        --z-sticky: 40;
+        --z-dropdown: 50;
+        --z-modal: 100;
+        --z-tooltip: 110;
+        --z-toast: 200;
       }
       
       body {
-        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        font-family: var(--font-sans);
         font-size: var(--text-base);
-        -webkit-font-smoothing: antialiased;
-        background-color: var(--ui-bg);
-        color: var(--brand-slate);
+        background-color: var(--surface-app);
+        color: var(--text-primary);
         overscroll-behavior-y: none;
+        -webkit-font-smoothing: antialiased;
       }
 
-      /* Enterprise "Panel" Shadow - subtle, defined */
+      /* --- 5. UTILITY CLASS MAPPINGS (Extending Tailwind) --- */
+      
+      /* Surfaces */
+      .bg-app { background-color: var(--surface-app); }
+      .bg-canvas { background-color: var(--surface-canvas); }
+      .bg-panel { background-color: var(--surface-panel); }
+      .bg-subtle { background-color: var(--surface-subtle); }
+      
+      /* Borders */
+      .border-subtle { border-color: var(--border-subtle); }
+      .border-default { border-color: var(--border-default); }
+      .border-active { border-color: var(--border-active); }
+      .rounded-base { border-radius: var(--radius-base); }
+      
+      /* Text */
+      .text-primary { color: var(--text-primary); }
+      .text-secondary { color: var(--text-secondary); }
+      .text-tertiary { color: var(--text-tertiary); }
+      
+      /* Dimensions */
+      .h-header { height: var(--header-height); }
+      .w-sidebar { width: var(--sidebar-width); }
+      .w-node { width: var(--node-width); }
+      .h-node { height: var(--node-height); }
+      .top-header { top: var(--header-height); }
+      
+      /* Z-Index */
+      .z-sticky { z-index: var(--z-sticky); }
+      .z-dropdown { z-index: var(--z-dropdown); }
+      .z-modal { z-index: var(--z-modal); }
+      .z-toast { z-index: var(--z-toast); }
+
+      /* Components */
       .card-shadow {
         box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
       }
-      
-      .no-scrollbar::-webkit-scrollbar { display: none; }
-      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-      @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }
-      .animate-fade-in { animation: fadeIn 0.3s ease-out; }
       
       .designer-grid {
         background-image: 
@@ -47,24 +119,32 @@
         background-size: 20px 20px;
       }
 
-      /* Compact Form Inputs */
       .prop-input {
-        @apply w-full px-3 py-2 bg-white border border-slate-300 rounded-sm text-[13px] text-slate-800 outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600 transition-all shadow-sm;
+        @apply w-full px-3 py-2 bg-panel border border-default rounded-base text-base text-primary outline-none focus:ring-1 focus:ring-blue-600 focus:border-active transition-all shadow-sm;
       }
+      
       .prop-label {
-        @apply text-[11px] font-bold text-slate-600 mb-1 block;
+        @apply text-sm font-bold text-secondary mb-1 block uppercase tracking-wide;
       }
 
-      /* Enterprise Tabs (Underline style) */
       .tab-capsule {
-        @apply px-4 py-2 text-[13px] font-medium transition-all border-b-2 border-transparent hover:text-blue-700 whitespace-nowrap;
+        @apply px-4 py-2 font-medium transition-all border-b-2 border-transparent hover:text-blue-700 whitespace-nowrap text-sm;
       }
       .tab-active {
-        @apply text-blue-700 border-blue-600 bg-white;
+        @apply text-blue-700 border-active bg-panel;
       }
       .tab-inactive {
-        @apply text-slate-500 hover:bg-slate-100;
+        @apply text-secondary hover:bg-subtle;
       }
+
+      .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+      .animate-slide-up { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes slideUp { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+      
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
     <script type="importmap">
     {
@@ -80,7 +160,7 @@
     }
     </script>
   </head>
-  <body class="bg-[#eaebef] text-slate-900 antialiased overflow-hidden selection:bg-blue-100 selection:text-blue-900">
+  <body class="bg-app text-primary antialiased overflow-hidden selection:bg-blue-100 selection:text-blue-900">
     <div id="root"></div>
   </body>
 </html>

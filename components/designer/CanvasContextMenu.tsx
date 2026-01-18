@@ -60,7 +60,7 @@ export const CanvasContextMenu: React.FC<ContextMenuProps> = ({ position, target
       ref={menuRef}
       // Critical: Stop mousedown propagation so the document listener doesn't see it and close the menu
       onMouseDown={(e) => e.stopPropagation()} 
-      className="fixed z-[100] bg-white border border-slate-200 rounded-sm shadow-xl min-w-[180px] animate-fade-in flex flex-col py-1"
+      className="fixed z-dropdown bg-white border border-slate-200 rounded-sm shadow-xl min-w-[180px] animate-fade-in flex flex-col py-1"
       style={{ top: position.y, left: position.x }}
     >
       {targetId ? (

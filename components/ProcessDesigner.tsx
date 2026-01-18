@@ -268,6 +268,7 @@ export const ProcessDesigner: React.FC = () => {
         const sNode = steps.find(s => s.id === activeId.current);
         if (sNode && sNode.position) {
             const world = screenToWorld(e.clientX, e.clientY);
+            // 200/80 should be tokens, but for JS logic keeping consistent with node dimensions
             ghostLink.current = { x1: sNode.position.x + 200, y1: sNode.position.y + 40, x2: world.x, y2: world.y };
             setViewport(v => ({...v})); // Force re-render for ghost link
         }
@@ -307,35 +308,35 @@ export const ProcessDesigner: React.FC = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-100px)] flex flex-col bg-white border border-slate-300 rounded-sm shadow-sm overflow-hidden">
+    <div className="h-[calc(100vh-100px)] flex flex-col bg-panel border border-default rounded-base shadow-sm overflow-hidden">
       {/* 1. Rigid Toolbar */}
-      <div className="h-10 bg-slate-100 border-b border-slate-300 flex items-center justify-between px-3 shrink-0">
+      <div className="h-header bg-subtle border-b border-default flex items-center justify-between px-3 shrink-0">
          <div className="flex items-center gap-3">
-            <button onClick={() => setPaletteOpen(!paletteOpen)} className={`p-1 rounded hover:bg-slate-200 ${paletteOpen ? 'text-blue-600' : 'text-slate-500'}`}><LayoutPanelLeft size={16}/></button>
-            <div className="h-4 w-px bg-slate-300"></div>
-            <input className="bg-transparent text-sm font-bold text-slate-800 w-48 outline-none" value={processName} onChange={e => setProcessName(e.target.value)} />
+            <button onClick={() => setPaletteOpen(!paletteOpen)} className={`p-1 rounded-base hover:bg-white border border-transparent hover:border-subtle ${paletteOpen ? 'text-blue-600' : 'text-secondary'}`}><LayoutPanelLeft size={16}/></button>
+            <div className="h-4 w-px bg-default"></div>
+            <input className="bg-transparent text-sm font-bold text-primary w-48 outline-none" value={processName} onChange={e => setProcessName(e.target.value)} />
          </div>
          <div className="flex items-center gap-2">
-            <input className="h-7 w-64 bg-white border border-slate-300 rounded-sm px-2 text-xs" placeholder="Describe workflow for AI generation..." value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAiGenerate(e)} disabled={isGenerating}/>
-            <button className="p-1 text-slate-500 hover:text-slate-900" onClick={() => setViewport(v => ({...v, zoom: v.zoom * 1.1}))}><ZoomIn size={16}/></button>
-            <button className="p-1 text-slate-500 hover:text-slate-900" onClick={() => setViewport(v => ({...v, zoom: v.zoom / 1.1}))}><ZoomOut size={16}/></button>
-            <button className="p-1 text-slate-500 hover:text-rose-600" onClick={handleClear} title="Clear Canvas"><Trash2 size={16}/></button>
-            <div className="h-4 w-px bg-slate-300 mx-1"></div>
-            <button onClick={handleSimulation} className="flex items-center gap-1 px-3 py-1 bg-indigo-600 text-white rounded-sm text-xs hover:bg-indigo-700 shadow-sm"><Cpu size={14}/> Simulate</button>
-            <button onClick={handleDeploy} className="flex items-center gap-1 px-3 py-1 bg-slate-800 text-white rounded-sm text-xs hover:bg-slate-900 shadow-sm"><Save size={14}/> Save</button>
+            <input className="h-7 w-64 bg-panel border border-default rounded-base px-2 text-xs" placeholder="Describe workflow for AI generation..." value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAiGenerate(e)} disabled={isGenerating}/>
+            <button className="p-1 text-secondary hover:text-primary" onClick={() => setViewport(v => ({...v, zoom: v.zoom * 1.1}))}><ZoomIn size={16}/></button>
+            <button className="p-1 text-secondary hover:text-primary" onClick={() => setViewport(v => ({...v, zoom: v.zoom / 1.1}))}><ZoomOut size={16}/></button>
+            <button className="p-1 text-secondary hover:text-rose-600" onClick={handleClear} title="Clear Canvas"><Trash2 size={16}/></button>
+            <div className="h-4 w-px bg-default mx-1"></div>
+            <button onClick={handleSimulation} className="flex items-center gap-1 px-3 py-1 bg-indigo-600 text-white rounded-base text-xs hover:bg-indigo-700 shadow-sm"><Cpu size={14}/> Simulate</button>
+            <button onClick={handleDeploy} className="flex items-center gap-1 px-3 py-1 bg-brand-slate text-white rounded-base text-xs hover:bg-slate-900 shadow-sm"><Save size={14}/> Save</button>
          </div>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
         {/* 2. Palette (Standard Sidebar) */}
         {paletteOpen && (
-          <div className="w-56 border-r border-slate-300 bg-slate-50 overflow-y-auto">
+          <div className="w-56 border-r border-default bg-subtle overflow-y-auto">
              <PaletteSidebar onAddNode={addNode} />
           </div>
         )}
 
         {/* 3. Canvas (Grid) */}
-        <div className="flex-1 relative bg-[#f0f2f5] overflow-hidden cursor-grab active:cursor-grabbing designer-grid"
+        <div className="flex-1 relative bg-canvas overflow-hidden cursor-grab active:cursor-grabbing designer-grid"
              ref={canvasRef} 
              onPointerDown={handlePointerDown} 
              onPointerMove={handlePointerMove} 
@@ -369,7 +370,7 @@ export const ProcessDesigner: React.FC = () => {
 
         {/* 4. Properties (Rigid Right Panel) */}
         {selectedStep && (
-          <div className="w-72 border-l border-slate-300 bg-white overflow-y-auto shadow-xl z-20">
+          <div className="w-72 border-l border-default bg-panel overflow-y-auto shadow-xl z-20">
              <PropertiesPanel step={selectedStep} onUpdate={updateStep} onDelete={deleteStep} roles={roles} />
           </div>
         )}
