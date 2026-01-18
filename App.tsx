@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { 
   LayoutDashboard, CheckSquare, PenTool, BarChart3, Menu, X, Bell, 
@@ -22,8 +21,8 @@ import { CaseManagerView } from './components/CaseManagerView';
 import { CaseViewer } from './components/CaseViewer';
 import { RulesEngineView } from './components/RulesEngineView';
 import { ApiGatewayView } from './components/ApiGatewayView'; 
-import { FormRepository } from './components/FormRepository'; // Added
-import { FormDesigner } from './components/FormDesigner'; // Added
+import { FormRepository } from './components/FormRepository'; 
+import { FormDesigner } from './components/FormDesigner'; 
 import { CommandPalette } from './components/CommandPalette';
 // Import New Pages
 import { UserFormView, RoleFormView, GroupFormView, DelegationFormView } from './components/pages/IdentityPages';
@@ -36,6 +35,7 @@ import { ResourcePlanner } from './components/pages/ResourcePlanner';
 import { ViewState } from './types';
 import { BPMProvider, useBPM } from './contexts/BPMContext';
 import { NexButton } from './components/shared/NexUI';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 const ToastContainer = () => {
   const { notifications, removeNotification, navigateTo } = useBPM();
@@ -184,10 +184,11 @@ const AppContent: React.FC = () => {
   return (
     <div className="flex h-screen bg-app overflow-hidden">
       {/* Sidebar - Enterprise Style */}
+      {/* Dynamic width is handled by w-sidebar class mapped to var(--sidebar-width) */}
       <aside className={`fixed inset-y-0 left-0 z-dropdown w-sidebar bg-panel border-r border-default transform transition-transform duration-200 lg:translate-x-0 lg:static flex flex-col ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="h-header flex items-center px-4 border-b border-default bg-subtle">
+        <div className="h-header flex items-center px-4 border-b border-default bg-subtle shrink-0">
           <div className="w-6 h-6 bg-blue-700 rounded-base flex items-center justify-center text-white font-bold text-xs mr-3">N</div>
-          <span className="text-sm font-bold text-primary tracking-tight">NexFlow Enterprise</span>
+          <span className="text-sm font-bold text-primary tracking-tight truncate">NexFlow Enterprise</span>
           <button onClick={() => setMobileMenuOpen(false)} className="lg:hidden ml-auto text-secondary"><X size={18}/></button>
         </div>
         
@@ -218,7 +219,7 @@ const AppContent: React.FC = () => {
           </div>
         </nav>
 
-        <div className="p-4 border-t border-default bg-subtle">
+        <div className="p-4 border-t border-default bg-subtle shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-base bg-blue-100 border border-blue-200 flex items-center justify-center text-blue-700 font-bold text-xs">
               {currentUser.name.charAt(0)}
@@ -234,7 +235,7 @@ const AppContent: React.FC = () => {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Enterprise Header */}
-        <header className="h-header bg-panel border-b border-default flex items-center justify-between px-6 sticky top-0 z-sticky shadow-sm">
+        <header className="h-header bg-panel border-b border-default flex items-center justify-between px-6 sticky top-0 z-sticky shadow-sm shrink-0">
           <div className="flex items-center gap-4">
             <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden text-secondary"><Menu size={20}/></button>
             <div className="flex items-center gap-2 px-3 py-1.5 bg-subtle border border-default rounded-base">
@@ -259,7 +260,7 @@ const AppContent: React.FC = () => {
                 <span className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 rounded-full border border-white"></span>
               )}
             </button>
-            <button className="text-secondary hover:text-blue-600 transition-colors"><SettingsIcon size={18}/></button>
+            <button className="text-secondary hover:text-blue-600 transition-colors" onClick={() => navigateTo('settings')}><SettingsIcon size={18}/></button>
           </div>
         </header>
 
@@ -285,9 +286,11 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <ErrorBoundary>
-      <BPMProvider>
-        <AppContent />
-      </BPMProvider>
+      <ThemeProvider>
+        <BPMProvider>
+          <AppContent />
+        </BPMProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 };

@@ -41,7 +41,7 @@
         --color-warning: #d97706; /* amber-600 */
         --color-info: #0284c7; /* blue-600 */
 
-        /* --- 2. DIMENSION TOKENS --- */
+        /* --- 2. DYNAMIC DIMENSIONS (Managed by ThemeContext) --- */
         --header-height: 56px;
         --toolbar-height: 48px;
         --sidebar-width: 256px;
@@ -49,15 +49,18 @@
         --prop-panel-width: 288px;
         --node-width: 200px;
         --node-height: 80px;
+        
+        /* Appearance */
         --radius-base: 2px;
         --radius-lg: 4px;
+        
+        /* Density & Typography (Managed by ThemeContext) */
+        --space-base: 1rem;
+        --text-base: 13px; /* Base body font size */
         
         /* --- 3. TYPOGRAPHY TOKENS --- */
         --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
         --font-mono: 'JetBrains Mono', monospace;
-        --text-xs: 10px;
-        --text-sm: 11px;
-        --text-base: 13px;
         
         /* --- 4. Z-INDEX SCALE --- */
         --z-base: 0;
@@ -70,16 +73,22 @@
         --z-toast: 200;
       }
       
+      html {
+        /* Default base font size for rem calculation */
+        font-size: 100%; /* 16px */
+      }
+
       body {
         font-family: var(--font-sans);
-        font-size: var(--text-base);
+        /* Use the dynamic text base variable */
+        font-size: var(--text-base); 
         background-color: var(--surface-app);
         color: var(--text-primary);
         overscroll-behavior-y: none;
         -webkit-font-smoothing: antialiased;
       }
 
-      /* --- 5. UTILITY CLASS MAPPINGS (Extending Tailwind) --- */
+      /* --- 5. UTILITY CLASS MAPPINGS --- */
       
       /* Surfaces */
       .bg-app { background-color: var(--surface-app); }
@@ -100,11 +109,11 @@
       .text-secondary { color: var(--text-secondary); }
       .text-tertiary { color: var(--text-tertiary); }
       
-      /* Dimensions */
+      /* Dynamic Dimensions Classes */
       .h-header { height: var(--header-height); }
       .w-sidebar { width: var(--sidebar-width); }
       .w-inbox-list { width: var(--inbox-list-width); }
-      .h-content-area { height: calc(100vh - var(--header-height) - 48px); } /* Approximate content height */
+      .h-content-area { height: calc(100vh - var(--header-height) - 48px); } /* Approx */
       
       /* Z-Index */
       .z-sticky { z-index: var(--z-sticky); }
