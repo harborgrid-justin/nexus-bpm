@@ -6,10 +6,11 @@ import {
   Search, CheckSquare, Layers, Clock, AlertCircle, UserPlus, Settings,
   CheckCircle, XCircle, Paperclip, LayoutGrid, List as ListIcon, 
   User, Calendar, Star, PauseCircle, ArrowDown, ArrowUp, X,
-  Table as TableIcon, Download, Plus, Send, ChevronLeft, FormInput
+  Table as TableIcon, Download, Plus, Send, ChevronLeft, FormInput, Sparkles, BrainCircuit
 } from 'lucide-react';
 import { NexBadge, NexButton, NexHistoryFeed } from './shared/NexUI';
 import { FormRenderer, validateForm } from './shared/FormRenderer';
+import { summarizeTaskContext } from '../services/geminiService';
 
 // --- Utility Functions ---
 const getRelativeTime = (isoString: string) => {
@@ -197,11 +198,18 @@ export const TaskInbox: React.FC = () => {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
+  // -- AI Insight State --
+  const [aiInsight, setAiInsight] = useState<{summary: string, sentiment: string, nextAction: string} | null>(null);
+  const [loadingAi, setLoadingAi] = useState(false);
+
   useEffect(() => {
-      // Reset form data when task changes
+      // Reset data when task changes
       if (selectedTask) {
           setFormData(selectedTask.data || {});
           setFormErrors({});
+          setAiInsight(null);
+          // Auto-trigger AI summary if task is selected and not loaded
+          handleAiSummary(selectedTask);
       }
   }, [selectedTask]);
 
@@ -295,6 +303,18 @@ export const TaskInbox: React.FC = () => {
       tomorrow.setDate(tomorrow.getDate() + 1);
       tomorrow.setHours(9, 0, 0, 0);
       snoozeTask(taskId, tomorrow.toISOString());
+  };
+
+  const handleAiSummary = async (task: Task) => {
+      setLoadingAi(true);
+      try {
+          const result = await summarizeTaskContext(task);
+          setAiInsight(result);
+      } catch (e) {
+          console.error(e);
+      } finally {
+          setLoadingAi(false);
+      }
   };
 
   // Find linked form definition
@@ -513,6 +533,31 @@ export const TaskInbox: React.FC = () => {
                    </div>
                    <p className="text-base text-primary leading-relaxed mb-4">{selectedTask.description || "No description provided."}</p>
                    
+                   {/* AI INSIGHT SECTION */}
+                   <div className="mb-6 p-4 bg-gradient-to-r from-violet-50 to-indigo-50 border border-violet-100 rounded-sm">
+                       <div className="flex justify-between items-start mb-2">
+                           <h4 className="text-xs font-bold text-violet-800 uppercase flex items-center gap-2"><Sparkles size={12}/> Intelligent Briefing</h4>
+                           {loadingAi && <span className="text-[10px] text-violet-500 animate-pulse">Analyzing...</span>}
+                       </div>
+                       {aiInsight ? (
+                           <div className="space-y-2 text-xs">
+                               <p className="text-slate-700 italic">"{aiInsight.summary}"</p>
+                               <div className="flex gap-2 mt-2">
+                                   <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${
+                                       aiInsight.sentiment === 'Negative' ? 'bg-rose-100 text-rose-700 border-rose-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                                   }`}>
+                                       Sentiment: {aiInsight.sentiment}
+                                   </span>
+                                   <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-blue-100 text-blue-700 border border-blue-200">
+                                       Suggested: {aiInsight.nextAction}
+                                   </span>
+                               </div>
+                           </div>
+                       ) : (
+                           <div className="text-xs text-slate-400 italic">Select task to generate insight...</div>
+                       )}
+                   </div>
+
                    {/* DYNAMIC FORM RENDERING */}
                    {activeForm && selectedTask.status !== TaskStatus.COMPLETED && selectedTask.assignee !== 'Unassigned' && (
                        <div className="mb-6 p-4 bg-slate-50 border border-blue-200 rounded-sm">

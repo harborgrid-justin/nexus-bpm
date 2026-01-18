@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { ProcessStep, BusinessRule } from '../types';
+import { ProcessStep, BusinessRule, Task } from '../types';
 
 const getClient = () => {
   if (!process.env.API_KEY) return null;
@@ -166,4 +166,44 @@ export const explainRuleLogic = async (rule: BusinessRule): Promise<string> => {
   });
 
   return response.text || "Logic evaluation pending.";
+};
+
+export const summarizeTaskContext = async (task: Task): Promise<{ summary: string; sentiment: string; nextAction: string }> => {
+  const ai = getClient();
+  if (!ai) return { 
+    summary: "AI summarization unavailable.", 
+    sentiment: "Neutral", 
+    nextAction: "Review details manually." 
+  };
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Analyze this enterprise task context.
+      Task: ${JSON.stringify(task)}
+      
+      Return a JSON object with:
+      1. summary: A concise 2-sentence executive summary of the task and its history.
+      2. sentiment: The overall sentiment of the comments (Positive, Neutral, Negative, Urgent).
+      3. nextAction: The recommended next action for the user (e.g., "Approve immediately", "Request more info").`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            summary: { type: Type.STRING },
+            sentiment: { type: Type.STRING },
+            nextAction: { type: Type.STRING }
+          }
+        }
+      }
+    });
+
+    if (response.text) {
+      return JSON.parse(response.text);
+    }
+    return { summary: "Analysis failed.", sentiment: "Neutral", nextAction: "Review" };
+  } catch (e) {
+    return { summary: "Analysis failed.", sentiment: "Neutral", nextAction: "Review" };
+  }
 };

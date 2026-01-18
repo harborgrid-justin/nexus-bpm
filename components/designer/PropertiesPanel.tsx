@@ -1,20 +1,35 @@
 
 import React, { useState } from 'react';
-import { ProcessStep, UserRole, IOMapping, RetryPolicy } from '../../types';
+import { ProcessStep, UserRole, IOMapping, RetryPolicy, EscalationRule } from '../../types';
 import { useBPM } from '../../contexts/BPMContext';
 import { 
   Trash2, Compass, X, ExternalLink, 
   Settings, Database, RefreshCw, ArrowRightLeft, 
-  Braces, ShieldAlert, Plus, Minimize2, Key, Sparkles, FunctionSquare, Layout
+  Braces, ShieldAlert, Plus, Minimize2, Key, Sparkles, FunctionSquare, Layout, Clock, AlertCircle
 } from 'lucide-react';
 import { NexFormGroup } from '../shared/NexUI';
 import { getStepTypeMetadata } from './designerUtils';
+import { DataMapper } from '../shared/DataMapper';
 
-// Mock upstream variables for autocomplete demo
-const SUGGESTED_VARS = [
-    'request.amount', 'request.requesterId', 'approval.status', 
-    'user.email', 'system.date', 'invoice.id', 'fraud.score'
+// Mock variables available in the process context
+const PROCESS_VARS = [
+    'request.id', 'request.amount', 'request.requester', 'request.date', 
+    'approval.status', 'approval.comment', 
+    'user.email', 'user.department',
+    'system.timestamp', 'case.id'
 ];
+
+// Mock inputs expected by various step types
+const GET_TARGET_SCHEMA = (type: string): string[] => {
+    switch(type) {
+        case 'email-send': return ['to', 'subject', 'body', 'cc'];
+        case 'slack-post': return ['channel', 'message', 'threadId'];
+        case 'salesforce-create': return ['objectType', 'fields', 'externalId'];
+        case 'rest-api': return ['url', 'method', 'headers', 'body'];
+        case 'pdf-generate': return ['templateId', 'data', 'filename'];
+        default: return ['input1', 'input2', 'config'];
+    }
+};
 
 export const PropertiesPanel = ({ 
   step, 
@@ -47,25 +62,11 @@ export const PropertiesPanel = ({
     const updateField = (field: keyof ProcessStep, value: any) => { onUpdate({ ...step, [field]: value }); };
     const updateDataField = (key: string, value: any) => { onUpdate({ ...step, data: { ...step.data, [key]: value } }); };
     
-    // --- Data Mapping Helpers ---
-    const addMapping = (type: 'inputs' | 'outputs') => {
-        const newMap: IOMapping = { source: '', target: '' };
-        onUpdate({ ...step, [type]: [...(step[type] || []), newMap] });
-    };
-    
-    const updateMapping = (type: 'inputs' | 'outputs', index: number, field: keyof IOMapping, value: string) => {
-        const list = [...(step[type] || [])];
-        list[index] = { ...list[index], [field]: value };
-        onUpdate({ ...step, [type]: list });
+    const updateEscalation = (field: keyof EscalationRule, value: any) => {
+        const current = step.escalation || { enabled: false, daysAfterDue: 1, action: 'notify_manager' };
+        onUpdate({ ...step, escalation: { ...current, [field]: value } });
     };
 
-    const removeMapping = (type: 'inputs' | 'outputs', index: number) => {
-        const list = [...(step[type] || [])];
-        list.splice(index, 1);
-        onUpdate({ ...step, [type]: list });
-    };
-
-    // --- Retry Policy Helpers ---
     const updateRetry = (field: keyof RetryPolicy, value: any) => {
         const current = step.retryPolicy || { enabled: false, maxAttempts: 3, strategy: 'fixed', delayMs: 1000 };
         onUpdate({ ...step, retryPolicy: { ...current, [field]: value } });
@@ -192,69 +193,19 @@ export const PropertiesPanel = ({
              </div>
           )}
 
-          {/* TAB: DATA WIRING (IO Mapping) */}
+          {/* TAB: DATA WIRING (Visual Mapper) */}
           {activeTab === 'data' && (
               <div className="space-y-6">
-                  {/* Inputs */}
                   <div>
                       <div className="flex items-center justify-between mb-2">
-                          <h4 className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><ArrowRightLeft size={10}/> Input Mapping</h4>
-                          <button onClick={() => addMapping('inputs')} className="text-blue-600 hover:text-blue-800"><Plus size={14}/></button>
+                          <h4 className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><ArrowRightLeft size={10}/> Input Transformation</h4>
                       </div>
-                      <div className="space-y-2">
-                          {(!step.inputs || step.inputs.length === 0) && <div className="text-xs text-slate-400 italic p-2 border border-dashed rounded-sm">No input maps defined.</div>}
-                          {step.inputs?.map((map, i) => (
-                              <div key={i} className="flex gap-1 items-center">
-                                  <div className="relative flex-1">
-                                      <input 
-                                        className="prop-input font-mono text-[10px] h-7" 
-                                        placeholder="Process Var" 
-                                        value={map.source} 
-                                        list={`vars-${i}`}
-                                        onChange={e => updateMapping('inputs', i, 'source', e.target.value)} 
-                                      />
-                                      <datalist id={`vars-${i}`}>
-                                          {SUGGESTED_VARS.map(v => <option key={v} value={v} />)}
-                                      </datalist>
-                                  </div>
-                                  <span className="text-slate-400">→</span>
-                                  <input className="prop-input font-mono text-[10px] h-7 flex-1" placeholder="Task Param" value={map.target} onChange={e => updateMapping('inputs', i, 'target', e.target.value)} />
-                                  <button onClick={() => removeMapping('inputs', i)} className="text-slate-400 hover:text-rose-500"><X size={12}/></button>
-                              </div>
-                          ))}
-                      </div>
-                  </div>
-
-                  <div className="h-px bg-slate-200"></div>
-
-                  {/* Outputs */}
-                  <div>
-                      <div className="flex items-center justify-between mb-2">
-                          <h4 className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><Braces size={10}/> Output Mapping</h4>
-                          <button onClick={() => addMapping('outputs')} className="text-blue-600 hover:text-blue-800"><Plus size={14}/></button>
-                      </div>
-                      <div className="space-y-2">
-                          {(!step.outputs || step.outputs.length === 0) && <div className="text-xs text-slate-400 italic p-2 border border-dashed rounded-sm">No output maps defined.</div>}
-                          {step.outputs?.map((map, i) => (
-                              <div key={i} className="flex gap-1 items-center">
-                                  <input className="prop-input font-mono text-[10px] h-7" placeholder="Task Result" value={map.source} onChange={e => updateMapping('outputs', i, 'source', e.target.value)} />
-                                  <span className="text-slate-400">→</span>
-                                  <div className="relative flex-1">
-                                      <input 
-                                        className="prop-input font-mono text-[10px] h-7" 
-                                        placeholder="Process Var" 
-                                        value={map.target} 
-                                        list={`out-vars-${i}`}
-                                        onChange={e => updateMapping('outputs', i, 'target', e.target.value)} 
-                                      />
-                                      <datalist id={`out-vars-${i}`}>
-                                          {SUGGESTED_VARS.map(v => <option key={v} value={v} />)}
-                                      </datalist>
-                                  </div>
-                                  <button onClick={() => removeMapping('outputs', i)} className="text-slate-400 hover:text-rose-500"><X size={12}/></button>
-                              </div>
-                          ))}
-                      </div>
+                      <DataMapper 
+                        mappings={step.inputs || []}
+                        onChange={(m) => updateField('inputs', m)}
+                        sourceSchema={PROCESS_VARS}
+                        targetSchema={GET_TARGET_SCHEMA(step.type)}
+                      />
                   </div>
               </div>
           )}
@@ -287,47 +238,72 @@ export const PropertiesPanel = ({
               </div>
           )}
 
-          {/* TAB: POLICY (Retry, Timeout) */}
+          {/* TAB: POLICY (Retry, Timeout, Escalation) */}
           {activeTab === 'policy' && (
-              <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-bold text-slate-700">Retry Policy</h4>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" checked={step.retryPolicy?.enabled || false} onChange={e => updateRetry('enabled', e.target.checked)} />
-                        <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                      </label>
-                  </div>
-                  
-                  {step.retryPolicy?.enabled && (
-                      <div className="p-3 bg-white border border-slate-200 rounded-sm space-y-3 animate-slide-up">
-                          <NexFormGroup label="Strategy">
-                              <select className="prop-input" value={step.retryPolicy?.strategy || 'fixed'} onChange={e => updateRetry('strategy', e.target.value)}>
-                                  <option value="fixed">Fixed Delay</option>
-                                  <option value="exponential">Exponential Backoff</option>
-                                  <option value="linear">Linear Backoff</option>
-                              </select>
-                          </NexFormGroup>
-                          <div className="grid grid-cols-2 gap-2">
-                              <NexFormGroup label="Max Attempts">
-                                  <input type="number" className="prop-input" value={step.retryPolicy?.maxAttempts || 3} onChange={e => updateRetry('maxAttempts', parseInt(e.target.value))} />
-                              </NexFormGroup>
-                              <NexFormGroup label="Delay (ms)">
-                                  <input type="number" className="prop-input" value={step.retryPolicy?.delayMs || 1000} onChange={e => updateRetry('delayMs', parseInt(e.target.value))} />
-                              </NexFormGroup>
-                          </div>
-                      </div>
-                  )}
-
-                  <div className="pt-4 border-t border-slate-200">
-                      <NexFormGroup label="Loop Characteristics">
-                          <label className="flex items-center gap-2 p-2 border border-slate-200 rounded-sm hover:bg-white cursor-pointer">
-                              <input type="checkbox" checked={step.isMultiInstance || false} onChange={e => updateField('isMultiInstance', e.target.checked)} className="rounded-sm text-blue-600"/>
-                              <div className="flex items-center gap-2">
-                                  <RefreshCw size={14} className="text-slate-500"/>
-                                  <span className="text-xs text-slate-700 font-medium">Multi-Instance (Parallel)</span>
-                              </div>
+              <div className="space-y-6">
+                  {/* Retry Section */}
+                  <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-bold text-slate-700 flex items-center gap-2"><RefreshCw size={12}/> Retry Policy</h4>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" className="sr-only peer" checked={step.retryPolicy?.enabled || false} onChange={e => updateRetry('enabled', e.target.checked)} />
+                            <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600"></div>
                           </label>
-                      </NexFormGroup>
+                      </div>
+                      
+                      {step.retryPolicy?.enabled && (
+                          <div className="p-3 bg-white border border-slate-200 rounded-sm space-y-3 animate-slide-up">
+                              <NexFormGroup label="Strategy">
+                                  <select className="prop-input" value={step.retryPolicy?.strategy || 'fixed'} onChange={e => updateRetry('strategy', e.target.value)}>
+                                      <option value="fixed">Fixed Delay</option>
+                                      <option value="exponential">Exponential Backoff</option>
+                                      <option value="linear">Linear Backoff</option>
+                                  </select>
+                              </NexFormGroup>
+                              <div className="grid grid-cols-2 gap-2">
+                                  <NexFormGroup label="Max Attempts">
+                                      <input type="number" className="prop-input" value={step.retryPolicy?.maxAttempts || 3} onChange={e => updateRetry('maxAttempts', parseInt(e.target.value))} />
+                                  </NexFormGroup>
+                                  <NexFormGroup label="Delay (ms)">
+                                      <input type="number" className="prop-input" value={step.retryPolicy?.delayMs || 1000} onChange={e => updateRetry('delayMs', parseInt(e.target.value))} />
+                                  </NexFormGroup>
+                              </div>
+                          </div>
+                      )}
+                  </div>
+
+                  <div className="h-px bg-slate-200"></div>
+
+                  {/* Escalation Section */}
+                  <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-bold text-slate-700 flex items-center gap-2"><Clock size={12}/> SLA & Escalation</h4>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" className="sr-only peer" checked={step.escalation?.enabled || false} onChange={e => updateEscalation('enabled', e.target.checked)} />
+                            <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-rose-500"></div>
+                          </label>
+                      </div>
+
+                      {step.escalation?.enabled && (
+                          <div className="p-3 bg-rose-50 border border-rose-100 rounded-sm space-y-3 animate-slide-up">
+                              <NexFormGroup label="Trigger After (Days Overdue)">
+                                  <input type="number" className="prop-input" value={step.escalation.daysAfterDue} onChange={e => updateEscalation('daysAfterDue', parseInt(e.target.value))} />
+                              </NexFormGroup>
+                              <NexFormGroup label="Escalation Action">
+                                  <select className="prop-input" value={step.escalation.action} onChange={e => updateEscalation('action', e.target.value)}>
+                                      <option value="notify_manager">Notify Manager</option>
+                                      <option value="reassign">Auto-Reassign</option>
+                                      <option value="auto_complete">Force Complete</option>
+                                      <option value="trigger_bot">Trigger Remediation Bot</option>
+                                  </select>
+                              </NexFormGroup>
+                              {step.escalation.action === 'reassign' && (
+                                  <NexFormGroup label="Target Role ID">
+                                      <input className="prop-input" value={step.escalation.targetId || ''} onChange={e => updateEscalation('targetId', e.target.value)} placeholder="e.g. manager" />
+                                  </NexFormGroup>
+                              )}
+                          </div>
+                      )}
                   </div>
               </div>
           )}

@@ -3,7 +3,7 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { ProcessStep, ProcessLink, ProcessStepType } from '../types';
 import { useBPM } from '../contexts/BPMContext';
 import { 
-  Save, ZoomIn, ZoomOut, Sparkles, Cpu, LayoutPanelLeft, Trash2,
+  Save, ZoomIn, ZoomOut, Sparkles, Cpu, LayoutPanelLeft, Trash2, Thermometer
 } from 'lucide-react';
 import { PaletteSidebar } from './designer/PaletteSidebar';
 import { NodeComponent } from './designer/NodeComponent';
@@ -26,9 +26,10 @@ export const ProcessDesigner: React.FC = () => {
   const [contextMenu, setContextMenu] = useState<{ position: { x: number; y: number }, targetId: string | null } | null>(null);
   const [clipboard, setClipboard] = useState<ProcessStep | null>(null);
 
-  // AI States
+  // AI & Heatmap States
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showHeatmap, setShowHeatmap] = useState(false);
 
   const [paletteOpen, setPaletteOpen] = useState(true);
   
@@ -307,6 +308,15 @@ export const ProcessDesigner: React.FC = () => {
       setSelectedId(null); 
   };
 
+  // Mock Heatmap Data Generation
+  const getHeatmapColor = (stepId: string) => {
+      // Deterministic pseudo-random based on ID string char codes
+      const score = stepId.split('').reduce((a,b) => a + b.charCodeAt(0), 0) % 100;
+      if (score > 80) return 'bg-rose-500/30 border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.5)]';
+      if (score > 50) return 'bg-amber-500/30 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)]';
+      return 'bg-emerald-500/30 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]';
+  };
+
   return (
     <div className="h-[calc(100vh-100px)] flex flex-col bg-panel border border-default rounded-base shadow-sm overflow-hidden">
       {/* 1. Rigid Toolbar */}
@@ -321,7 +331,17 @@ export const ProcessDesigner: React.FC = () => {
             <button className="p-1 text-secondary hover:text-primary" onClick={() => setViewport(v => ({...v, zoom: v.zoom * 1.1}))}><ZoomIn size={16}/></button>
             <button className="p-1 text-secondary hover:text-primary" onClick={() => setViewport(v => ({...v, zoom: v.zoom / 1.1}))}><ZoomOut size={16}/></button>
             <button className="p-1 text-secondary hover:text-rose-600" onClick={handleClear} title="Clear Canvas"><Trash2 size={16}/></button>
+            
             <div className="h-4 w-px bg-default mx-1"></div>
+            
+            <button 
+                onClick={() => setShowHeatmap(!showHeatmap)} 
+                className={`p-1 rounded-base transition-colors ${showHeatmap ? 'bg-rose-100 text-rose-600' : 'text-secondary hover:text-primary'}`} 
+                title="Toggle Heatmap"
+            >
+                <Thermometer size={16}/>
+            </button>
+
             <button onClick={handleSimulation} className="flex items-center gap-1 px-3 py-1 bg-indigo-600 text-white rounded-base text-xs hover:bg-indigo-700 shadow-sm"><Cpu size={14}/> Simulate</button>
             <button onClick={handleDeploy} className="flex items-center gap-1 px-3 py-1 bg-brand-slate text-white rounded-base text-xs hover:bg-slate-900 shadow-sm"><Save size={14}/> Save</button>
          </div>
@@ -364,7 +384,27 @@ export const ProcessDesigner: React.FC = () => {
               </svg>
               
               {/* Nodes Layer */}
-              {steps.map(step => <NodeComponent key={step.id} step={step} isSelected={selectedId === step.id} />)}
+              {steps.map(step => (
+                  <div key={step.id} className="relative">
+                      <NodeComponent step={step} isSelected={selectedId === step.id} />
+                      {showHeatmap && step.position && (
+                          <div 
+                            className={`absolute pointer-events-none z-30 inset-0 rounded-base border-2 ${getHeatmapColor(step.id)}`}
+                            style={{ 
+                                left: step.position.x, 
+                                top: step.position.y,
+                                width: '200px', 
+                                height: '80px',
+                                backdropFilter: 'blur(1px)'
+                            }}
+                          >
+                              <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap shadow-lg">
+                                  Avg: {Math.floor(Math.random() * 200)}ms
+                              </div>
+                          </div>
+                      )}
+                  </div>
+              ))}
            </div>
         </div>
 

@@ -149,6 +149,19 @@ export interface RetryPolicy {
   delayMs: number;
 }
 
+export interface EscalationRule {
+  enabled: boolean;
+  daysAfterDue: number;
+  action: 'notify_manager' | 'reassign' | 'auto_complete' | 'trigger_bot';
+  targetId?: string; // Role ID or User ID
+}
+
+export interface StepMetrics {
+  avgDuration: number; // in seconds
+  errorRate: number; // percentage 0-100
+  executionCount: number;
+}
+
 export interface ProcessStep {
   id: string;
   name: string;
@@ -175,6 +188,9 @@ export interface ProcessStep {
   
   // EXECUTION POLICY
   retryPolicy?: RetryPolicy;
+  escalation?: EscalationRule; // Phase 3: SLA Escalation
+  metrics?: StepMetrics;       // Phase 3: Analytics Overlay
+  
   isMultiInstance?: boolean;
   formId?: string; // Phase 2: Form Binding
 }
@@ -224,6 +240,7 @@ export interface AuditLog {
 export interface TaskHistory {
   id: string;
   stepName: string;
+  stepId?: string; // Added for path tracing
   action: string;
   performer: string;
   timestamp: string;
