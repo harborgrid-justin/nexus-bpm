@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { ProcessStepType } from '../../types';
 import { getStepTypeMetadata, STEP_CATEGORIES } from './designerUtils';
-import { Plus, ChevronDown, ChevronRight, Search } from 'lucide-react';
+import { Plus, ChevronDown, ChevronRight, Search, GripVertical } from 'lucide-react';
 
 interface PaletteItemProps {
   type: ProcessStepType;
@@ -12,19 +12,30 @@ interface PaletteItemProps {
 const PaletteItem: React.FC<PaletteItemProps> = ({ type, onAdd }) => {
   const { icon: Icon, color, defaultName: label } = getStepTypeMetadata(type);
   
+  const onDragStart = (event: React.DragEvent, nodeType: string) => {
+    event.dataTransfer.setData('application/reactflow', nodeType);
+    event.dataTransfer.effectAllowed = 'move';
+  };
+
   return (
-    <button 
-      onClick={() => onAdd(type)} 
-      className="w-full flex items-center gap-3 p-2 bg-white hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-sm text-left transition-all group"
+    <div 
+      className="flex items-center group relative"
+      draggable 
+      onDragStart={(e) => onDragStart(e, type)}
     >
-      <div className={`w-8 h-8 rounded-sm flex items-center justify-center shrink-0 bg-slate-50 border border-slate-200 group-hover:bg-white group-hover:border-blue-400`}>
-        <Icon size={16} className={`${color} group-hover:text-blue-600`} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <span className="block text-xs font-bold text-slate-700 truncate">{label}</span>
-      </div>
-      <Plus size={14} className="text-slate-300 group-hover:text-blue-500 opacity-0 group-hover:opacity-100" />
-    </button>
+        <button 
+        onClick={() => onAdd(type)} 
+        className="w-full flex items-center gap-3 p-2 bg-white hover:bg-slate-50 border border-transparent hover:border-slate-200 rounded-sm text-left transition-all cursor-grab active:cursor-grabbing"
+        >
+        <div className={`w-8 h-8 rounded-sm flex items-center justify-center shrink-0 bg-slate-50 border border-slate-200 group-hover:bg-white group-hover:border-blue-400`}>
+            <Icon size={16} className={`${color} group-hover:text-blue-600`} />
+        </div>
+        <div className="flex-1 min-w-0">
+            <span className="block text-xs font-bold text-slate-700 truncate">{label}</span>
+        </div>
+        <Plus size={14} className="text-slate-300 group-hover:text-blue-500 opacity-0 group-hover:opacity-100" />
+        </button>
+    </div>
   );
 };
 
