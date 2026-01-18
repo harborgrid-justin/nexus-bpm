@@ -327,6 +327,7 @@ export type ViewState =
   | 'cases'
   | 'case-viewer'
   | 'rules'
+  | 'api-gateway' // Added for API Management
   | 'resource-planner' // New Planning View
   // --- Form Pages (Replaces Modals) ---
   | 'create-user' | 'edit-user'

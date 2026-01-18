@@ -4,7 +4,7 @@ import {
   LayoutDashboard, CheckSquare, PenTool, BarChart3, Menu, X, Bell, 
   Search, Layers, Settings as SettingsIcon, ShieldCheck, 
   Fingerprint, Briefcase, FunctionSquare, Info, CheckCircle, AlertCircle, ChevronRight, Loader2,
-  Plus, Zap, MoreHorizontal, UserCircle, Sparkles, ChevronDown, Database, LogIn, Command, Home, Calendar
+  Plus, Zap, MoreHorizontal, UserCircle, Sparkles, ChevronDown, Database, LogIn, Command, Home, Calendar, Globe
 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { TaskInbox } from './components/TaskInbox';
@@ -21,6 +21,7 @@ import { ProcessInstanceViewer } from './components/ProcessInstanceViewer';
 import { CaseManagerView } from './components/CaseManagerView';
 import { CaseViewer } from './components/CaseViewer';
 import { RulesEngineView } from './components/RulesEngineView';
+import { ApiGatewayView } from './components/ApiGatewayView'; // Added import
 import { CommandPalette } from './components/CommandPalette';
 // Import New Pages
 import { UserFormView, RoleFormView, GroupFormView, DelegationFormView } from './components/pages/IdentityPages';
@@ -122,6 +123,7 @@ const AppContent: React.FC = () => {
       case 'cases': return <CaseManagerView />;
       case 'case-viewer': return nav.selectedId ? <CaseViewer caseId={nav.selectedId} /> : <CaseManagerView />;
       case 'rules': return <RulesEngineView />;
+      case 'api-gateway': return <ApiGatewayView />; // Added route
       case 'resource-planner': return <ResourcePlanner />;
       
       // Full Page Forms
@@ -199,6 +201,7 @@ const AppContent: React.FC = () => {
             <NavItem view="designer" icon={PenTool} label="Workflow Designer" active={nav.view === 'designer'} />
             <NavItem view="resource-planner" icon={Calendar} label="Resource Planner" active={nav.view === 'resource-planner'} />
             <NavItem view="rules" icon={FunctionSquare} label="Business Rules" active={nav.view === 'rules'} />
+            <NavItem view="api-gateway" icon={Globe} label="API Gateway" active={nav.view === 'api-gateway'} />
           </div>
           
           <div>
