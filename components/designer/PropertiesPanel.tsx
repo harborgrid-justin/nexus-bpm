@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ProcessStep, UserRole, IOMapping, RetryPolicy, EscalationRule } from '../../types';
 import { useBPM } from '../../contexts/BPMContext';
 import { 
@@ -44,9 +44,28 @@ export const PropertiesPanel = ({
     const { rules, forms, navigateTo } = useBPM();
     const [activeTab, setActiveTab] = useState<'config' | 'data' | 'logic' | 'policy'>('config');
     
+    const panelWidthClass = useMemo(() => {
+        if (!step) return 'w-[320px]';
+        
+        // Data Mapper needs wide view
+        if (activeTab === 'data') return 'w-[600px]';
+        
+        // Logic with Scripts needs medium wide
+        if (activeTab === 'logic' && (step.onEntryAction || step.onExitAction)) return 'w-[450px]';
+
+        // Specific complex steps
+        if (['script-task', 'pdf-generate', 'template-render', 'xml-transform', 'json-map', 'api-gateway', 'sql-query', 'graphql-query'].includes(step.type)) {
+            return 'w-[480px]';
+        }
+        
+        if (['sendgrid-email', 'email-send'].includes(step.type)) return 'w-[400px]';
+
+        return 'w-[320px]';
+    }, [step?.type, activeTab, step?.onEntryAction, step?.onExitAction]);
+
     if (!step) {
       return (
-        <aside className="hidden md:flex w-full h-full flex-col items-center justify-center text-center p-8 bg-white border-l border-slate-300">
+        <aside className={`${panelWidthClass} hidden md:flex h-full flex-col items-center justify-center text-center p-8 bg-white border-l border-slate-300 transition-all duration-300 ease-in-out`}>
           <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4 border border-slate-200">
             <Compass size={32} strokeWidth={1} className="text-slate-300" />
           </div>
@@ -120,7 +139,7 @@ export const PropertiesPanel = ({
     };
 
     return (
-      <aside className="w-full h-full bg-white border-l border-slate-300 flex flex-col shadow-xl z-20">
+      <aside className={`${panelWidthClass} h-full bg-white border-l border-slate-300 flex flex-col shadow-xl z-20 transition-all duration-300 ease-in-out`}>
         {/* Header */}
         <div className="h-10 flex items-center justify-between px-4 border-b border-slate-300 bg-slate-50">
           <div className="flex items-center gap-2">

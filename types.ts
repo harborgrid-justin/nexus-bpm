@@ -343,20 +343,49 @@ export interface DecisionTable {
   lastModified: string;
 }
 
-// ---- FORMS ENGINE (PHASE 2) ----
-export type FormFieldType = 'text' | 'number' | 'date' | 'select' | 'checkbox' | 'textarea' | 'email' | 'file' | 'signature';
+// ---- FORMS ENGINE (PHASE 2 & 3) ----
+export type FormFieldType = 
+  | 'text' | 'number' | 'date' | 'time' | 'password' 
+  | 'select' | 'checkbox' | 'textarea' | 'email' 
+  | 'file' | 'signature' | 'rating' | 'slider' 
+  | 'tags' | 'color' | 'rich-text' | 'divider';
 
 export interface FormValidation {
   min?: number;
   max?: number;
   pattern?: string;
   message?: string;
+  accept?: string; // For files
+  maxSize?: number; // For files (bytes)
 }
 
 export interface FormVisibilityRule {
   targetFieldKey: string;
   operator: 'eq' | 'neq' | 'contains' | 'truthy' | 'falsy';
   value?: string;
+}
+
+export interface FormFieldLayout {
+  width: '100%' | '50%' | '33%';
+}
+
+export interface FormFieldAppearance {
+  prefix?: string;
+  suffix?: string;
+  icon?: string;
+}
+
+export interface FormDataSource {
+  type: 'static' | 'api';
+  endpoint?: string;
+  labelKey?: string;
+  valueKey?: string;
+}
+
+export interface FormBehavior {
+  readOnly?: boolean;
+  disabled?: boolean;
+  calculation?: string; // e.g. "price * qty"
 }
 
 export interface FormField {
@@ -366,10 +395,17 @@ export interface FormField {
   key: string; // The variable name this binds to
   placeholder?: string;
   required: boolean;
+  helpText?: string;
   options?: string[]; // CSV for select options
   defaultValue?: string;
+  
+  // Advanced Config
   validation?: FormValidation;
   visibility?: FormVisibilityRule;
+  layout?: FormFieldLayout;
+  appearance?: FormFieldAppearance;
+  dataSource?: FormDataSource;
+  behavior?: FormBehavior;
 }
 
 export interface FormDefinition {

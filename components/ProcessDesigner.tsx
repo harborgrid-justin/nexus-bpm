@@ -85,7 +85,7 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => 
 // --- Process Properties Panel ---
 const ProcessSettingsPanel = ({ meta, onChange }: { meta: Partial<ProcessDefinition>, onChange: (upd: Partial<ProcessDefinition>) => void }) => {
     return (
-        <aside className="w-full h-full bg-white border-l border-slate-300 flex flex-col shadow-xl z-20">
+        <aside className="w-[320px] h-full bg-white border-l border-slate-300 flex flex-col shadow-xl z-20">
             <div className="h-10 flex items-center px-4 border-b border-slate-300 bg-slate-50 gap-2">
                 <Settings size={14} className="text-slate-500"/>
                 <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Process Settings</h3>
@@ -579,8 +579,8 @@ export const ProcessDesigner: React.FC = () => {
              />
           </div>
 
-          {/* 4. Properties (Rigid Right Panel) */}
-          <div className="w-72 border-l border-default bg-panel overflow-y-auto shadow-xl z-20">
+          {/* 4. Properties (Flexible Right Panel) */}
+          <div className="flex-none border-l border-default bg-panel overflow-y-auto shadow-xl z-20 transition-all duration-300 ease-in-out">
              {selectedStep ? (
                <PropertiesPanel step={selectedStep} onUpdate={updateSelectedStep} onDelete={deleteNode} roles={roles} />
              ) : (

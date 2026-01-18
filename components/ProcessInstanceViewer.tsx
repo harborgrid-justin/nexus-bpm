@@ -142,6 +142,8 @@ export const ProcessInstanceViewer: React.FC<Props> = ({ instanceId, onClose }) 
       setNewComment('');
   };
 
+  const adminPanelWidth = rightPanelTab === 'variables' ? 'w-[500px]' : 'w-[320px]';
+
   return (
     <div className="fixed inset-0 bg-slate-100 z-[100] flex flex-col animate-fade-in overflow-hidden">
       <div className="h-12 bg-white border-b border-slate-300 flex items-center justify-between px-4 z-50 shadow-sm">
@@ -257,7 +259,7 @@ export const ProcessInstanceViewer: React.FC<Props> = ({ instanceId, onClose }) 
         </div>
 
         {showAdminPanel && (
-          <aside className="w-80 bg-white border-l border-slate-300 flex flex-col shadow-xl z-20">
+          <aside className={`${adminPanelWidth} bg-white border-l border-slate-300 flex flex-col shadow-xl z-20 transition-all duration-300 ease-in-out`}>
              <div className="p-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
                 <h3 className="font-bold text-slate-700 text-xs uppercase tracking-wider">Monitor</h3>
              </div>
