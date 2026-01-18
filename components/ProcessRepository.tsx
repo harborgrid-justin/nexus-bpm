@@ -97,7 +97,9 @@ export const ProcessRepository: React.FC = () => {
                  {/* Definition Actions Menu */}
                  <div className="relative group/menu">
                     <button className="p-1 hover:bg-slate-100 rounded-sm text-slate-400"><MoreVertical size={16}/></button>
-                    <div className="absolute right-0 top-6 w-32 bg-white border border-slate-200 shadow-xl rounded-sm z-20 hidden group-hover/menu:block py-1">
+                    <div className="absolute right-0 top-6 w-36 bg-white border border-slate-200 shadow-xl rounded-sm z-20 hidden group-hover/menu:block py-1">
+                        <button onClick={() => navigateTo('designer', process.id)} className="w-full text-left px-3 py-2 text-[10px] hover:bg-slate-50 flex items-center gap-2 text-slate-700 font-bold"><Edit size={12} className="text-blue-600"/> Edit Model</button>
+                        <div className="h-px bg-slate-100 my-1"></div>
                         <button onClick={() => handleDuplicate(process)} className="w-full text-left px-3 py-2 text-[10px] hover:bg-slate-50 flex items-center gap-2 text-slate-700"><Copy size={12}/> Duplicate</button>
                         <button onClick={() => toggleProcessState(process.id)} className="w-full text-left px-3 py-2 text-[10px] hover:bg-slate-50 flex items-center gap-2 text-slate-700"><PauseCircle size={12}/> {process.isActive ? 'Archive' : 'Activate'}</button>
                         <div className="h-px bg-slate-100 my-1"></div>

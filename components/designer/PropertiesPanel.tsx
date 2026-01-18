@@ -10,6 +10,7 @@ import {
 import { NexFormGroup } from '../shared/NexUI';
 import { getStepTypeMetadata } from './designerUtils';
 import { DataMapper } from '../shared/DataMapper';
+import { STEP_SCHEMAS, ConfigField } from './stepSchemas';
 
 // Mock variables available in the process context
 const PROCESS_VARS = [
@@ -21,14 +22,12 @@ const PROCESS_VARS = [
 
 // Mock inputs expected by various step types
 const GET_TARGET_SCHEMA = (type: string): string[] => {
-    switch(type) {
-        case 'email-send': return ['to', 'subject', 'body', 'cc'];
-        case 'slack-post': return ['channel', 'message', 'threadId'];
-        case 'salesforce-create': return ['objectType', 'fields', 'externalId'];
-        case 'rest-api': return ['url', 'method', 'headers', 'body'];
-        case 'pdf-generate': return ['templateId', 'data', 'filename'];
-        default: return ['input1', 'input2', 'config'];
+    // Generate target schema keys from the static schema definition
+    const schema = STEP_SCHEMAS[type as any];
+    if (schema) {
+        return schema.map(f => f.key);
     }
+    return ['config', 'input'];
 };
 
 export const PropertiesPanel = ({ 
@@ -58,6 +57,7 @@ export const PropertiesPanel = ({
     }
   
     const meta = getStepTypeMetadata(step.type);
+    const schema = STEP_SCHEMAS[step.type] || [];
     
     const updateField = (field: keyof ProcessStep, value: any) => { onUpdate({ ...step, [field]: value }); };
     const updateDataField = (key: string, value: any) => { onUpdate({ ...step, data: { ...step.data, [key]: value } }); };
@@ -70,6 +70,53 @@ export const PropertiesPanel = ({
     const updateRetry = (field: keyof RetryPolicy, value: any) => {
         const current = step.retryPolicy || { enabled: false, maxAttempts: 3, strategy: 'fixed', delayMs: 1000 };
         onUpdate({ ...step, retryPolicy: { ...current, [field]: value } });
+    };
+
+    const renderDynamicField = (field: ConfigField) => {
+        const value = step.data?.[field.key] ?? field.defaultValue ?? '';
+        
+        switch(field.type) {
+            case 'select':
+                return (
+                    <NexFormGroup key={field.key} label={field.label} helpText={field.helpText}>
+                        <select className="prop-input" value={value} onChange={e => updateDataField(field.key, e.target.value)}>
+                            {field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                    </NexFormGroup>
+                );
+            case 'textarea':
+            case 'json':
+            case 'code':
+                return (
+                    <NexFormGroup key={field.key} label={field.label} helpText={field.helpText}>
+                        <textarea 
+                            className={`prop-input min-h-[100px] resize-y ${field.type === 'code' || field.type === 'json' ? 'font-mono text-[10px]' : ''}`}
+                            value={value} 
+                            onChange={e => updateDataField(field.key, e.target.value)} 
+                            placeholder={field.placeholder}
+                        />
+                    </NexFormGroup>
+                );
+            case 'boolean':
+                return (
+                    <div key={field.key} className="mb-4 flex items-center justify-between">
+                        <label className="prop-label mb-0">{field.label}</label>
+                        <input type="checkbox" checked={!!value} onChange={e => updateDataField(field.key, e.target.checked)} className="rounded-sm text-blue-600 focus:ring-blue-500" />
+                    </div>
+                );
+            default:
+                return (
+                    <NexFormGroup key={field.key} label={field.label} helpText={field.helpText}>
+                        <input 
+                            type={field.type === 'number' ? 'number' : 'text'}
+                            className="prop-input" 
+                            value={value} 
+                            onChange={e => updateDataField(field.key, e.target.value)} 
+                            placeholder={field.placeholder}
+                        />
+                    </NexFormGroup>
+                );
+        }
     };
 
     return (
@@ -167,27 +214,12 @@ export const PropertiesPanel = ({
                     </div>
                 )}
 
-                {/* Service / Integration Specifics */}
-                {(meta.category === 'Data & Integration' || meta.category === 'Cloud Infra' || step.type === 'service-task') && (
-                    <div className="space-y-4">
-                        <NexFormGroup label="Endpoint / Resource">
-                            <input className="prop-input font-mono" placeholder="https://api..." value={step.data?.url || step.data?.arn || ''} onChange={e => updateDataField(step.data?.arn ? 'arn' : 'url', e.target.value)} />
-                        </NexFormGroup>
-                        <NexFormGroup label="Method / Action">
-                            <select className="prop-input" value={step.data?.method || 'POST'} onChange={e => updateDataField('method', e.target.value)}>
-                                <option>GET</option><option>POST</option><option>PUT</option><option>DELETE</option>
-                            </select>
-                        </NexFormGroup>
-                        <NexFormGroup label="Auth Header">
-                            <div className="flex gap-2">
-                                <Key size={16} className="mt-2 text-slate-400"/>
-                                <select className="prop-input" value={step.data?.authProfile || ''} onChange={e => updateDataField('authProfile', e.target.value)}>
-                                    <option value="">None</option>
-                                    <option value="vault-stripe">Stripe Prod</option>
-                                    <option value="vault-aws">AWS Main</option>
-                                </select>
-                            </div>
-                        </NexFormGroup>
+                {/* DYNAMIC SCHEMA RENDERING FOR ALL OTHER TYPES */}
+                {schema.map(renderDynamicField)}
+                
+                {schema.length === 0 && step.type !== 'user-task' && meta.category !== 'Gateways' && (
+                    <div className="p-4 text-center text-slate-400 italic text-xs">
+                        No configuration required for this component.
                     </div>
                 )}
              </div>

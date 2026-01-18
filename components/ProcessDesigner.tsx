@@ -17,14 +17,13 @@ import ReactFlow, {
   applyNodeChanges,
   applyEdgeChanges,
   ReactFlowProvider,
-  useReactFlow,
   Panel
 } from 'reactflow';
 import dagre from 'dagre';
-import { ProcessStep, ProcessLink, ProcessStepType } from '../types';
+import { ProcessStep, ProcessLink, ProcessStepType, ProcessDefinition } from '../types';
 import { useBPM } from '../contexts/BPMContext';
 import { 
-  Save, Sparkles, Cpu, LayoutPanelLeft, Trash2, Thermometer, Layout, Move
+  Save, Sparkles, Cpu, LayoutPanelLeft, Trash2, Thermometer, Layout, Settings, FileText, Globe, AlertTriangle
 } from 'lucide-react';
 import { PaletteSidebar } from './designer/PaletteSidebar';
 import { NodeComponent } from './designer/NodeComponent';
@@ -33,6 +32,8 @@ import { PropertiesPanel } from './designer/PropertiesPanel';
 import { CanvasContextMenu } from './designer/CanvasContextMenu';
 import { getStepTypeMetadata } from './designer/designerUtils';
 import { generateProcessWorkflow } from '../services/geminiService';
+import { NexFormGroup, NexButton } from './shared/NexUI';
+import { validateStepConfiguration } from './designer/stepSchemas';
 
 // Define the Node & Edge Types for React Flow
 const nodeTypes = {
@@ -67,7 +68,6 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => 
 
   const layoutedNodes = nodes.map((node) => {
     const nodeWithPosition = dagreGraph.node(node.id);
-    // Dagre returns center point, React Flow needs top-left
     return {
       ...node,
       targetPosition: isHorizontal ? 'left' : 'top',
@@ -80,6 +80,48 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => 
   });
 
   return { nodes: layoutedNodes, edges };
+};
+
+// --- Process Properties Panel ---
+const ProcessSettingsPanel = ({ meta, onChange }: { meta: Partial<ProcessDefinition>, onChange: (upd: Partial<ProcessDefinition>) => void }) => {
+    return (
+        <aside className="w-full h-full bg-white border-l border-slate-300 flex flex-col shadow-xl z-20">
+            <div className="h-10 flex items-center px-4 border-b border-slate-300 bg-slate-50 gap-2">
+                <Settings size={14} className="text-slate-500"/>
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Process Settings</h3>
+            </div>
+            <div className="p-6 space-y-6 overflow-y-auto flex-1">
+                <NexFormGroup label="Process Name">
+                    <input className="prop-input font-bold" value={meta.name || ''} onChange={e => onChange({ name: e.target.value })} />
+                </NexFormGroup>
+                <NexFormGroup label="Description">
+                    <textarea className="prop-input h-24 resize-none" value={meta.description || ''} onChange={e => onChange({ description: e.target.value })} />
+                </NexFormGroup>
+                
+                <div className="h-px bg-slate-200"></div>
+                
+                <NexFormGroup label="Compliance Level">
+                    <select className="prop-input" value={meta.complianceLevel || 'Standard'} onChange={e => onChange({ complianceLevel: e.target.value as any })}>
+                        <option value="Standard">Standard</option>
+                        <option value="Strict">Strict (Audit Locked)</option>
+                        <option value="Critical">Critical (2-Man Rule)</option>
+                    </select>
+                </NexFormGroup>
+                
+                <NexFormGroup label="Version Control">
+                    <div className="flex gap-2 items-center">
+                        <span className="text-xs font-mono bg-slate-100 px-2 py-1 rounded border">v{meta.version || 1}.0</span>
+                        <span className="text-[10px] text-slate-400">Auto-increments on deploy</span>
+                    </div>
+                </NexFormGroup>
+
+                <div className="p-4 bg-blue-50 border border-blue-100 rounded-sm text-xs text-blue-800">
+                    <h4 className="font-bold flex items-center gap-1 mb-1"><Globe size={12}/> Global Scope</h4>
+                    <p>This process definition is accessible to all users in the {meta.domainId || 'GLOBAL'} domain.</p>
+                </div>
+            </div>
+        </aside>
+    );
 };
 
 // Internal wrapper to use React Flow Hooks
@@ -116,7 +158,7 @@ const DesignerFlow = ({
         fitView
         attributionPosition="bottom-right"
         defaultEdgeOptions={{
-          type: 'custom', // Use our smart edge
+          type: 'custom', 
           animated: false,
           style: { stroke: '#64748b', strokeWidth: 1.5 },
           markerEnd: {
@@ -142,17 +184,23 @@ const DesignerFlow = ({
 };
 
 export const ProcessDesigner: React.FC = () => {
-  const { deployProcess, roles, addNotification, designerDraft, setDesignerDraft, navigateTo } = useBPM();
-  const [processName, setProcessName] = useState('Strategic Workflow');
+  const { deployProcess, roles, addNotification, designerDraft, setDesignerDraft, navigateTo, processes, nav, currentUser } = useBPM();
   
   // React Flow State
   const [nodes, setNodes] = useNodesState([]);
   const [edges, setEdges] = useEdgesState([]);
   
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  
-  // Context Menu State
   const [contextMenu, setContextMenu] = useState<{ position: { x: number; y: number }, targetId: string | null } | null>(null);
+  
+  // Process Metadata State
+  const [processMeta, setProcessMeta] = useState<Partial<ProcessDefinition>>({ 
+      name: 'Strategic Workflow', 
+      description: '', 
+      version: 1, 
+      complianceLevel: 'Standard',
+      domainId: currentUser?.domainId || 'GLOBAL'
+  });
   
   // UI State
   const [paletteOpen, setPaletteOpen] = useState(true);
@@ -160,28 +208,62 @@ export const ProcessDesigner: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(false);
 
-  // Sync Draft -> Flow State (Initial Load)
+  // --- LOADER: Load from DB if ID present, else Draft ---
   useEffect(() => {
-    if (designerDraft) {
-      const initialNodes: Node[] = designerDraft.steps.map(s => ({
-        id: s.id,
-        type: 'custom',
-        position: s.position || { x: 0, y: 0 },
-        data: { step: s }
-      }));
+      if (nav.selectedId && nav.view === 'designer') {
+          const existing = processes.find(p => p.id === nav.selectedId);
+          if (existing) {
+              setProcessMeta({
+                  id: existing.id,
+                  name: existing.name,
+                  description: existing.description,
+                  version: existing.version,
+                  complianceLevel: existing.complianceLevel,
+                  domainId: existing.domainId
+              });
+              
+              // Hydrate Nodes
+              const dbNodes: Node[] = existing.steps.map(s => ({
+                  id: s.id,
+                  type: 'custom',
+                  position: s.position || { x: 0, y: 0 },
+                  data: { step: s }
+              }));
+              
+              // Hydrate Edges
+              const dbEdges: Edge[] = (existing.links || []).map(l => ({
+                  id: l.id,
+                  source: l.sourceId,
+                  target: l.targetId,
+                  type: 'custom',
+                  label: l.label
+              }));
+              
+              setNodes(dbNodes);
+              setEdges(dbEdges);
+              return; // Skip draft load
+          }
+      }
       
-      const initialEdges: Edge[] = designerDraft.links.map(l => ({
-        id: l.id,
-        source: l.sourceId,
-        target: l.targetId,
-        type: 'custom',
-        label: l.label // support edge labels
-      }));
-
-      setNodes(initialNodes);
-      setEdges(initialEdges);
-    }
-  }, []); // Only runs once on mount
+      // Fallback to Draft
+      if (designerDraft && (!nav.selectedId || nav.selectedId === 'new')) {
+          const draftNodes: Node[] = designerDraft.steps.map(s => ({
+            id: s.id,
+            type: 'custom',
+            position: s.position || { x: 0, y: 0 },
+            data: { step: s }
+          }));
+          const draftEdges: Edge[] = designerDraft.links.map(l => ({
+            id: l.id,
+            source: l.sourceId,
+            target: l.targetId,
+            type: 'custom',
+            label: l.label
+          }));
+          setNodes(draftNodes);
+          setEdges(draftEdges);
+      }
+  }, [nav.selectedId]); // Run when ID changes
 
   // Ref for stable callback access to avoid infinite loop in useEffect
   const setDesignerDraftRef = useRef(setDesignerDraft);
@@ -211,7 +293,7 @@ export const ProcessDesigner: React.FC = () => {
     return () => clearTimeout(handler);
   }, [nodes, edges]);
 
-  // --- Advanced Handlers ---
+  // --- Handlers ---
 
   // Connection Validation: Enforce BPMN Rules
   const isValidConnection = useCallback((connection: Connection) => {
@@ -219,14 +301,8 @@ export const ProcessDesigner: React.FC = () => {
       const targetNode = nodes.find(n => n.id === connection.target);
       
       if (!sourceNode || !targetNode) return false;
-
-      // Rule 1: Cannot connect FROM an End Event
       if (sourceNode.data.step.type === 'end') return false;
-
-      // Rule 2: Cannot connect TO a Start Event
       if (targetNode.data.step.type === 'start') return false;
-
-      // Rule 3: No self-loops (usually)
       if (connection.source === connection.target) return false;
 
       return true;
@@ -252,22 +328,18 @@ export const ProcessDesigner: React.FC = () => {
   const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
-
       const type = event.dataTransfer.getData('application/reactflow');
-      if (typeof type === 'undefined' || !type) return;
+      if (!type) return;
 
-      // We need to project from screen pixels to React Flow coordinate system
-      // Since we are inside the component, we can use simple math or the useReactFlow hook if wrapped properly.
-      // For this implementation, we use a basic offset assuming full screen.
-      // Ideally use project() from useReactFlow instance.
+      // Simple screen-to-flow projection (approximate)
       const position = {
-        x: event.clientX - 300, // Approximate offset for sidebar
-        y: event.clientY - 100, // Approximate offset for header
+        x: event.clientX - 280, 
+        y: event.clientY - 80, 
       };
       
       addNode(type as ProcessStepType, position);
     },
-    [nodes] // dep
+    [nodes] 
   );
 
   const onConnect = useCallback((params: Connection) => setEdges((eds) => addEdge({ ...params, type: 'custom' }, eds)), [setEdges]);
@@ -312,6 +384,15 @@ export const ProcessDesigner: React.FC = () => {
   }, [setNodes, setEdges]);
 
   const handleDeploy = async () => {
+    // PRE-FLIGHT CHECK
+    const invalidNodes = nodes.filter(n => !validateStepConfiguration(n.data.step.type, n.data.step.data));
+    if (invalidNodes.length > 0) {
+        addNotification('error', `Deploy Failed: ${invalidNodes.length} steps have missing configuration. Check indicators.`);
+        // Optionally select the first invalid node
+        setSelectedNodeId(invalidNodes[0].id);
+        return;
+    }
+
     const steps: ProcessStep[] = nodes.map(n => ({
         ...n.data.step,
         position: n.position,
@@ -325,13 +406,14 @@ export const ProcessDesigner: React.FC = () => {
     }));
 
     await deployProcess({ 
-        name: processName, 
+        ...processMeta,
         steps, 
         links, 
         isActive: true, 
-        version: 1 
+        // Increment version if updating existing
+        version: (processMeta.version || 1) + 1 
     });
-    addNotification('success', 'Process definition deployed successfully.');
+    addNotification('success', `Process ${processMeta.name} deployed successfully.`);
   };
 
   const handleClear = () => {
@@ -349,7 +431,6 @@ export const ProcessDesigner: React.FC = () => {
     try {
       const generatedSteps = await generateProcessWorkflow(aiPrompt);
       if (generatedSteps && generatedSteps.length > 0) {
-        // Convert to Nodes/Edges
         const newNodes: Node[] = generatedSteps.map(s => ({
             id: s.id,
             type: 'custom',
@@ -367,7 +448,6 @@ export const ProcessDesigner: React.FC = () => {
             });
         }
         
-        // Apply Auto Layout immediately after generation for best results
         const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(newNodes, newEdges, 'LR');
         
         setNodes(layoutedNodes);
@@ -421,9 +501,7 @@ export const ProcessDesigner: React.FC = () => {
         }
         break;
       case 'add-node':
-        // Payload contains the type string
-        // If adding via context menu, use context menu position projected to world
-        addNode(payload, { x: 250, y: 250 }); // Simplified placement for context menu add
+        addNode(payload, { x: 250, y: 250 });
         break;
       case 'clear-canvas':
         handleClear();
@@ -446,7 +524,15 @@ export const ProcessDesigner: React.FC = () => {
            <div className="flex items-center gap-3">
               <button onClick={() => setPaletteOpen(!paletteOpen)} className={`p-1 rounded-base hover:bg-white border border-transparent hover:border-subtle ${paletteOpen ? 'text-blue-600' : 'text-secondary'}`}><LayoutPanelLeft size={16}/></button>
               <div className="h-4 w-px bg-default"></div>
-              <input className="bg-transparent text-sm font-bold text-primary w-48 outline-none" value={processName} onChange={e => setProcessName(e.target.value)} />
+              {/* Process Name Input */}
+              <div className="flex flex-col justify-center">
+                  <input 
+                    className="bg-transparent text-sm font-bold text-primary w-48 outline-none" 
+                    value={processMeta.name} 
+                    onChange={e => setProcessMeta(p => ({ ...p, name: e.target.value }))} 
+                  />
+                  {processMeta.id && <span className="text-[9px] text-slate-400 font-mono leading-none">ID: {processMeta.id}</span>}
+              </div>
            </div>
            <div className="flex items-center gap-2">
               <input className="h-7 w-64 bg-panel border border-default rounded-base px-2 text-xs" placeholder="Describe workflow for AI generation..." value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAiGenerate(e)} disabled={isGenerating}/>
@@ -494,11 +580,13 @@ export const ProcessDesigner: React.FC = () => {
           </div>
 
           {/* 4. Properties (Rigid Right Panel) */}
-          {selectedStep && (
-            <div className="w-72 border-l border-default bg-panel overflow-y-auto shadow-xl z-20">
+          <div className="w-72 border-l border-default bg-panel overflow-y-auto shadow-xl z-20">
+             {selectedStep ? (
                <PropertiesPanel step={selectedStep} onUpdate={updateSelectedStep} onDelete={deleteNode} roles={roles} />
-            </div>
-          )}
+             ) : (
+               <ProcessSettingsPanel meta={processMeta} onChange={upd => setProcessMeta(prev => ({ ...prev, ...upd }))} />
+             )}
+          </div>
         </div>
 
         {/* Context Menu Overlay */}
