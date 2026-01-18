@@ -1,15 +1,14 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Task, TaskStatus, TaskPriority } from '../types';
 import { useBPM } from '../contexts/BPMContext';
 import { 
-  Search, CheckSquare, ShieldAlert, ChevronLeft, 
-  Briefcase, Send, Layers, Clock, AlertCircle, UserPlus, Settings, Tag,
-  Filter, CheckCircle, XCircle, Play, StopCircle, Paperclip, LayoutGrid, List as ListIcon, 
-  User, MoreHorizontal, Calendar, Star, PauseCircle, ArrowDown, ArrowUp, X,
-  ChevronsRight, Table as TableIcon, Download, RefreshCw, Zap, Plus
+  Search, CheckSquare, Layers, Clock, AlertCircle, UserPlus, Settings,
+  CheckCircle, XCircle, Paperclip, LayoutGrid, List as ListIcon, 
+  User, Calendar, Star, PauseCircle, ArrowDown, ArrowUp, X,
+  Table as TableIcon, Download, Plus, Send, ChevronLeft
 } from 'lucide-react';
-import { NexBadge, NexButton, NexHistoryFeed, NexModal, NexFormGroup } from './shared/NexUI';
+import { NexBadge, NexButton, NexHistoryFeed } from './shared/NexUI';
 
 // --- Utility Functions ---
 const getRelativeTime = (isoString: string) => {
@@ -25,8 +24,17 @@ const getRelativeTime = (isoString: string) => {
     return `${days}d left`;
 };
 
+interface TaskRowProps {
+    task: Task;
+    isSelected: boolean;
+    onToggle: (id: string) => void;
+    onClick: (task: Task) => void;
+    onStar: (id: string) => void;
+    onSnooze: (id: string) => void;
+}
+
 // --- Task Row Component (Table View) ---
-const TaskTableRow = ({ task, isSelected, onToggle, onClick, onStar, onSnooze }: any) => {
+const TaskTableRow: React.FC<TaskRowProps> = ({ task, isSelected, onToggle, onClick, onStar, onSnooze }) => {
     const isOverdue = new Date(task.dueDate) < new Date();
     return (
         <tr onClick={() => onClick(task)} className={`group border-b border-subtle hover:bg-subtle transition-colors cursor-pointer text-base ${isSelected ? 'bg-active' : ''}`}>
@@ -71,8 +79,18 @@ const TaskTableRow = ({ task, isSelected, onToggle, onClick, onStar, onSnooze }:
     );
 };
 
+interface TaskListProps {
+    task: Task;
+    isSelected: boolean;
+    isChecked: boolean;
+    isCompact: boolean;
+    onCheck: (id: string) => void;
+    onClick: (task: Task) => void;
+    onStar: (id: string) => void;
+}
+
 // --- Task List Item Component ---
-const TaskListItem = ({ task, isSelected, isChecked, isCompact, onCheck, onClick, onStar }: any) => {
+const TaskListItem: React.FC<TaskListProps> = ({ task, isSelected, isChecked, isCompact, onCheck, onClick, onStar }) => {
   const isOverdue = new Date(task.dueDate) < new Date();
   
   return (
@@ -114,8 +132,14 @@ const TaskListItem = ({ task, isSelected, isChecked, isCompact, onCheck, onClick
   );
 };
 
+interface KanbanProps {
+    task: Task;
+    onClick: (task: Task) => void;
+    onStar: (id: string) => void;
+}
+
 // --- Kanban Card ---
-const KanbanCard = ({ task, onClick, onStar }: any) => {
+const KanbanCard: React.FC<KanbanProps> = ({ task, onClick, onStar }) => {
     return (
         <div onClick={() => onClick(task)} className="p-3 bg-panel border border-default rounded-base shadow-sm hover:shadow-md hover:border-active cursor-pointer transition-all flex flex-col gap-2 group relative">
             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => { e.stopPropagation(); onStar(task.id); }}>

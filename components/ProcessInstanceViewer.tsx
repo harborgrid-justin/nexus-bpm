@@ -1,13 +1,11 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useBPM } from '../contexts/BPMContext';
-import { ProcessDefinition, ProcessInstance, ProcessStep } from '../types';
 import { 
-  Play, Pause, FastForward, CheckCircle, AlertTriangle, 
-  MessageSquare, Save, Settings, X, Activity, ZoomIn, ZoomOut, User,
-  FileJson, Calendar, Paperclip, Share2, MoreVertical, ChevronDown, Send, PauseCircle, StopCircle
+  CheckCircle, AlertTriangle, 
+  X, Activity, Send
 } from 'lucide-react';
-import { NexButton, NexHistoryFeed } from './shared/NexUI';
+import { NexButton } from './shared/NexUI';
 
 interface Props {
   instanceId: string;
@@ -15,7 +13,7 @@ interface Props {
 }
 
 export const ProcessInstanceViewer: React.FC<Props> = ({ instanceId, onClose }) => {
-  const { instances, processes, updateCase, addInstanceComment, currentUser } = useBPM();
+  const { instances, processes, addInstanceComment } = useBPM();
   
   const instance = instances.find(i => i.id === instanceId);
   const process = processes.find(p => p.id === instance?.definitionId);
@@ -63,15 +61,9 @@ export const ProcessInstanceViewer: React.FC<Props> = ({ instanceId, onClose }) 
   // Health Logic
   const isHealthy = instance.status === 'Active' || instance.status === 'Completed';
   
-  // Fake add comment wrapper if context doesn't expose it directly yet (it does in updated context)
   const handleAddComment = () => {
       if(!newComment.trim()) return;
-      // Note: Assuming addInstanceComment exists in context as per context file update.
-      // If not, we would implement it. In this generation flow it exists.
-      // We will simulate it visually if needed, but context has it.
-      // @ts-ignore
-      if (typeof addInstanceComment === 'function') {
-          // @ts-ignore
+      if (addInstanceComment) {
           addInstanceComment(instance.id, newComment);
       }
       setNewComment('');

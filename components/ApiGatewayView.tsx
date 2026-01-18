@@ -2,8 +2,8 @@
 import React, { useState, useMemo } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { 
-  Globe, Server, Shield, Key, Activity, Play, Copy, RefreshCw, 
-  ChevronRight, BarChart3, Database, Lock, Zap, CheckCircle, XCircle, Terminal
+  Globe, Server, Key, Activity, Play, Copy, RefreshCw, 
+  Database, Lock, Zap, CheckCircle, XCircle, Terminal, Plus
 } from 'lucide-react';
 import { NexCard, NexButton, NexBadge } from './shared/NexUI';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -34,7 +34,7 @@ const TRAFFIC_DATA = [
 export const ApiGatewayView: React.FC = () => {
   const { rules, decisionTables, executeRules, addNotification } = useBPM();
   const [activeTab, setActiveTab] = useState<'endpoints' | 'clients' | 'logs'>('endpoints');
-  const [selectedEndpoint, setSelectedEndpoint] = useState<{type: 'Rule' | 'Table', id: string, name: string} | null>(null);
+  const [selectedEndpoint, setSelectedEndpoint] = useState<{type: 'Rule' | 'Table', id: string, name: string, endpoint: string, status: string} | null>(null);
   const [testPayload, setTestPayload] = useState('{\n  "amount": 5000,\n  "category": "Software"\n}');
   const [testResponse, setTestResponse] = useState<string | null>(null);
   const [isTesting, setIsTesting] = useState(false);
@@ -174,164 +174,134 @@ export const ApiGatewayView: React.FC = () => {
                  <button 
                    key={tab}
                    onClick={() => setActiveTab(tab as any)}
-                   className={`px-6 py-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${activeTab === tab ? 'border-blue-600 text-blue-600' : 'border-transparent text-secondary hover:text-primary'}`}
+                   className={`px-6 py-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${activeTab === tab ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
                  >
-                    {tab}
+                   {tab}
                  </button>
               ))}
            </div>
 
-           {/* Endpoint Registry Tab */}
+           {/* Tab Content */}
            {activeTab === 'endpoints' && (
-              <div className="space-y-4">
-                 <div className="bg-panel rounded-base border border-default shadow-sm overflow-hidden">
-                    <table className="w-full text-left">
-                       <thead className="bg-subtle border-b border-default">
-                          <tr className="text-[10px] font-bold text-secondary uppercase tracking-wider">
-                             <th className="px-4 py-3">Method</th>
-                             <th className="px-4 py-3">Endpoint Resource</th>
-                             <th className="px-4 py-3">Type</th>
-                             <th className="px-4 py-3">Status</th>
-                             <th className="px-4 py-3 text-right">Actions</th>
-                          </tr>
-                       </thead>
-                       <tbody className="divide-y divide-subtle">
-                          {registry.map(item => (
-                             <tr key={item.id} className={`group hover:bg-subtle transition-colors cursor-pointer ${selectedEndpoint?.id === item.id ? 'bg-active' : ''}`} onClick={() => setSelectedEndpoint({type: item.type, id: item.id, name: item.name})}>
-                                <td className="px-4 py-3">
-                                   <span className="px-2 py-1 rounded-base bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">POST</span>
-                                </td>
-                                <td className="px-4 py-3">
-                                   <div className="flex items-center gap-2">
-                                      <span className="font-mono text-xs text-primary">{item.endpoint}</span>
-                                      <button onClick={(e) => { e.stopPropagation(); handleCopyUrl(item.endpoint); }} className="text-tertiary hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"><Copy size={12}/></button>
+               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full min-h-0">
+                   {/* Endpoint List */}
+                   <div className="lg:col-span-1 border border-default rounded-sm bg-white flex flex-col overflow-hidden">
+                       <div className="p-3 border-b border-subtle bg-slate-50">
+                           <h4 className="text-xs font-bold text-slate-700 uppercase">Available Routes</h4>
+                       </div>
+                       <div className="flex-1 overflow-y-auto">
+                           {registry.map((item) => (
+                               <div 
+                                 key={item.id} 
+                                 onClick={() => setSelectedEndpoint(item)}
+                                 className={`p-3 border-b border-subtle cursor-pointer transition-colors hover:bg-slate-50 ${selectedEndpoint?.id === item.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'border-l-4 border-l-transparent'}`}
+                               >
+                                   <div className="flex justify-between items-center mb-1">
+                                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm ${item.type === 'Rule' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}`}>{item.type}</span>
+                                       <NexBadge variant={item.status === 'Active' ? 'emerald' : 'slate'}>{item.status}</NexBadge>
                                    </div>
-                                   <div className="text-[10px] text-secondary mt-0.5">{item.name}</div>
-                                </td>
-                                <td className="px-4 py-3">
-                                   <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${item.type === 'Rule' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
-                                      {item.type}
-                                   </span>
-                                </td>
-                                <td className="px-4 py-3">
-                                   <NexBadge variant={item.status === 'Active' ? 'emerald' : 'slate'}>{item.status}</NexBadge>
-                                </td>
-                                <td className="px-4 py-3 text-right">
-                                   <NexButton size="sm" variant="ghost" icon={Play} onClick={() => setSelectedEndpoint({type: item.type, id: item.id, name: item.name})}>Test</NexButton>
-                                </td>
-                             </tr>
-                          ))}
-                       </tbody>
-                    </table>
-                 </div>
-              </div>
-           )}
-
-           {/* Clients Tab */}
-           {activeTab === 'clients' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 {MOCK_CLIENTS.map(client => (
-                    <NexCard key={client.id} className="p-4 flex flex-col justify-between group">
-                       <div className="flex justify-between items-start mb-4">
-                          <div className="flex items-center gap-3">
-                             <div className="w-10 h-10 rounded-base bg-slate-100 flex items-center justify-center border border-slate-200">
-                                <Server size={20} className="text-slate-500"/>
-                             </div>
-                             <div>
-                                <h4 className="font-bold text-sm text-primary">{client.name}</h4>
-                                <div className="flex items-center gap-2 text-[10px] text-secondary font-mono mt-0.5">
-                                   <Key size={10}/> {client.clientId}
-                                </div>
-                             </div>
-                          </div>
-                          <NexBadge variant={client.status === 'Active' ? 'blue' : 'rose'}>{client.status}</NexBadge>
+                                   <div className="font-bold text-sm text-slate-800 truncate">{item.name}</div>
+                                   <div className="text-[10px] text-slate-500 font-mono mt-1 truncate">{item.endpoint}</div>
+                               </div>
+                           ))}
                        </div>
-                       
-                       <div className="pt-4 border-t border-subtle flex justify-between items-center">
-                          <div className="text-[10px] font-bold text-secondary uppercase">
-                             {client.reqCount.toLocaleString()} Requests
-                          </div>
-                          <div className="text-[10px] text-tertiary">
-                             Last used: {client.lastUsed}
-                          </div>
-                       </div>
-                    </NexCard>
-                 ))}
-                 
-                 <button className="border-2 border-dashed border-default rounded-base p-4 flex flex-col items-center justify-center text-secondary hover:border-active hover:text-blue-600 transition-all hover:bg-active">
-                    <Zap size={24} className="mb-2"/>
-                    <span className="text-xs font-bold uppercase">Generate New Key</span>
-                 </button>
-              </div>
-           )}
-           
-           {/* Logs Tab Mock */}
-           {activeTab === 'logs' && (
-               <div className="text-center py-20 text-secondary bg-panel border border-default rounded-base">
-                   <Database size={32} className="mx-auto mb-4 opacity-50"/>
-                   <p className="text-xs font-bold uppercase">Access Logs are archived to S3</p>
-                   <NexButton variant="secondary" className="mt-4" icon={Lock}>View Secure Logs</NexButton>
-               </div>
-           )}
-        </main>
+                   </div>
 
-        {/* Right Panel: API Console */}
-        <aside className={`w-full md:w-96 bg-panel border-l border-default flex flex-col transition-all duration-300 ${selectedEndpoint ? 'translate-x-0' : 'translate-x-full md:translate-x-0 md:w-0 overflow-hidden border-none'}`}>
-           <div className="p-4 border-b border-default bg-subtle flex justify-between items-center">
-              <h3 className="text-xs font-bold text-primary uppercase flex items-center gap-2">
-                 <Terminal size={14}/> Test Console
-              </h3>
-              <button onClick={() => setSelectedEndpoint(null)} className="text-secondary hover:text-primary"><XCircle size={16}/></button>
-           </div>
-           
-           {selectedEndpoint ? (
-               <div className="flex-1 flex flex-col p-4 space-y-4 overflow-y-auto">
-                  <div className="space-y-1">
-                     <label className="text-[10px] font-bold text-secondary uppercase">Target Resource</label>
-                     <div className="p-2 bg-subtle border border-default rounded-base text-xs font-mono break-all">
-                        <span className="text-emerald-600 font-bold">POST</span> /v1/execute/{selectedEndpoint.type.toLowerCase()}/{selectedEndpoint.id}
-                     </div>
-                  </div>
-
-                  <div className="space-y-1 flex-1 flex flex-col">
-                     <label className="text-[10px] font-bold text-secondary uppercase flex justify-between">
-                        <span>Request Body</span>
-                        <span className="text-blue-600 cursor-pointer hover:underline" onClick={() => setTestPayload('{\n  "amount": 1000,\n  "category": "Travel"\n}')}>Load Sample</span>
-                     </label>
-                     <textarea 
-                        className="flex-1 w-full bg-slate-900 text-slate-100 p-3 rounded-base font-mono text-xs outline-none border border-slate-700 resize-none min-h-[150px]"
-                        value={testPayload}
-                        onChange={e => setTestPayload(e.target.value)}
-                     />
-                  </div>
-
-                  <NexButton variant="primary" onClick={handleTest} disabled={isTesting} icon={isTesting ? RefreshCw : Play} className={isTesting ? 'animate-pulse' : ''}>
-                     {isTesting ? 'Sending Request...' : 'Send Request'}
-                  </NexButton>
-
-                  <div className="space-y-1 flex-1 flex flex-col">
-                     <label className="text-[10px] font-bold text-secondary uppercase">Response</label>
-                     <div className={`flex-1 w-full bg-subtle p-3 rounded-base font-mono text-xs border border-default overflow-auto min-h-[150px] ${testResponse ? 'text-primary' : 'text-tertiary italic'}`}>
-                        {testResponse ? (
-                            <>
-                                <div className="flex items-center gap-2 mb-2 pb-2 border-b border-default text-emerald-600 font-bold">
-                                    <CheckCircle size={12}/> 200 OK <span className="text-tertiary font-normal ml-auto">45ms</span>
-                                </div>
-                                <pre>{testResponse}</pre>
-                            </>
-                        ) : 'Ready to execute...'}
-                     </div>
-                  </div>
-               </div>
-           ) : (
-               <div className="flex-1 flex items-center justify-center text-center p-8 text-secondary">
-                   <div>
-                       <Globe size={32} className="mx-auto mb-2 opacity-20"/>
-                       <p className="text-xs">Select an endpoint from the registry to test.</p>
+                   {/* Test Console */}
+                   <div className="lg:col-span-2 border border-default rounded-sm bg-white flex flex-col overflow-hidden">
+                       {selectedEndpoint ? (
+                           <>
+                               <div className="p-4 border-b border-subtle bg-slate-50 flex justify-between items-center">
+                                   <div>
+                                       <h4 className="font-bold text-slate-800 flex items-center gap-2">
+                                           <span className="px-2 py-0.5 bg-slate-200 rounded-sm text-[10px]">POST</span>
+                                           {selectedEndpoint.endpoint}
+                                       </h4>
+                                   </div>
+                                   <button onClick={() => handleCopyUrl(selectedEndpoint.endpoint)} className="text-blue-600 hover:underline text-xs flex items-center gap-1"><Copy size={12}/> Copy URL</button>
+                               </div>
+                               <div className="flex-1 flex flex-col p-4 gap-4 overflow-y-auto">
+                                   <div className="flex-1 flex flex-col">
+                                       <label className="text-xs font-bold text-slate-500 uppercase mb-2">Request Body (JSON)</label>
+                                       <textarea 
+                                           className="flex-1 w-full font-mono text-xs p-3 bg-slate-900 text-emerald-400 rounded-sm outline-none resize-none border border-slate-700 focus:border-blue-500"
+                                           value={testPayload}
+                                           onChange={e => setTestPayload(e.target.value)}
+                                           spellCheck={false}
+                                       />
+                                   </div>
+                                   <div className="flex justify-between items-center">
+                                       <div className="flex gap-2">
+                                            {/* Auth Header Mock */}
+                                            <div className="px-2 py-1 bg-slate-100 rounded-sm text-[10px] font-mono text-slate-600 border border-slate-200">Authorization: Bearer sk_live_...</div>
+                                       </div>
+                                       <NexButton variant="primary" icon={Play} onClick={handleTest} disabled={isTesting}>
+                                           {isTesting ? 'Sending...' : 'Send Request'}
+                                       </NexButton>
+                                   </div>
+                                   <div className="flex-1 flex flex-col h-1/2">
+                                       <label className="text-xs font-bold text-slate-500 uppercase mb-2">Response Output</label>
+                                       <div className="flex-1 w-full font-mono text-xs p-3 bg-slate-50 text-slate-800 rounded-sm border border-slate-200 overflow-auto whitespace-pre-wrap">
+                                           {testResponse || <span className="text-slate-400 italic">// Response will appear here...</span>}
+                                       </div>
+                                   </div>
+                               </div>
+                           </>
+                       ) : (
+                           <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                               <Server size={32} className="mb-2 opacity-50"/>
+                               <p className="text-xs font-bold uppercase">Select an endpoint to test</p>
+                           </div>
+                       )}
                    </div>
                </div>
            )}
-        </aside>
+
+           {activeTab === 'clients' && (
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                   {MOCK_CLIENTS.map(client => (
+                       <NexCard key={client.id} className="p-4 flex flex-col justify-between h-40">
+                           <div className="flex justify-between items-start">
+                               <div className="p-2 bg-blue-50 text-blue-600 rounded-sm border border-blue-100">
+                                   <Terminal size={20}/>
+                               </div>
+                               <NexBadge variant={client.status === 'Active' ? 'emerald' : 'rose'}>{client.status}</NexBadge>
+                           </div>
+                           <div>
+                               <h4 className="font-bold text-slate-900">{client.name}</h4>
+                               <div className="flex items-center gap-2 mt-1">
+                                   <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] text-slate-600 font-mono border border-slate-200">{client.clientId}</code>
+                                   <button className="text-slate-400 hover:text-blue-600"><Copy size={12}/></button>
+                               </div>
+                           </div>
+                           <div className="pt-3 border-t border-slate-100 flex justify-between items-center text-[10px] text-slate-500">
+                               <span>Last used: {client.lastUsed}</span>
+                               <span className="font-bold">{client.reqCount.toLocaleString()} reqs</span>
+                           </div>
+                       </NexCard>
+                   ))}
+                   <button className="border-2 border-dashed border-slate-300 rounded-sm flex flex-col items-center justify-center text-slate-400 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all h-40">
+                       <Plus size={24} className="mb-2"/>
+                       <span className="text-xs font-bold uppercase">Register Client</span>
+                   </button>
+               </div>
+           )}
+
+           {activeTab === 'logs' && (
+               <div className="bg-white border border-default rounded-sm shadow-sm flex flex-col h-[500px]">
+                   <div className="p-3 border-b border-subtle bg-slate-50 flex justify-between items-center">
+                       <h3 className="text-xs font-bold text-slate-700 uppercase flex items-center gap-2">
+                           <Database size={14}/> Access Logs
+                       </h3>
+                       <button className="text-blue-600 hover:text-blue-800"><RefreshCw size={14}/></button>
+                   </div>
+                   <div className="flex-1 flex items-center justify-center text-slate-400 italic text-xs">
+                       Connect to ElasticSearch/Splunk to view real-time logs.
+                   </div>
+               </div>
+           )}
+
+        </main>
       </div>
     </div>
   );

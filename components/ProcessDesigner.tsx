@@ -345,7 +345,7 @@ export const ProcessDesigner: React.FC = () => {
         >
            <div style={{ transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`, transformOrigin: '0 0' }}>
               {/* SVG Overlay for Links - MUST be pointer-events-none to allow clicking nodes through it */}
-              <svg className="overflow-visible absolute top-0 left-0 pointer-events-none">
+              <svg className="overflow-visible absolute top-0 left-0 pointer-events-none" style={{ width: '100%', height: '100%' }}>
                 <defs><marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/></marker></defs>
                 {links.map(l => {
                   const s = steps.find(n => n.id === l.sourceId); 

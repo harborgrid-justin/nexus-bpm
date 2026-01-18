@@ -1,15 +1,14 @@
 
-import React, { useState, useCallback, ChangeEvent, useMemo } from 'react';
+import React, { useState, ChangeEvent, useMemo } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { BusinessRule, RuleCondition, RuleAction, DecisionTable, Condition, ConditionGroup } from '../types';
 import { 
   FunctionSquare, Plus, BrainCircuit, Table, TestTube, Trash2, Save, 
-  Upload, Play, GitMerge, MoreVertical, X, FileJson, Copy, 
-  ChevronRight, List, PenTool, Database, Code, Sparkles, PlusCircle, Search,
-  MessageSquare, Zap, Activity, Info, Tag, Layers, ArrowUp, ArrowDown, Download, CheckCircle, AlertTriangle, Maximize2, Minimize2
+  Upload, Play, GitMerge, X, 
+  Activity, Tag, ArrowUp, ArrowDown, Download, Maximize2, Sparkles, MessageSquare, Search
 } from 'lucide-react';
 import { produce } from 'immer';
-import { NexButton, NexModal, NexFormGroup, NexBadge } from './shared/NexUI';
+import { NexButton, NexBadge } from './shared/NexUI';
 import { explainRuleLogic } from '../services/geminiService';
 
 // --- Reusable UI Components ---

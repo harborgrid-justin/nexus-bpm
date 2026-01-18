@@ -3,12 +3,18 @@ import React, { useState } from 'react';
 import { ProcessStep, UserRole, IOMapping, RetryPolicy } from '../../types';
 import { useBPM } from '../../contexts/BPMContext';
 import { 
-  Trash2, Compass, X, FunctionSquare, ExternalLink, 
-  Settings, Database, Play, RefreshCw, Layers, ArrowRightLeft, 
-  Braces, ShieldAlert, Plus, Minimize2, CheckSquare, Zap, Clock, Key
+  Trash2, Compass, X, ExternalLink, 
+  Settings, Database, RefreshCw, ArrowRightLeft, 
+  Braces, ShieldAlert, Plus, Minimize2, Key, Sparkles, FunctionSquare
 } from 'lucide-react';
-import { NexButton, NexFormGroup, NexBadge } from '../shared/NexUI';
+import { NexFormGroup } from '../shared/NexUI';
 import { getStepTypeMetadata } from './designerUtils';
+
+// Mock upstream variables for autocomplete demo
+const SUGGESTED_VARS = [
+    'request.amount', 'request.requesterId', 'approval.status', 
+    'user.email', 'system.date', 'invoice.id', 'fraud.score'
+];
 
 export const PropertiesPanel = ({ 
   step, 
@@ -21,7 +27,7 @@ export const PropertiesPanel = ({
   onDelete: (id: string) => void; 
   roles: UserRole[]; 
 }) => {
-    const { rules, decisionTables, navigateTo } = useBPM();
+    const { rules, navigateTo } = useBPM();
     const [activeTab, setActiveTab] = useState<'config' | 'data' | 'logic' | 'policy'>('config');
     
     if (!step) {
@@ -194,9 +200,20 @@ export const PropertiesPanel = ({
                           {(!step.inputs || step.inputs.length === 0) && <div className="text-xs text-slate-400 italic p-2 border border-dashed rounded-sm">No input maps defined.</div>}
                           {step.inputs?.map((map, i) => (
                               <div key={i} className="flex gap-1 items-center">
-                                  <input className="prop-input font-mono text-[10px] h-7" placeholder="Process Var" value={map.source} onChange={e => updateMapping('inputs', i, 'source', e.target.value)} />
+                                  <div className="relative flex-1">
+                                      <input 
+                                        className="prop-input font-mono text-[10px] h-7" 
+                                        placeholder="Process Var" 
+                                        value={map.source} 
+                                        list={`vars-${i}`}
+                                        onChange={e => updateMapping('inputs', i, 'source', e.target.value)} 
+                                      />
+                                      <datalist id={`vars-${i}`}>
+                                          {SUGGESTED_VARS.map(v => <option key={v} value={v} />)}
+                                      </datalist>
+                                  </div>
                                   <span className="text-slate-400">→</span>
-                                  <input className="prop-input font-mono text-[10px] h-7" placeholder="Task Param" value={map.target} onChange={e => updateMapping('inputs', i, 'target', e.target.value)} />
+                                  <input className="prop-input font-mono text-[10px] h-7 flex-1" placeholder="Task Param" value={map.target} onChange={e => updateMapping('inputs', i, 'target', e.target.value)} />
                                   <button onClick={() => removeMapping('inputs', i)} className="text-slate-400 hover:text-rose-500"><X size={12}/></button>
                               </div>
                           ))}
@@ -217,7 +234,18 @@ export const PropertiesPanel = ({
                               <div key={i} className="flex gap-1 items-center">
                                   <input className="prop-input font-mono text-[10px] h-7" placeholder="Task Result" value={map.source} onChange={e => updateMapping('outputs', i, 'source', e.target.value)} />
                                   <span className="text-slate-400">→</span>
-                                  <input className="prop-input font-mono text-[10px] h-7" placeholder="Process Var" value={map.target} onChange={e => updateMapping('outputs', i, 'target', e.target.value)} />
+                                  <div className="relative flex-1">
+                                      <input 
+                                        className="prop-input font-mono text-[10px] h-7" 
+                                        placeholder="Process Var" 
+                                        value={map.target} 
+                                        list={`out-vars-${i}`}
+                                        onChange={e => updateMapping('outputs', i, 'target', e.target.value)} 
+                                      />
+                                      <datalist id={`out-vars-${i}`}>
+                                          {SUGGESTED_VARS.map(v => <option key={v} value={v} />)}
+                                      </datalist>
+                                  </div>
                                   <button onClick={() => removeMapping('outputs', i)} className="text-slate-400 hover:text-rose-500"><X size={12}/></button>
                               </div>
                           ))}
@@ -242,7 +270,10 @@ export const PropertiesPanel = ({
                   </NexFormGroup>
 
                   <NexFormGroup label="On Entry Script">
-                      <textarea className="prop-input h-20 font-mono text-[10px]" placeholder="console.log('Entering step');" value={step.onEntryAction || ''} onChange={e => updateField('onEntryAction', e.target.value)} />
+                      <div className="relative">
+                        <textarea className="prop-input h-20 font-mono text-[10px]" placeholder="console.log('Entering step');" value={step.onEntryAction || ''} onChange={e => updateField('onEntryAction', e.target.value)} />
+                        {step.onEntryAction && <Sparkles size={12} className="absolute right-2 bottom-2 text-amber-500 animate-pulse"/>}
+                      </div>
                   </NexFormGroup>
 
                   <NexFormGroup label="On Exit Script">
