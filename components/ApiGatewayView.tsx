@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { 
   Globe, Server, Activity, Play, Copy, RefreshCw, 
-  Database, Terminal, Plus
+  Database, Terminal, Plus, ShieldAlert, Wifi, WifiOff, Settings, Zap, PauseCircle, Lock
 } from 'lucide-react';
-import { NexCard, NexButton, NexBadge } from './shared/NexUI';
+import { NexCard, NexButton, NexBadge, NexSwitch } from './shared/NexUI';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface ApiClient {
@@ -30,19 +30,55 @@ const TRAFFIC_DATA = [
   { time: '23:59', reqs: 900 },
 ];
 
+interface LiveLog {
+    id: string;
+    method: string;
+    path: string;
+    status: number;
+    latency: number;
+    timestamp: Date;
+}
+
 export const ApiGatewayView: React.FC = () => {
   const { rules, decisionTables, executeRules, addNotification } = useBPM();
   const [activeTab, setActiveTab] = useState<'endpoints' | 'clients' | 'logs'>('endpoints');
-  const [selectedEndpoint, setSelectedEndpoint] = useState<{type: 'Rule' | 'Table', id: string, name: string, endpoint: string, status: string} | null>(null);
+  const [selectedEndpoint, setSelectedEndpoint] = useState<{type: 'Rule' | 'Table', id: string, name: string, endpoint: string, status: string, circuitOpen: boolean} | null>(null);
   const [testPayload, setTestPayload] = useState('{\n  "amount": 5000,\n  "category": "Software"\n}');
   const [testResponse, setTestResponse] = useState<string | null>(null);
   const [isTesting, setIsTesting] = useState(false);
+  
+  // Log Streaming State
+  const [liveLogs, setLiveLogs] = useState<LiveLog[]>([]);
+  const logContainerRef = useRef<HTMLDivElement>(null);
 
   const registry = useMemo(() => {
-    const rItems = rules.map(r => ({ ...r, type: 'Rule' as const, method: 'POST', endpoint: `/v1/execute/rule/${r.id}` }));
-    const tItems = decisionTables.map(t => ({ ...t, type: 'Table' as const, method: 'POST', endpoint: `/v1/execute/table/${t.id}` }));
+    const rItems = rules.map(r => ({ ...r, type: 'Rule' as const, method: 'POST', endpoint: `/v1/execute/rule/${r.id}`, circuitOpen: false }));
+    const tItems = decisionTables.map(t => ({ ...t, type: 'Table' as const, method: 'POST', endpoint: `/v1/execute/table/${t.id}`, circuitOpen: false }));
     return [...rItems, ...tItems];
   }, [rules, decisionTables]);
+
+  // Log Simulation Effect
+  useEffect(() => {
+      const interval = setInterval(() => {
+          if (Math.random() > 0.3) { // 70% chance to generate a log
+              const methods = ['POST', 'GET'];
+              const statuses = [200, 200, 200, 201, 400, 401, 500];
+              const paths = ['/v1/rules/exec', '/v1/auth/token', '/v1/hooks/stripe', '/health'];
+              
+              const newLog: LiveLog = {
+                  id: Math.random().toString(36).substr(2, 9),
+                  method: methods[Math.floor(Math.random() * methods.length)],
+                  path: paths[Math.floor(Math.random() * paths.length)],
+                  status: statuses[Math.floor(Math.random() * statuses.length)],
+                  latency: Math.floor(Math.random() * 200) + 20,
+                  timestamp: new Date()
+              };
+              
+              setLiveLogs(prev => [newLog, ...prev].slice(0, 50));
+          }
+      }, 800);
+      return () => clearInterval(interval);
+  }, []);
 
   const handleCopyUrl = (url: string) => {
     navigator.clipboard.writeText(`https://api.nexflow.io${url}`);
@@ -86,6 +122,11 @@ export const ApiGatewayView: React.FC = () => {
 
   const handleTest = async () => {
     if (!selectedEndpoint) return;
+    if (selectedEndpoint.circuitOpen) {
+        setTestResponse(JSON.stringify({ error: 'Circuit Open: Service Unavailable' }, null, 2));
+        return;
+    }
+
     setIsTesting(true);
     setTestResponse(null);
     
@@ -118,14 +159,14 @@ export const ApiGatewayView: React.FC = () => {
           </h1>
           <p className="text-xs text-secondary mt-1">Manage external access to business logic microservices.</p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex gap-6">
            <div className="text-right hidden sm:block">
-              <p className="text-[10px] font-bold text-secondary uppercase">Global Latency</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase flex items-center justify-end gap-1"><Zap size={10}/> Latency</p>
               <p className="text-lg font-mono font-bold text-primary">42ms</p>
            </div>
            <div className="h-8 w-px bg-default hidden sm:block"></div>
            <div className="text-right hidden sm:block">
-              <p className="text-[10px] font-bold text-secondary uppercase">Success Rate</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase flex items-center justify-end gap-1"><Activity size={10}/> Success Rate</p>
               <p className="text-lg font-mono font-bold text-emerald-600">99.98%</p>
            </div>
         </div>
@@ -138,7 +179,7 @@ export const ApiGatewayView: React.FC = () => {
                  <h3 className="text-xs font-bold text-secondary uppercase flex items-center gap-2">
                     <Activity size={14}/> Traffic Volume (24h)
                  </h3>
-                 <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-base border border-blue-100">Live</span>
+                 <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-base border border-blue-100 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span> Live</span>
               </div>
               <div className="h-48 p-4">
                  <ResponsiveContainer width="100%" height="100%">
@@ -173,7 +214,8 @@ export const ApiGatewayView: React.FC = () => {
 
            {activeTab === 'endpoints' && (
                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full min-h-0">
-                   <div className="lg:col-span-1 border border-default rounded-sm bg-white flex flex-col overflow-hidden">
+                   {/* Registry List */}
+                   <div className="lg:col-span-1 border border-default rounded-sm bg-white flex flex-col overflow-hidden shadow-sm">
                        <div className="p-3 border-b border-subtle bg-slate-50">
                            <h4 className="text-xs font-bold text-slate-700 uppercase">Available Routes</h4>
                        </div>
@@ -185,7 +227,10 @@ export const ApiGatewayView: React.FC = () => {
                                  className={`p-3 border-b border-subtle cursor-pointer transition-colors hover:bg-slate-50 ${selectedEndpoint?.id === item.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'border-l-4 border-l-transparent'}`}
                                >
                                    <div className="flex justify-between items-center mb-1">
-                                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm ${item.type === 'Rule' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}`}>{item.type}</span>
+                                       <div className="flex gap-2">
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm ${item.type === 'Rule' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}`}>{item.type}</span>
+                                            {item.circuitOpen && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm bg-rose-100 text-rose-700 flex items-center gap-1"><WifiOff size={8}/> TRIP</span>}
+                                       </div>
                                        <NexBadge variant={item.status === 'Active' ? 'emerald' : 'slate'}>{item.status}</NexBadge>
                                    </div>
                                    <div className="font-bold text-sm text-slate-800 truncate">{item.name}</div>
@@ -195,7 +240,8 @@ export const ApiGatewayView: React.FC = () => {
                        </div>
                    </div>
 
-                   <div className="lg:col-span-2 border border-default rounded-sm bg-white flex flex-col overflow-hidden">
+                   {/* Endpoint Detail & Test Console */}
+                   <div className="lg:col-span-2 border border-default rounded-sm bg-white flex flex-col overflow-hidden shadow-sm">
                        {selectedEndpoint ? (
                            <>
                                <div className="p-4 border-b border-subtle bg-slate-50 flex justify-between items-center">
@@ -205,11 +251,42 @@ export const ApiGatewayView: React.FC = () => {
                                            {selectedEndpoint.endpoint}
                                        </h4>
                                    </div>
-                                   <button onClick={() => handleCopyUrl(selectedEndpoint.endpoint)} className="text-blue-600 hover:underline text-xs flex items-center gap-1"><Copy size={12}/> Copy URL</button>
+                                   <div className="flex items-center gap-3">
+                                       <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-sm border border-slate-200">
+                                            <span className="text-[10px] font-bold text-slate-500">Circuit Breaker</span>
+                                            <button 
+                                                onClick={() => setSelectedEndpoint({...selectedEndpoint, circuitOpen: !selectedEndpoint.circuitOpen})}
+                                                className={`w-8 h-4 rounded-full transition-colors relative ${selectedEndpoint.circuitOpen ? 'bg-rose-500' : 'bg-emerald-500'}`}
+                                            >
+                                                <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform ${selectedEndpoint.circuitOpen ? 'left-4' : 'left-0.5'}`}></div>
+                                            </button>
+                                       </div>
+                                       <button onClick={() => handleCopyUrl(selectedEndpoint.endpoint)} className="text-blue-600 hover:underline text-xs flex items-center gap-1"><Copy size={12}/> Copy URL</button>
+                                   </div>
                                </div>
+                               
                                <div className="flex-1 flex flex-col p-4 gap-4 overflow-y-auto">
+                                   {/* Configuration Panel */}
+                                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-sm flex gap-6 text-xs">
+                                       <div className="flex flex-col">
+                                           <span className="font-bold text-slate-500 uppercase text-[9px] mb-1">Rate Limit</span>
+                                           <span className="font-mono text-slate-800">1,000 req/min</span>
+                                       </div>
+                                       <div className="flex flex-col">
+                                           <span className="font-bold text-slate-500 uppercase text-[9px] mb-1">Timeout</span>
+                                           <span className="font-mono text-slate-800">5000ms</span>
+                                       </div>
+                                       <div className="flex flex-col">
+                                           <span className="font-bold text-slate-500 uppercase text-[9px] mb-1">Auth Scope</span>
+                                           <div className="flex items-center gap-1"><Lock size={10}/> <span className="font-mono text-slate-800">read:rules</span></div>
+                                       </div>
+                                   </div>
+
                                    <div className="flex-1 flex flex-col">
-                                       <label className="text-xs font-bold text-slate-500 uppercase mb-2">Request Body (JSON)</label>
+                                       <label className="text-xs font-bold text-slate-500 uppercase mb-2 flex justify-between">
+                                           Request Body (JSON)
+                                           <span className="text-[9px] bg-slate-100 px-1 rounded text-slate-400">Content-Type: application/json</span>
+                                       </label>
                                        <textarea 
                                            className="flex-1 w-full font-mono text-xs p-3 bg-slate-900 text-emerald-400 rounded-sm outline-none resize-none border border-slate-700 focus:border-blue-500"
                                            value={testPayload}
@@ -225,9 +302,9 @@ export const ApiGatewayView: React.FC = () => {
                                            {isTesting ? 'Sending...' : 'Send Request'}
                                        </NexButton>
                                    </div>
-                                   <div className="flex-1 flex flex-col h-1/2">
+                                   <div className="flex-1 flex flex-col h-1/2 min-h-[150px]">
                                        <label className="text-xs font-bold text-slate-500 uppercase mb-2">Response Output</label>
-                                       <div className="flex-1 w-full font-mono text-xs p-3 bg-slate-50 text-slate-800 rounded-sm border border-slate-200 overflow-auto whitespace-pre-wrap">
+                                       <div className={`flex-1 w-full font-mono text-xs p-3 bg-slate-50 text-slate-800 rounded-sm border border-slate-200 overflow-auto whitespace-pre-wrap transition-colors ${testResponse?.includes('"error"') ? 'border-rose-300 bg-rose-50' : ''}`}>
                                            {testResponse || <span className="text-slate-400 italic">// Response will appear here...</span>}
                                        </div>
                                    </div>
@@ -235,8 +312,8 @@ export const ApiGatewayView: React.FC = () => {
                            </>
                        ) : (
                            <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                               <Server size={32} className="mb-2 opacity-50"/>
-                               <p className="text-xs font-bold uppercase">Select an endpoint to test</p>
+                               <Server size={48} strokeWidth={1} className="mb-4 opacity-50 text-slate-300"/>
+                               <p className="text-sm font-bold uppercase tracking-wider">Select an endpoint to configure</p>
                            </div>
                        )}
                    </div>
@@ -246,7 +323,7 @@ export const ApiGatewayView: React.FC = () => {
            {activeTab === 'clients' && (
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                    {MOCK_CLIENTS.map(client => (
-                       <NexCard key={client.id} className="p-4 flex flex-col justify-between h-40">
+                       <NexCard key={client.id} className="p-4 flex flex-col justify-between h-40 group hover:border-blue-300 transition-all">
                            <div className="flex justify-between items-start">
                                <div className="p-2 bg-blue-50 text-blue-600 rounded-sm border border-blue-100">
                                    <Terminal size={20}/>
@@ -254,7 +331,7 @@ export const ApiGatewayView: React.FC = () => {
                                <NexBadge variant={client.status === 'Active' ? 'emerald' : 'rose'}>{client.status}</NexBadge>
                            </div>
                            <div>
-                               <h4 className="font-bold text-slate-900">{client.name}</h4>
+                               <h4 className="font-bold text-slate-900 text-sm">{client.name}</h4>
                                <div className="flex items-center gap-2 mt-1">
                                    <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] text-slate-600 font-mono border border-slate-200">{client.clientId}</code>
                                    <button className="text-slate-400 hover:text-blue-600"><Copy size={12}/></button>
@@ -274,15 +351,32 @@ export const ApiGatewayView: React.FC = () => {
            )}
 
            {activeTab === 'logs' && (
-               <div className="bg-white border border-default rounded-sm shadow-sm flex flex-col h-[500px]">
-                   <div className="p-3 border-b border-subtle bg-slate-50 flex justify-between items-center">
-                       <h3 className="text-xs font-bold text-slate-700 uppercase flex items-center gap-2">
-                           <Database size={14}/> Access Logs
+               <div className="bg-slate-900 border border-slate-800 rounded-sm shadow-sm flex flex-col h-[600px] font-mono text-xs overflow-hidden relative">
+                   <div className="p-2 border-b border-slate-800 bg-slate-950 flex justify-between items-center text-slate-400">
+                       <h3 className="font-bold uppercase flex items-center gap-2">
+                           <Terminal size={12}/> Live Stream
                        </h3>
-                       <button className="text-blue-600 hover:text-blue-800"><RefreshCw size={14}/></button>
+                       <div className="flex gap-2 items-center">
+                           <span className="flex items-center gap-1.5 text-[10px]"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Connected</span>
+                           <button onClick={() => setLiveLogs([])} className="hover:text-white"><WifiOff size={12}/></button>
+                       </div>
                    </div>
-                   <div className="flex-1 flex items-center justify-center text-slate-400 italic text-xs">
-                       Connect to ElasticSearch/Splunk to view real-time logs.
+                   <div className="flex-1 overflow-y-auto p-2 space-y-1" ref={logContainerRef}>
+                       {liveLogs.map(log => (
+                           <div key={log.id} className="flex gap-3 hover:bg-slate-800/50 p-0.5 rounded text-slate-300 animate-slide-up">
+                               <span className="text-slate-600 w-16 shrink-0">{log.timestamp.toLocaleTimeString()}</span>
+                               <span className={`w-12 font-bold ${log.method === 'POST' ? 'text-amber-400' : 'text-blue-400'}`}>{log.method}</span>
+                               <span className={`w-8 font-bold ${log.status >= 500 ? 'text-rose-500' : log.status >= 400 ? 'text-orange-400' : 'text-emerald-400'}`}>{log.status}</span>
+                               <span className="flex-1 truncate text-slate-400">{log.path}</span>
+                               <span className="text-slate-600 w-12 text-right">{log.latency}ms</span>
+                           </div>
+                       ))}
+                       {liveLogs.length === 0 && (
+                           <div className="flex flex-col items-center justify-center h-full text-slate-600">
+                               <Wifi size={24} className="mb-2 opacity-50"/>
+                               <p>Waiting for traffic...</p>
+                           </div>
+                       )}
                    </div>
                </div>
            )}
