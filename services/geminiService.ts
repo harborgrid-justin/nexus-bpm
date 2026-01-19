@@ -207,3 +207,25 @@ export const summarizeTaskContext = async (task: Task): Promise<{ summary: strin
     return { summary: "Analysis failed.", sentiment: "Neutral", nextAction: "Review" };
   }
 };
+
+export const generateProcessDocumentation = async (processDef: any): Promise<string> => {
+  const ai = getClient();
+  if (!ai) return "<h1>Documentation Unavailable</h1><p>API Key required for generation.</p>";
+
+  const response = await ai.models.generateContent({
+    model: "gemini-3-pro-preview",
+    contents: `Generate professional HTML documentation for this Business Process.
+    Process: ${JSON.stringify(processDef)}
+    
+    Structure:
+    1. <h1>Title & Version
+    2. <p>Executive Summary
+    3. <h2>Roles & Responsibilities (List)
+    4. <h2>Process Flow Narrative (Step by step walk through)
+    5. <h2>Compliance Notes (If strict)
+    
+    Format: Pure HTML body content only (no html/body tags). Use Tailwind CSS classes for styling (e.g. text-2xl font-bold, p-4 bg-slate-50).`
+  });
+
+  return response.text || "<p>Generation failed.</p>";
+};

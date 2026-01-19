@@ -83,6 +83,13 @@ export interface Attachment {
   url?: string; // For external CMIS links
 }
 
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  completed: boolean;
+  required: boolean;
+}
+
 export interface Task {
   id:string;
   title: string;
@@ -100,6 +107,7 @@ export interface Task {
   data?: any;
   comments: Comment[];
   attachments: Attachment[];
+  checklist?: ChecklistItem[]; // New
   isAdHoc: boolean;
   caseId?: string;
   triggerSource?: 'Manual' | 'Rule' | 'System' | 'Escalation';
@@ -207,7 +215,16 @@ export interface ProcessLink {
 export interface Swimlane {
   id: string;
   name: string;
+  roleId?: string; // Auto-assign steps in this lane to this role
   height: number;
+  color: 'blue' | 'slate' | 'emerald' | 'amber';
+}
+
+export interface ProcessVersionSnapshot {
+  version: number;
+  timestamp: string;
+  author: string;
+  definition: Partial<ProcessDefinition>; // Snapshot of steps/links/lanes
 }
 
 export interface ProcessDefinition {
@@ -222,7 +239,7 @@ export interface ProcessDefinition {
   version: number;
   isActive: boolean;
   complianceLevel: 'Standard' | 'Strict' | 'Critical';
-  history?: { timestamp: string; author: string; message: string }[];
+  history?: ProcessVersionSnapshot[]; // Full version history
   domainId: string;
 }
 
@@ -415,6 +432,7 @@ export interface FormDefinition {
   fields: FormField[];
   version: number;
   lastModified: string;
+  layoutMode?: 'single' | 'wizard'; // Added for Wizard Support
 }
 
 // ---- ANALYTICS & GOVERNANCE ----

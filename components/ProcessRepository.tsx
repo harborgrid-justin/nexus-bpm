@@ -1,22 +1,53 @@
 
 import React, { useState } from 'react';
 import { useBPM } from '../contexts/BPMContext';
-import { Play, FileText, Layers, Plus, Activity, Eye, ChevronRight, Globe, ShieldCheck, Clock, Hash, MoreVertical, Copy, Trash2, Edit, PauseCircle, StopCircle, Search } from 'lucide-react';
-import { NexCard, NexButton, NexBadge } from './shared/NexUI';
+import { Play, FileText, Layers, Plus, Activity, Eye, ChevronRight, Globe, ShieldCheck, Clock, Hash, MoreVertical, Copy, Trash2, Edit, PauseCircle, StopCircle, Search, History, BookOpen } from 'lucide-react';
+import { NexCard, NexButton, NexBadge, NexModal } from './shared/NexUI';
+import { ProcessDiffViewer } from './governance/ProcessDiffViewer';
+import { ProcessDefinition } from '../types';
+import { generateProcessDocumentation } from '../services/geminiService';
 
 export const ProcessRepository: React.FC = () => {
   const { processes, instances, startProcess, openInstanceViewer, deployProcess, deleteProcess, toggleProcessState, suspendInstance, terminateInstance, navigateTo } = useBPM();
   const [activeTab, setActiveTab] = useState<'definitions' | 'instances'>('definitions');
   const [filterQuery, setFilterQuery] = useState('');
   const [showArchived, setShowArchived] = useState(false);
+  
+  // History Modal State
+  const [selectedHistoryProc, setSelectedHistoryProc] = useState<ProcessDefinition | null>(null);
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+
+  // Docs Modal State
+  const [docContent, setDocContent] = useState('');
+  const [docModalOpen, setDocModalOpen] = useState(false);
+  const [generatingDocs, setGeneratingDocs] = useState(false);
 
   const handleStart = (id: string, name: string) => {
     startProcess(id, { summary: `Automated initiation via Registry` });
   };
 
   const handleDuplicate = async (proc: any) => {
-      const newProc = { ...proc, id: '', name: `${proc.name} (Copy)`, version: 1 };
+      const newProc = { ...proc, id: '', name: `${proc.name} (Copy)`, version: 1, history: [] };
       await deployProcess(newProc);
+  };
+
+  const handleViewHistory = (proc: ProcessDefinition) => {
+      setSelectedHistoryProc(proc);
+      setHistoryModalOpen(true);
+  };
+
+  const handleGenerateDocs = async (proc: ProcessDefinition) => {
+      setGeneratingDocs(true);
+      setDocModalOpen(true);
+      setDocContent('<div class="p-8 text-center"><p>Generating documentation...</p></div>');
+      try {
+          const html = await generateProcessDocumentation(proc);
+          setDocContent(html);
+      } catch (e) {
+          setDocContent('<p>Error generating documentation.</p>');
+      } finally {
+          setGeneratingDocs(false);
+      }
   };
 
   const filteredProcesses = processes.filter(p => 
@@ -97,8 +128,10 @@ export const ProcessRepository: React.FC = () => {
                  {/* Definition Actions Menu */}
                  <div className="relative group/menu">
                     <button className="p-1 hover:bg-slate-100 rounded-sm text-slate-400"><MoreVertical size={16}/></button>
-                    <div className="absolute right-0 top-6 w-36 bg-white border border-slate-200 shadow-xl rounded-sm z-20 hidden group-hover/menu:block py-1">
+                    <div className="absolute right-0 top-6 w-40 bg-white border border-slate-200 shadow-xl rounded-sm z-20 hidden group-hover/menu:block py-1">
                         <button onClick={() => navigateTo('designer', process.id)} className="w-full text-left px-3 py-2 text-[10px] hover:bg-slate-50 flex items-center gap-2 text-slate-700 font-bold"><Edit size={12} className="text-blue-600"/> Edit Model</button>
+                        <button onClick={() => handleGenerateDocs(process)} className="w-full text-left px-3 py-2 text-[10px] hover:bg-slate-50 flex items-center gap-2 text-slate-700"><BookOpen size={12}/> Generate Docs</button>
+                        <button onClick={() => handleViewHistory(process)} className="w-full text-left px-3 py-2 text-[10px] hover:bg-slate-50 flex items-center gap-2 text-slate-700"><History size={12}/> Version History</button>
                         <div className="h-px bg-slate-100 my-1"></div>
                         <button onClick={() => handleDuplicate(process)} className="w-full text-left px-3 py-2 text-[10px] hover:bg-slate-50 flex items-center gap-2 text-slate-700"><Copy size={12}/> Duplicate</button>
                         <button onClick={() => toggleProcessState(process.id)} className="w-full text-left px-3 py-2 text-[10px] hover:bg-slate-50 flex items-center gap-2 text-slate-700"><PauseCircle size={12}/> {process.isActive ? 'Archive' : 'Activate'}</button>
@@ -176,6 +209,37 @@ export const ProcessRepository: React.FC = () => {
           </table>
         </div>
       )}
+
+      {/* Version History Modal */}
+      {selectedHistoryProc && (
+          <NexModal isOpen={historyModalOpen} onClose={() => setHistoryModalOpen(false)} title={`History: ${selectedHistoryProc.name}`} size="xl">
+              <div className="space-y-4">
+                  {(!selectedHistoryProc.history || selectedHistoryProc.history.length === 0) ? (
+                      <div className="p-8 text-center text-slate-400 italic">No previous versions available.</div>
+                  ) : (
+                      selectedHistoryProc.history.sort((a,b) => b.version - a.version).map(snap => (
+                          <div key={snap.version} className="border border-slate-200 rounded-sm overflow-hidden mb-4">
+                              <div className="p-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                                  <div>
+                                      <span className="font-bold text-sm text-slate-800">Version {snap.version}.0</span>
+                                      <span className="text-xs text-slate-500 ml-2">Deployed by {snap.author} on {new Date(snap.timestamp).toLocaleDateString()}</span>
+                                  </div>
+                                  <button className="text-xs font-bold text-blue-600 hover:underline">Revert to V{snap.version}</button>
+                              </div>
+                              <div className="h-64 relative">
+                                  <ProcessDiffViewer oldVer={snap.definition as ProcessDefinition} newVer={selectedHistoryProc} />
+                              </div>
+                          </div>
+                      ))
+                  )}
+              </div>
+          </NexModal>
+      )}
+
+      {/* Documentation Modal */}
+      <NexModal isOpen={docModalOpen} onClose={() => setDocModalOpen(false)} title="Process Documentation" size="xl">
+          <div className="prose prose-sm max-w-none p-4" dangerouslySetInnerHTML={{ __html: docContent }} />
+      </NexModal>
     </div>
   );
 };

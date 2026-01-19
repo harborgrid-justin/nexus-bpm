@@ -3,10 +3,12 @@ import React, { useState, useMemo } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { 
   ArrowLeft, Users, Send, Settings, Activity, 
-  CheckSquare, ChevronRight, Briefcase, ShieldCheck, Play, X, Layers, Plus, Shield, Edit, Trash2, RotateCcw, Lock, Database, Paperclip, FileText, Upload, Save, User as UserIcon
+  CheckSquare, ChevronRight, Briefcase, ShieldCheck, Play, X, Layers, Plus, Shield, Edit, Trash2, RotateCcw, Lock, Database, Paperclip, FileText, Upload, Save, User as UserIcon, CheckCircle
 } from 'lucide-react';
 import { NexBadge, NexButton, NexHistoryFeed, NexCard, NexModal, NexFormGroup } from './shared/NexUI';
 import { TaskStatus } from '../types';
+
+const MOCK_STAGES = ['Open', 'In Progress', 'Pending Review', 'Resolved', 'Closed'];
 
 export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
   const { cases, tasks, processes, users, navigateTo, addCaseEvent, removeCaseEvent, addCasePolicy, removeCasePolicy, addCaseStakeholder, removeCaseStakeholder, updateCase, startProcess, currentUser, openInstanceViewer } = useBPM();
@@ -25,6 +27,8 @@ export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
   }, [currentCase]);
 
   if (!currentCase) return <div className="p-20 text-center text-slate-400">Case file not found.</div>;
+
+  const currentStageIndex = MOCK_STAGES.indexOf(currentCase.status) !== -1 ? MOCK_STAGES.indexOf(currentCase.status) : 0;
 
   const handlePostNote = async (e: React.SyntheticEvent) => {
     e.preventDefault();
@@ -91,6 +95,25 @@ export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
            <NexButton variant="secondary" icon={Play} onClick={() => navigateTo('case-launch', currentCase.id)} disabled={currentCase.status === 'Closed'}>Action</NexButton>
         </div>
       </header>
+
+      {/* Stage Progress Bar (Milestones) */}
+      <div className="bg-white border-b border-slate-200 px-6 py-4">
+          <div className="flex items-center justify-between relative">
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-slate-100 rounded-full z-0"></div>
+              {MOCK_STAGES.map((stage, i) => {
+                  const isCompleted = i <= currentStageIndex;
+                  const isCurrent = i === currentStageIndex;
+                  return (
+                      <div key={stage} className="relative z-10 flex flex-col items-center">
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all ${isCompleted ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white border-slate-300 text-slate-300'} ${isCurrent ? 'ring-4 ring-emerald-100' : ''}`}>
+                              {isCompleted ? <CheckCircle size={14}/> : <div className="w-2 h-2 bg-slate-200 rounded-full"></div>}
+                          </div>
+                          <span className={`text-[10px] font-bold mt-1 uppercase ${isCurrent ? 'text-emerald-700' : isCompleted ? 'text-slate-600' : 'text-slate-300'}`}>{stage}</span>
+                      </div>
+                  )
+              })}
+          </div>
+      </div>
 
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar */}

@@ -1,8 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { FormDefinition, FormField, FormVisibilityRule } from '../../types';
-import { NexFormGroup } from './NexUI';
-import { Check, X, PenTool, Info, Star, Plus, Minus, Lock, Upload, Calendar, Clock } from 'lucide-react';
+import { NexFormGroup, NexButton } from './NexUI';
+import { Check, X, PenTool, Info, Star, Plus, Minus, Lock, Upload, Calendar, Clock, ArrowRight, ArrowLeft } from 'lucide-react';
 
 interface FormRendererProps {
   form: FormDefinition;
@@ -65,6 +65,29 @@ export const validateForm = (form: FormDefinition, data: Record<string, any>): R
 };
 
 export const FormRenderer: React.FC<FormRendererProps> = ({ form, data, onChange, readOnly, errors = {} }) => {
+  const [currentStep, setCurrentStep] = useState(0);
+
+  // Group fields into steps based on Dividers
+  const steps = useMemo(() => {
+      const grouped: FormField[][] = [];
+      let currentGroup: FormField[] = [];
+      
+      form.fields.forEach(field => {
+          if (field.type === 'divider' && form.layoutMode === 'wizard') {
+              if (currentGroup.length > 0) grouped.push(currentGroup);
+              currentGroup = []; // Divider itself is consumed as a break
+          } else {
+              currentGroup.push(field);
+          }
+      });
+      if (currentGroup.length > 0) grouped.push(currentGroup);
+      
+      // If single page mode or no dividers, just one group
+      if (form.layoutMode !== 'wizard' || grouped.length === 0) return [form.fields];
+      
+      return grouped;
+  }, [form.fields, form.layoutMode]);
+
   // Check visibility for all fields
   const isFieldVisible = (field: FormField): boolean => {
       if (!field.visibility) return true;
@@ -105,56 +128,98 @@ export const FormRenderer: React.FC<FormRendererProps> = ({ form, data, onChange
       });
   }, [data, form.fields]);
 
-  return (
-    <div className="flex flex-wrap -mx-2">
-      {form.fields.map(field => {
-        if (!isFieldVisible(field)) return null;
-        
-        const width = field.layout?.width || '100%';
-        const isDisabled = readOnly || field.behavior?.disabled || field.behavior?.readOnly;
+  const visibleFields = steps[currentStep] || [];
 
-        if (field.type === 'divider') {
-            return (
-                <div key={field.id} className="w-full px-2 my-4">
-                    <div className="h-px bg-slate-200 flex items-center justify-center">
-                        <span className="bg-white px-2 text-xs font-bold text-slate-400 uppercase tracking-wider">{field.label}</span>
+  return (
+    <div className="flex flex-col h-full">
+      {/* Wizard Progress Header */}
+      {form.layoutMode === 'wizard' && steps.length > 1 && (
+          <div className="flex items-center justify-between mb-6 px-2">
+              {steps.map((_, idx) => (
+                  <div key={idx} className="flex items-center flex-1 last:flex-none">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${idx <= currentStep ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                          {idx + 1}
+                      </div>
+                      {idx < steps.length - 1 && (
+                          <div className={`flex-1 h-1 mx-2 rounded-full ${idx < currentStep ? 'bg-blue-600' : 'bg-slate-200'}`}></div>
+                      )}
+                  </div>
+              ))}
+          </div>
+      )}
+
+      <div className="flex flex-wrap -mx-2 flex-1 content-start">
+        {visibleFields.map(field => {
+            if (!isFieldVisible(field)) return null;
+            
+            const width = field.layout?.width || '100%';
+            const isDisabled = readOnly || field.behavior?.disabled || field.behavior?.readOnly;
+
+            if (field.type === 'divider') {
+                return (
+                    <div key={field.id} className="w-full px-2 my-4">
+                        <div className="h-px bg-slate-200 flex items-center justify-center">
+                            <span className="bg-white px-2 text-xs font-bold text-slate-400 uppercase tracking-wider">{field.label}</span>
+                        </div>
                     </div>
+                );
+            }
+
+            if (field.type === 'rich-text') {
+                return (
+                    <div key={field.id} className="w-full px-2 mb-4">
+                        <div className="p-3 bg-blue-50 border border-blue-100 rounded-sm text-sm text-blue-900" dangerouslySetInnerHTML={{__html: field.defaultValue || field.helpText || ''}} />
+                    </div>
+                )
+            }
+            
+            return (
+                <div key={field.id} className="px-2 mb-4" style={{ width }}>
+                    <NexFormGroup 
+                        label={field.label} 
+                        helpText={field.required ? undefined : '(Optional)'}
+                    >
+                        {renderField(field, data[field.key] || '', onChange, isDisabled)}
+                    </NexFormGroup>
+                    
+                    {field.helpText && (
+                        <div className="mt-1 text-xs text-slate-500 flex items-start gap-1.5">
+                            <Info size={12} className="shrink-0 mt-0.5 text-slate-400"/>
+                            {field.helpText}
+                        </div>
+                    )}
+
+                    {errors[field.key] && (
+                        <div className="text-xs text-rose-600 font-bold mt-1 flex items-center gap-1 animate-pulse">
+                            <X size={12}/> {errors[field.key]}
+                        </div>
+                    )}
                 </div>
             );
-        }
+        })}
+      </div>
 
-        if (field.type === 'rich-text') {
-            return (
-                <div key={field.id} className="w-full px-2 mb-4">
-                    <div className="p-3 bg-blue-50 border border-blue-100 rounded-sm text-sm text-blue-900" dangerouslySetInnerHTML={{__html: field.defaultValue || field.helpText || ''}} />
-                </div>
-            )
-        }
-        
-        return (
-            <div key={field.id} className="px-2 mb-4" style={{ width }}>
-                <NexFormGroup 
-                    label={field.label} 
-                    helpText={field.required ? undefined : '(Optional)'}
-                >
-                    {renderField(field, data[field.key] || '', onChange, isDisabled)}
-                </NexFormGroup>
-                
-                {field.helpText && (
-                    <div className="mt-1 text-xs text-slate-500 flex items-start gap-1.5">
-                        <Info size={12} className="shrink-0 mt-0.5 text-slate-400"/>
-                        {field.helpText}
-                    </div>
-                )}
-
-                {errors[field.key] && (
-                    <div className="text-xs text-rose-600 font-bold mt-1 flex items-center gap-1 animate-pulse">
-                        <X size={12}/> {errors[field.key]}
-                    </div>
-                )}
-            </div>
-        );
-      })}
+      {/* Wizard Footer */}
+      {form.layoutMode === 'wizard' && steps.length > 1 && (
+          <div className="flex justify-between pt-4 border-t border-slate-200 mt-4">
+              <NexButton 
+                variant="secondary" 
+                onClick={() => setCurrentStep(Math.max(0, currentStep - 1))} 
+                disabled={currentStep === 0} 
+                icon={ArrowLeft}
+              >
+                  Back
+              </NexButton>
+              <NexButton 
+                variant="primary" 
+                onClick={() => setCurrentStep(Math.min(steps.length - 1, currentStep + 1))} 
+                disabled={currentStep === steps.length - 1} 
+                icon={ArrowRight}
+              >
+                  Next Step
+              </NexButton>
+          </div>
+      )}
     </div>
   );
 };

@@ -8,7 +8,7 @@ import {
   Type, Hash, Calendar, CheckSquare, List, AlignLeft, FileText, 
   Trash2, GripVertical, Settings, Plus, Info, Upload, PenTool, EyeOff, AlertTriangle,
   PanelLeft, PanelRight, Smartphone, Monitor, Maximize, Star, Sliders, Tag, Palette, Lock, Key, Clock, Minus, LayoutGrid, Globe, Calculator,
-  Columns, Box, ToggleLeft, Copy, MoreVertical, MousePointerClick
+  Columns, Box, ToggleLeft, Copy, MoreVertical, MousePointerClick, Forward
 } from 'lucide-react';
 import { produce } from 'immer';
 
@@ -47,7 +47,8 @@ export const FormDesigner: React.FC = () => {
     description: '',
     fields: [],
     version: 1,
-    lastModified: new Date().toISOString()
+    lastModified: new Date().toISOString(),
+    layoutMode: 'single'
   });
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'general' | 'appearance' | 'data' | 'validation' | 'logic'>('general');
@@ -402,9 +403,17 @@ export const FormDesigner: React.FC = () => {
               <div className="flex items-center gap-2">
                  {!leftOpen && <button onClick={() => setLeftOpen(true)} className="p-1.5 hover:bg-slate-50 rounded text-slate-500" title="Open Library"><PanelLeft size={16}/></button>}
               </div>
-              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-sm">
-                 <button onClick={() => setPreviewMode('desktop')} className={`p-1.5 rounded-sm transition-all ${previewMode === 'desktop' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`} title="Desktop View"><Monitor size={14}/></button>
-                 <button onClick={() => setPreviewMode('mobile')} className={`p-1.5 rounded-sm transition-all ${previewMode === 'mobile' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`} title="Mobile View"><Smartphone size={14}/></button>
+              <div className="flex items-center gap-4 bg-slate-100 p-1 rounded-sm">
+                 <div className="flex items-center gap-2 border-r border-slate-300 pr-2 mr-2">
+                    <button onClick={() => setPreviewMode('desktop')} className={`p-1.5 rounded-sm transition-all ${previewMode === 'desktop' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`} title="Desktop View"><Monitor size={14}/></button>
+                    <button onClick={() => setPreviewMode('mobile')} className={`p-1.5 rounded-sm transition-all ${previewMode === 'mobile' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`} title="Mobile View"><Smartphone size={14}/></button>
+                 </div>
+                 <button 
+                    onClick={() => setFormDef(d => ({ ...d, layoutMode: d.layoutMode === 'wizard' ? 'single' : 'wizard' }))} 
+                    className={`flex items-center gap-2 px-3 py-1 rounded-sm text-xs font-bold transition-all ${formDef.layoutMode === 'wizard' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                 >
+                    <Forward size={14}/> Wizard Mode
+                 </button>
               </div>
               <div className="flex items-center gap-2">
                  {!rightOpen && <button onClick={() => setRightOpen(true)} className="p-1.5 hover:bg-slate-50 rounded text-slate-500" title="Open Properties"><PanelRight size={16}/></button>}
@@ -481,7 +490,13 @@ export const FormDesigner: React.FC = () => {
                                 
                                 {/* Interactive Preview of the Field */}
                                 <div className="w-full pointer-events-none opacity-80">
-                                    {field.type === 'divider' ? <div className="h-px bg-slate-300 w-full my-4"></div> :
+                                    {field.type === 'divider' ? (
+                                        <div className="w-full my-4 flex items-center gap-2">
+                                            <div className="h-px bg-slate-300 flex-1"></div>
+                                            {formDef.layoutMode === 'wizard' && <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">PAGE BREAK</span>}
+                                            <div className="h-px bg-slate-300 flex-1"></div>
+                                        </div>
+                                    ) :
                                     field.type === 'rating' ? <div className="flex gap-1 text-slate-300"><Star size={16} /><Star size={16} /><Star size={16} /><Star size={16} /><Star size={16} /></div> :
                                     field.type === 'slider' ? <div className="w-full h-1 bg-slate-200 rounded my-3 relative"><div className="absolute left-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-blue-600 rounded-full"></div></div> :
                                     field.type === 'tags' ? <div className="flex gap-1"><span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs border border-slate-200">Tag 1</span><span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs border border-slate-200">Tag 2</span></div> :

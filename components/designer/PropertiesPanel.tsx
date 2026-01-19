@@ -46,6 +46,7 @@ export const PropertiesPanel = ({
     const { rules, forms, navigateTo } = useBPM();
     const [activeTab, setActiveTab] = useState<'config' | 'data' | 'logic' | 'policy'>('config');
     
+    // Always call hooks regardless of step existence
     const panelWidthClass = useMemo(() => {
         if (!step) return 'w-[320px]';
         
@@ -65,6 +66,13 @@ export const PropertiesPanel = ({
         return 'w-[320px]';
     }, [step?.type, activeTab, step?.onEntryAction, step?.onExitAction]);
 
+    // Render Empty State early return is safe here ONLY because we don't call hooks after.
+    // However, for consistency we'll use a conditional variable approach if complex logic was involved.
+    // Given the current structure, if (!step) is safe because no hooks follow it. 
+    // But let's verify no hooks are hidden in helper functions called later.
+    // updateField, updateDataField, etc are closures, not hooks.
+    // renderDynamicField is a function, not a hook.
+    
     if (!step) {
       return (
         <aside className={`${panelWidthClass} hidden md:flex h-full flex-col items-center justify-center text-center p-8 bg-white border-l border-slate-300 transition-all duration-300 ease-in-out`}>

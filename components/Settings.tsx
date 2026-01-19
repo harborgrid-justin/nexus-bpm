@@ -2,7 +2,7 @@
 import React, { useRef, useState } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Database, RefreshCw, Trash2, Download, Upload, AlertTriangle, CheckCircle, Server, Monitor, Palette, Maximize, Move } from 'lucide-react';
+import { Database, RefreshCw, Trash2, Download, Upload, AlertTriangle, CheckCircle, Server, Monitor, Palette, Maximize, Move, Calendar } from 'lucide-react';
 import { NexButton } from './shared/NexUI';
 
 export const Settings: React.FC = () => {
@@ -11,7 +11,12 @@ export const Settings: React.FC = () => {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [statusMsg, setStatusMsg] = useState('');
-  const [activeTab, setActiveTab] = useState<'system' | 'appearance'>('system');
+  const [activeTab, setActiveTab] = useState<'system' | 'appearance' | 'calendar'>('system');
+
+  // Calendar State
+  const [workDays, setWorkDays] = useState(['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
+  const [workHours, setWorkHours] = useState({ start: '09:00', end: '17:00' });
+  const [timezone, setTimezone] = useState('UTC');
 
   const handleImportClick = () => {
     fileInputRef.current?.click();
@@ -45,6 +50,10 @@ export const Settings: React.FC = () => {
     }
   };
 
+  const toggleWorkDay = (day: string) => {
+      setWorkDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
+  };
+
   return (
     <div className="max-w-4xl mx-auto animate-fade-in space-y-6">
       <header className="mb-6 border-b border-slate-300 pb-4 flex items-center justify-between">
@@ -67,6 +76,12 @@ export const Settings: React.FC = () => {
                 className={`px-4 py-1.5 text-xs font-bold rounded-sm transition-all ${activeTab === 'appearance' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500 hover:text-slate-800'}`}
             >
                 Appearance
+            </button>
+            <button 
+                onClick={() => setActiveTab('calendar')} 
+                className={`px-4 py-1.5 text-xs font-bold rounded-sm transition-all ${activeTab === 'calendar' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500 hover:text-slate-800'}`}
+            >
+                Calendar
             </button>
         </div>
       </header>
@@ -235,6 +250,63 @@ export const Settings: React.FC = () => {
                             onChange={e => setRadius(parseInt(e.target.value))}
                             className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
                           />
+                      </div>
+                  </div>
+              </section>
+          </div>
+      )}
+
+      {activeTab === 'calendar' && (
+          <div className="space-y-6">
+              <section className="bg-white rounded-sm shadow-sm border border-slate-300 overflow-hidden">
+                  <div className="p-4 border-b border-slate-200 bg-slate-50">
+                      <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                          <Calendar size={16} className="text-slate-500" />
+                          Business Calendar & SLA
+                      </h3>
+                  </div>
+                  
+                  <div className="p-6 space-y-6">
+                      <div className="space-y-3">
+                          <label className="prop-label">Working Days</label>
+                          <div className="flex gap-2">
+                              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                                  <button 
+                                    key={day}
+                                    onClick={() => toggleWorkDay(day)}
+                                    className={`w-10 h-10 rounded-sm text-xs font-bold transition-all border ${workDays.includes(day) ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
+                                  >
+                                      {day}
+                                  </button>
+                              ))}
+                          </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                              <label className="prop-label">Business Hours Start</label>
+                              <input type="time" className="prop-input" value={workHours.start} onChange={e => setWorkHours({...workHours, start: e.target.value})} />
+                          </div>
+                          <div className="space-y-2">
+                              <label className="prop-label">Business Hours End</label>
+                              <input type="time" className="prop-input" value={workHours.end} onChange={e => setWorkHours({...workHours, end: e.target.value})} />
+                          </div>
+                      </div>
+
+                      <div className="space-y-2">
+                          <label className="prop-label">Timezone</label>
+                          <select className="prop-input" value={timezone} onChange={e => setTimezone(e.target.value)}>
+                              <option value="UTC">UTC (Coordinated Universal Time)</option>
+                              <option value="EST">EST (Eastern Standard Time)</option>
+                              <option value="CST">CST (Central Standard Time)</option>
+                              <option value="PST">PST (Pacific Standard Time)</option>
+                              <option value="GMT">GMT (Greenwich Mean Time)</option>
+                          </select>
+                      </div>
+
+                      <div className="p-4 bg-blue-50 border border-blue-100 rounded-sm text-xs text-blue-800">
+                          <h4 className="font-bold mb-1">Impact on SLAs</h4>
+                          <p>Task due dates will automatically skip non-working days. E.g., a task due in "2 days" created on Friday will be due Tuesday.</p>
                       </div>
                   </div>
               </section>

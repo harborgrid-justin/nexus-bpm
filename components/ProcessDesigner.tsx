@@ -20,16 +20,18 @@ import ReactFlow, {
   Panel
 } from 'reactflow';
 import dagre from 'dagre';
-import { ProcessStep, ProcessLink, ProcessStepType, ProcessDefinition } from '../types';
+import { ProcessStep, ProcessLink, ProcessStepType, ProcessDefinition, Swimlane } from '../types';
 import { useBPM } from '../contexts/BPMContext';
 import { 
-  Save, Sparkles, Cpu, LayoutPanelLeft, Trash2, Thermometer, Layout, Settings, FileText, Globe, AlertTriangle, PanelRight, X
+  Save, Sparkles, Cpu, LayoutPanelLeft, Trash2, Thermometer, Layout, Settings, FileText, Globe, AlertTriangle, PanelRight, X, Wand2, ListTree, Grid, Layers, Plus
 } from 'lucide-react';
 import { PaletteSidebar } from './designer/PaletteSidebar';
 import { NodeComponent } from './designer/NodeComponent';
 import { CustomEdge } from './designer/CustomEdge';
 import { PropertiesPanel } from './designer/PropertiesPanel';
 import { CanvasContextMenu } from './designer/CanvasContextMenu';
+import { HierarchyView } from './designer/HierarchyView';
+import { SwimlaneRenderer } from './designer/SwimlaneRenderer';
 import { getStepTypeMetadata } from './designer/designerUtils';
 import { generateProcessWorkflow } from '../services/geminiService';
 import { NexFormGroup, NexButton } from './shared/NexUI';
@@ -83,7 +85,21 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => 
 };
 
 // --- Process Properties Panel ---
-const ProcessSettingsPanel = ({ meta, onChange, onClose }: { meta: Partial<ProcessDefinition>, onChange: (upd: Partial<ProcessDefinition>) => void, onClose: () => void }) => {
+const ProcessSettingsPanel = ({ meta, onChange, onClose, roles }: { meta: Partial<ProcessDefinition>, onChange: (upd: Partial<ProcessDefinition>) => void, onClose: () => void, roles: any[] }) => {
+    
+    const addLane = () => {
+        const newLane: Swimlane = { id: `lane-${Date.now()}`, name: 'New Lane', height: 300, color: 'slate' };
+        onChange({ lanes: [...(meta.lanes || []), newLane] });
+    };
+
+    const updateLane = (id: string, updates: Partial<Swimlane>) => {
+        onChange({ lanes: (meta.lanes || []).map(l => l.id === id ? { ...l, ...updates } : l) });
+    };
+
+    const removeLane = (id: string) => {
+        onChange({ lanes: (meta.lanes || []).filter(l => l.id !== id) });
+    };
+
     return (
         <aside className="w-[320px] h-full bg-white border-l border-slate-300 flex flex-col shadow-xl z-20">
             <div className="h-10 flex items-center justify-between px-4 border-b border-slate-300 bg-slate-50">
@@ -101,6 +117,42 @@ const ProcessSettingsPanel = ({ meta, onChange, onClose }: { meta: Partial<Proce
                     <textarea className="prop-input h-24 resize-none" value={meta.description || ''} onChange={e => onChange({ description: e.target.value })} />
                 </NexFormGroup>
                 
+                <div className="h-px bg-slate-200"></div>
+                
+                {/* SWIMLANES CONFIG */}
+                <div>
+                    <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-xs font-bold text-slate-700 uppercase flex items-center gap-2"><Layers size={14}/> Swimlanes</h4>
+                        <button onClick={addLane} className="text-blue-600 hover:bg-blue-50 p-1 rounded"><Plus size={14}/></button>
+                    </div>
+                    <div className="space-y-3">
+                        {(meta.lanes || []).map((lane, idx) => (
+                            <div key={lane.id} className="p-3 bg-slate-50 border border-slate-200 rounded-sm space-y-2 relative group">
+                                <button onClick={() => removeLane(lane.id)} className="absolute top-2 right-2 text-slate-400 hover:text-rose-600 opacity-0 group-hover:opacity-100 transition-opacity"><X size={12}/></button>
+                                <input className="prop-input text-xs font-bold" value={lane.name} onChange={e => updateLane(lane.id, { name: e.target.value })} placeholder="Lane Name" />
+                                <div className="grid grid-cols-2 gap-2">
+                                    <select className="prop-input text-xs" value={lane.roleId || ''} onChange={e => updateLane(lane.id, { roleId: e.target.value })}>
+                                        <option value="">No Role</option>
+                                        {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                                    </select>
+                                    <select className="prop-input text-xs" value={lane.color} onChange={e => updateLane(lane.id, { color: e.target.value as any })}>
+                                        <option value="slate">Slate</option>
+                                        <option value="blue">Blue</option>
+                                        <option value="emerald">Emerald</option>
+                                        <option value="amber">Amber</option>
+                                    </select>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] text-slate-500 w-12">Height:</span>
+                                    <input type="range" min="200" max="800" step="50" value={lane.height} onChange={e => updateLane(lane.id, { height: parseInt(e.target.value) })} className="flex-1 h-1 bg-slate-300 rounded-lg appearance-none cursor-pointer" />
+                                    <span className="text-[10px] font-mono text-slate-500 w-8 text-right">{lane.height}px</span>
+                                </div>
+                            </div>
+                        ))}
+                        {(meta.lanes || []).length === 0 && <div className="text-[10px] text-slate-400 italic text-center py-2">No lanes defined. Steps float freely.</div>}
+                    </div>
+                </div>
+
                 <div className="h-px bg-slate-200"></div>
                 
                 <NexFormGroup label="Compliance Level">
@@ -140,10 +192,14 @@ const DesignerFlow = ({
   onDrop, 
   onDragOver, 
   onLayout, 
-  isValidConnection 
+  isValidConnection,
+  lanes
 }: any) => {
   return (
-    <div className="h-full w-full" onDrop={onDrop} onDragOver={onDragOver}>
+    <div className="h-full w-full relative" onDrop={onDrop} onDragOver={onDragOver}>
+      {/* Swimlane Layer */}
+      {lanes && lanes.length > 0 && <SwimlaneRenderer lanes={lanes} width={3000} />}
+      
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -170,7 +226,7 @@ const DesignerFlow = ({
           },
         }}
       >
-        <Background color="#cbd5e1" gap={GRID_SIZE} variant={BackgroundVariant.Dots} />
+        <Background color="#cbd5e1" gap={GRID_SIZE} variant={BackgroundVariant.Dots} style={{ opacity: 0.3 }} />
         <Controls className="bg-white border border-slate-200 shadow-sm rounded-base text-slate-600" />
         <MiniMap 
           className="border border-slate-200 shadow-sm rounded-base" 
@@ -186,10 +242,11 @@ const DesignerFlow = ({
   );
 };
 
-export const ProcessDesigner: React.FC = () => {
+// Main Content Component (Separated to allow ReactFlowProvider wrap)
+const ProcessDesignerContent: React.FC = () => {
   const { deployProcess, roles, addNotification, designerDraft, setDesignerDraft, navigateTo, processes, nav, currentUser } = useBPM();
   
-  // React Flow State
+  // React Flow State (Safe to use here as this component is wrapped in ReactFlowProvider)
   const [nodes, setNodes] = useNodesState([]);
   const [edges, setEdges] = useEdgesState([]);
   
@@ -202,12 +259,14 @@ export const ProcessDesigner: React.FC = () => {
       description: '', 
       version: 1, 
       complianceLevel: 'Standard',
-      domainId: currentUser?.domainId || 'GLOBAL'
+      domainId: currentUser?.domainId || 'GLOBAL',
+      lanes: []
   });
   
   // UI State
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
+  const [viewMode, setViewMode] = useState<'canvas' | 'hierarchy'>('canvas');
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(false);
@@ -223,7 +282,8 @@ export const ProcessDesigner: React.FC = () => {
                   description: existing.description,
                   version: existing.version,
                   complianceLevel: existing.complianceLevel,
-                  domainId: existing.domainId
+                  domainId: existing.domainId,
+                  lanes: existing.lanes || []
               });
               
               // Hydrate Nodes
@@ -322,6 +382,65 @@ export const ProcessDesigner: React.FC = () => {
       setNodes([...layoutedNodes]);
       setEdges([...layoutedEdges]);
   }, [nodes, edges, setNodes, setEdges]);
+
+  // Auto-Fix Feature
+  const handleAutoFix = useCallback(() => {
+      let fixesApplied = 0;
+      let newNodes = [...nodes];
+      let newEdges = [...edges];
+
+      // 1. Ensure Start Node
+      if (!newNodes.some(n => n.data.step.type === 'start')) {
+          const startId = `node-start-${Date.now()}`;
+          const startNode: Node = {
+              id: startId,
+              type: 'custom',
+              position: { x: 50, y: 150 },
+              data: { step: { id: startId, name: 'Start', type: 'start', description: 'Auto-added start' } }
+          };
+          newNodes = [startNode, ...newNodes];
+          fixesApplied++;
+          
+          // Connect start to first node if exists
+          if (newNodes.length > 1) {
+              const target = newNodes[1];
+              newEdges.push({ id: `edge-fix-${Date.now()}`, source: startId, target: target.id, type: 'custom' });
+          }
+      }
+
+      // 2. Ensure End Node
+      if (!newNodes.some(n => n.data.step.type === 'end')) {
+          // Find node with no outgoing edges
+          const sources = new Set(newEdges.map(e => e.source));
+          const leafNodes = newNodes.filter(n => !sources.has(n.id) && n.data.step.type !== 'start');
+          
+          const endId = `node-end-${Date.now()}`;
+          const endNode: Node = {
+              id: endId,
+              type: 'custom',
+              position: { x: 800, y: 150 }, // Default position, layout will fix
+              data: { step: { id: endId, name: 'End', type: 'end', description: 'Auto-added end' } }
+          };
+          newNodes.push(endNode);
+          fixesApplied++;
+
+          // Connect leaves to End
+          leafNodes.forEach((leaf, idx) => {
+              newEdges.push({ id: `edge-fix-end-${idx}-${Date.now()}`, source: leaf.id, target: endId, type: 'custom' });
+          });
+      }
+
+      if (fixesApplied > 0) {
+          // Apply layout to cleanup the mess
+          const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(newNodes, newEdges, 'LR');
+          setNodes(layoutedNodes);
+          setEdges(layoutedEdges);
+          addNotification('success', `Auto-fix applied: Added ${fixesApplied} missing elements and reorganized.`);
+      } else {
+          addNotification('info', 'Structure appears valid. Re-running layout.');
+          onLayout('LR');
+      }
+  }, [nodes, edges, setNodes, setEdges, addNotification, onLayout]);
 
   // DnD Handlers
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -530,7 +649,6 @@ export const ProcessDesigner: React.FC = () => {
   }, [selectedNodeId]);
 
   return (
-    <ReactFlowProvider>
       <div className="h-[calc(100vh-100px)] flex flex-col bg-panel border border-default rounded-base shadow-sm overflow-hidden">
         {/* 1. Rigid Toolbar */}
         <div className="h-header bg-subtle border-b border-default flex items-center justify-between px-3 shrink-0">
@@ -553,8 +671,34 @@ export const ProcessDesigner: React.FC = () => {
                   {processMeta.id && <span className="text-[9px] text-slate-400 font-mono leading-none">ID: {processMeta.id}</span>}
               </div>
            </div>
+           
+           {/* Center Controls */}
+           <div className="flex items-center gap-1 bg-slate-200/50 p-0.5 rounded-base border border-default">
+              <button 
+                onClick={() => setViewMode('canvas')}
+                className={`flex items-center gap-2 px-3 py-1 rounded-sm text-xs font-medium transition-all ${viewMode === 'canvas' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                <Grid size={14}/> Canvas
+              </button>
+              <button 
+                onClick={() => setViewMode('hierarchy')}
+                className={`flex items-center gap-2 px-3 py-1 rounded-sm text-xs font-medium transition-all ${viewMode === 'hierarchy' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                <ListTree size={14}/> Hierarchy
+              </button>
+           </div>
+
            <div className="flex items-center gap-2">
-              <input className="h-7 w-64 bg-panel border border-default rounded-base px-2 text-xs" placeholder="Describe workflow for AI generation..." value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAiGenerate(e)} disabled={isGenerating}/>
+              <input className="h-7 w-48 bg-panel border border-default rounded-base px-2 text-xs hidden lg:block" placeholder="Describe workflow for AI generation..." value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAiGenerate(e)} disabled={isGenerating}/>
+              
+              <button 
+                className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-base border border-transparent hover:border-amber-200 transition-all" 
+                onClick={handleAutoFix} 
+                title="Auto-Fix Structure"
+              >
+                <Wand2 size={16}/>
+              </button>
+
               <button className="p-1 text-secondary hover:text-rose-600" onClick={handleClear} title="Clear Canvas"><Trash2 size={16}/></button>
               
               <div className="h-4 w-px bg-default mx-1"></div>
@@ -588,22 +732,32 @@ export const ProcessDesigner: React.FC = () => {
              <PaletteSidebar onAddNode={(type) => addNode(type)} />
           </div>
 
-          {/* 3. React Flow Canvas */}
+          {/* 3. Main View Area (Canvas OR Hierarchy) */}
           <div className="flex-1 h-full bg-canvas relative">
-             <DesignerFlow 
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={useCallback((changes: NodeChange[]) => setNodes(nds => applyNodeChanges(changes, nds)), [setNodes])}
-                onEdgesChange={useCallback((changes: EdgeChange[]) => setEdges(eds => applyEdgeChanges(changes, eds)), [setEdges])}
-                onConnect={onConnect}
-                onNodeClick={(_: any, node: Node) => setSelectedNodeId(node.id)}
-                onPaneClick={() => setSelectedNodeId(null)}
-                onContextMenu={onContextMenu}
-                onDrop={onDrop}
-                onDragOver={onDragOver}
-                onLayout={onLayout}
-                isValidConnection={isValidConnection}
-             />
+             {viewMode === 'canvas' ? (
+                 <DesignerFlow 
+                    nodes={nodes}
+                    edges={edges}
+                    lanes={processMeta.lanes}
+                    onNodesChange={useCallback((changes: NodeChange[]) => setNodes(nds => applyNodeChanges(changes, nds)), [setNodes])}
+                    onEdgesChange={useCallback((changes: EdgeChange[]) => setEdges(eds => applyEdgeChanges(changes, eds)), [setEdges])}
+                    onConnect={onConnect}
+                    onNodeClick={(_: any, node: Node) => setSelectedNodeId(node.id)}
+                    onPaneClick={() => setSelectedNodeId(null)}
+                    onContextMenu={onContextMenu}
+                    onDrop={onDrop}
+                    onDragOver={onDragOver}
+                    onLayout={onLayout}
+                    isValidConnection={isValidConnection}
+                 />
+             ) : (
+                 <HierarchyView 
+                    nodes={nodes} 
+                    edges={edges} 
+                    onSelectNode={setSelectedNodeId}
+                    selectedNodeId={selectedNodeId}
+                 />
+             )}
           </div>
 
           {/* 4. Properties (Flexible Right Panel) - Collapsible */}
@@ -611,13 +765,13 @@ export const ProcessDesigner: React.FC = () => {
              {selectedStep ? (
                <PropertiesPanel step={selectedStep} onUpdate={updateSelectedStep} onDelete={deleteNode} roles={roles} onClose={() => setRightOpen(false)} />
              ) : (
-               <ProcessSettingsPanel meta={processMeta} onChange={upd => setProcessMeta(prev => ({ ...prev, ...upd }))} onClose={() => setRightOpen(false)} />
+               <ProcessSettingsPanel meta={processMeta} onChange={upd => setProcessMeta(prev => ({ ...prev, ...upd }))} onClose={() => setRightOpen(false)} roles={roles} />
              )}
           </div>
         </div>
 
-        {/* Context Menu Overlay */}
-        {contextMenu && (
+        {/* Context Menu Overlay (Only on Canvas mode effectively) */}
+        {contextMenu && viewMode === 'canvas' && (
           <CanvasContextMenu 
             position={contextMenu.position} 
             targetId={contextMenu.targetId} 
@@ -626,6 +780,14 @@ export const ProcessDesigner: React.FC = () => {
           />
         )}
       </div>
+  );
+};
+
+// Export the Wrapped Component
+export const ProcessDesigner: React.FC = () => {
+  return (
+    <ReactFlowProvider>
+      <ProcessDesignerContent />
     </ReactFlowProvider>
   );
 };

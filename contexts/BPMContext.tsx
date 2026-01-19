@@ -5,7 +5,7 @@ import {
   ProcessDefinition, ProcessInstance, Task, TaskStatus, TaskPriority, 
   ViewState, AuditLog, Comment, User, UserRole, UserGroup, Permission, 
   Delegation, BusinessRule, DecisionTable, Case, CaseEvent, CasePolicy, CaseStakeholder,
-  Condition, RuleAction, ProcessStep, ProcessLink, FormDefinition
+  Condition, RuleAction, ProcessStep, ProcessLink, FormDefinition, ProcessVersionSnapshot, ChecklistItem
 } from '../types';
 import { dbService } from '../services/dbService';
 
@@ -73,6 +73,7 @@ interface BPMContextType {
   reassignTask: (taskId: string, userId: string) => Promise<void>;
   updateTaskMetadata: (taskId: string, updates: Partial<Task>) => Promise<void>;
   addTaskComment: (taskId: string, text: string) => Promise<void>;
+  updateTaskChecklist: (taskId: string, items: ChecklistItem[]) => Promise<void>;
   bulkCompleteTasks: (taskIds: string[], action: 'approve' | 'reject') => Promise<void>;
   toggleTaskStar: (taskId: string) => Promise<void>;
   snoozeTask: (taskId: string, until: string) => Promise<void>;
@@ -278,9 +279,30 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // --- Process Methods ---
   const deployProcess = async (p: Partial<ProcessDefinition>) => { 
     if (!hasPermission(Permission.PROCESS_DEPLOY)) { addNotification('error', 'Permission denied'); return; }
-    const newDef = { ...p, id: p.id || `proc-${Date.now()}`, createdAt: new Date().toISOString(), deployedBy: state.currentUser?.name || 'System' } as ProcessDefinition;
+    
+    // Check if updating existing to create history snapshot
+    const existing = state.processes.find(ep => ep.id === p.id);
+    let newHistory: ProcessVersionSnapshot[] = existing?.history || [];
+
+    if (existing) {
+        newHistory.push({
+            version: existing.version,
+            timestamp: new Date().toISOString(),
+            author: existing.deployedBy,
+            definition: existing
+        });
+    }
+
+    const newDef = { 
+        ...p, 
+        id: p.id || `proc-${Date.now()}`, 
+        createdAt: new Date().toISOString(), 
+        deployedBy: state.currentUser?.name || 'System',
+        history: newHistory
+    } as ProcessDefinition;
+
     await dbService.add('processes', newDef); 
-    addAudit('PROCESS_DEPLOY', 'Process', newDef.id, `Deployed model: ${newDef.name}`);
+    addAudit('PROCESS_DEPLOY', 'Process', newDef.id, `Deployed model: ${newDef.name} v${newDef.version}`);
     loadData(); 
   };
 
@@ -541,6 +563,15 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
   };
 
+  const updateTaskChecklist = async (taskId: string, items: ChecklistItem[]) => {
+      const t = state.tasks.find(t => t.id === taskId);
+      if(t) {
+          const ut = { ...t, checklist: items };
+          await dbService.add('tasks', ut);
+          setState(produce(draft => { draft.tasks = draft.tasks.map(x => x.id === taskId ? ut : x); }));
+      }
+  };
+
   const bulkCompleteTasks = async (taskIds: string[], action: 'approve' | 'reject') => {
       for (const id of taskIds) {
           await completeTask(id, action, `Bulk ${action} applied.`);
@@ -581,7 +612,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           priority,
           description: 'Quick task created by user',
           stepId: 'adhoc',
-          comments: [], attachments: [], isAdHoc: true
+          comments: [], attachments: [], isAdHoc: true, checklist: []
       };
       await dbService.add('tasks', newTask);
       setState(produce(draft => { draft.tasks.unshift(newTask); }));
@@ -809,7 +840,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     executeRules, 
     deployProcess, updateProcess, deleteProcess, toggleProcessState,
     startProcess, suspendInstance, terminateInstance, addInstanceComment,
-    completeTask, claimTask, releaseTask, reassignTask, updateTaskMetadata, addTaskComment, bulkCompleteTasks, toggleTaskStar, snoozeTask, createAdHocTask,
+    completeTask, claimTask, releaseTask, reassignTask, updateTaskMetadata, addTaskComment, updateTaskChecklist, bulkCompleteTasks, toggleTaskStar, snoozeTask, createAdHocTask,
     createCase, updateCase, deleteCase, addCaseEvent, removeCaseEvent, addCasePolicy, removeCasePolicy, addCaseStakeholder, removeCaseStakeholder,
     createUser, updateUser, deleteUser, createRole, updateRole, deleteRole, createGroup, updateGroup, deleteGroup,
     createDelegation, revokeDelegation,

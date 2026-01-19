@@ -1,12 +1,12 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Task, TaskStatus, TaskPriority } from '../types';
+import { Task, TaskStatus, TaskPriority, ChecklistItem } from '../types';
 import { useBPM } from '../contexts/BPMContext';
 import { 
   Search, CheckSquare, Layers, Clock, AlertCircle, UserPlus, Settings,
   CheckCircle, XCircle, Paperclip, LayoutGrid, List as ListIcon, 
   User, Calendar, Star, PauseCircle, ArrowDown, ArrowUp, X,
-  Table as TableIcon, Download, Plus, Send, ChevronLeft, FormInput, Sparkles, BrainCircuit
+  Table as TableIcon, Download, Plus, Send, ChevronLeft, FormInput, Sparkles, BrainCircuit, ListChecks, Award, Trash2, Printer
 } from 'lucide-react';
 import { NexBadge, NexButton, NexHistoryFeed } from './shared/NexUI';
 import { FormRenderer, validateForm } from './shared/FormRenderer';
@@ -168,7 +168,7 @@ const KanbanCard: React.FC<KanbanProps> = ({ task, onClick, onStar }) => {
 
 export const TaskInbox: React.FC = () => {
   const { 
-      tasks, completeTask, claimTask, releaseTask, addTaskComment, bulkCompleteTasks, 
+      tasks, completeTask, claimTask, releaseTask, addTaskComment, bulkCompleteTasks, updateTaskChecklist,
       currentUser, delegations, navigateTo, openInstanceViewer, nav, 
       toggleTaskStar, snoozeTask, createAdHocTask, forms, addNotification
   } = useBPM();
@@ -193,6 +193,9 @@ export const TaskInbox: React.FC = () => {
 
   // -- Comment Input --
   const [commentText, setCommentText] = useState('');
+
+  // -- Checklist Input --
+  const [checklistText, setChecklistText] = useState('');
 
   // -- Form Data & Validation --
   const [formData, setFormData] = useState<Record<string, any>>({});
@@ -251,6 +254,13 @@ export const TaskInbox: React.FC = () => {
           return 0;
       });
   }, [tasks, activeTab, localSearch, quickFilter, sortConfig, currentUser]);
+
+  // --- Skill Logic ---
+  const skillMatch = useMemo(() => {
+      if (!selectedTask || !currentUser) return false;
+      if (!selectedTask.requiredSkills || selectedTask.requiredSkills.length === 0) return true; // No skills needed = Match
+      return selectedTask.requiredSkills.every(s => currentUser.skills.includes(s));
+  }, [selectedTask, currentUser]);
 
   // --- Actions ---
   const handleSort = (key: keyof Task) => {
@@ -317,6 +327,31 @@ export const TaskInbox: React.FC = () => {
       }
   };
 
+  // Checklist Actions
+  const handleAddChecklist = async () => {
+      if (!selectedTask || !checklistText.trim()) return;
+      const newItem: ChecklistItem = {
+          id: `chk-${Date.now()}`,
+          text: checklistText,
+          completed: false,
+          required: false
+      };
+      await updateTaskChecklist(selectedTask.id, [...(selectedTask.checklist || []), newItem]);
+      setChecklistText('');
+  };
+
+  const toggleChecklistItem = async (itemId: string) => {
+      if (!selectedTask) return;
+      const newItems = (selectedTask.checklist || []).map(i => i.id === itemId ? { ...i, completed: !i.completed } : i);
+      await updateTaskChecklist(selectedTask.id, newItems);
+  };
+
+  const deleteChecklistItem = async (itemId: string) => {
+      if (!selectedTask) return;
+      const newItems = (selectedTask.checklist || []).filter(i => i.id !== itemId);
+      await updateTaskChecklist(selectedTask.id, newItems);
+  };
+
   // Find linked form definition
   const activeForm = selectedTask?.formId ? forms.find(f => f.id === selectedTask.formId) : null;
 
@@ -333,7 +368,18 @@ export const TaskInbox: React.FC = () => {
           }
       }
 
+      // Validate Checklist (Check required items)
+      const pendingRequired = (selectedTask.checklist || []).filter(i => i.required && !i.completed);
+      if (pendingRequired.length > 0) {
+          addNotification('error', `Please complete ${pendingRequired.length} required checklist items.`);
+          return;
+      }
+
       await completeTask(selectedTask.id, 'approve', 'Completed from preview', formData);
+  };
+
+  const handlePrint = () => {
+      window.print();
   };
 
   // --- Rendering ---
@@ -513,8 +559,16 @@ export const TaskInbox: React.FC = () => {
                    <button onClick={() => setSelectedTask(null)} className="xl:hidden mr-2"><ChevronLeft size={18}/></button>
                    <NexBadge variant={selectedTask.priority === 'Critical' ? 'rose' : 'blue'}>{selectedTask.priority}</NexBadge>
                    <span className="text-xs text-tertiary font-mono">{selectedTask.id}</span>
+                   {skillMatch && (
+                       <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                           <Award size={10}/> Skill Match
+                       </span>
+                   )}
                </div>
                <div className="flex items-center gap-1">
+                   {activeForm && selectedTask.status !== TaskStatus.COMPLETED && (
+                       <button onClick={handlePrint} className="p-1.5 hover:bg-subtle rounded-base text-secondary" title="Print/Export PDF"><Printer size={16}/></button>
+                   )}
                    <button onClick={() => navigateTo('task-reassign', selectedTask.id)} title="Reassign" className="p-1.5 hover:bg-subtle rounded-base text-secondary"><UserPlus size={16}/></button>
                    <button onClick={() => navigateTo('task-metadata', selectedTask.id)} title="Edit Metadata" className="p-1.5 hover:bg-subtle rounded-base text-secondary"><Settings size={16}/></button>
                    <button onClick={() => handleSnooze(selectedTask.id)} title="Snooze" className="p-1.5 hover:bg-subtle rounded-base text-secondary"><PauseCircle size={16}/></button>
@@ -523,7 +577,7 @@ export const TaskInbox: React.FC = () => {
                </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-6" id="printable-area">
                <div className="bg-panel p-6 rounded-base border border-default shadow-sm mb-4">
                    <h2 className="text-lg font-bold text-primary mb-2 leading-tight">{selectedTask.title}</h2>
                    <div className="flex items-center gap-4 text-xs text-secondary mb-4 pb-4 border-b border-subtle">
@@ -534,7 +588,7 @@ export const TaskInbox: React.FC = () => {
                    <p className="text-base text-primary leading-relaxed mb-4">{selectedTask.description || "No description provided."}</p>
                    
                    {/* AI INSIGHT SECTION */}
-                   <div className="mb-6 p-4 bg-gradient-to-r from-violet-50 to-indigo-50 border border-violet-100 rounded-sm">
+                   <div className="mb-6 p-4 bg-gradient-to-r from-violet-50 to-indigo-50 border border-violet-100 rounded-sm print:hidden">
                        <div className="flex justify-between items-start mb-2">
                            <h4 className="text-xs font-bold text-violet-800 uppercase flex items-center gap-2"><Sparkles size={12}/> Intelligent Briefing</h4>
                            {loadingAi && <span className="text-[10px] text-violet-500 animate-pulse">Analyzing...</span>}
@@ -560,8 +614,8 @@ export const TaskInbox: React.FC = () => {
 
                    {/* DYNAMIC FORM RENDERING */}
                    {activeForm && selectedTask.status !== TaskStatus.COMPLETED && selectedTask.assignee !== 'Unassigned' && (
-                       <div className="mb-6 p-4 bg-slate-50 border border-blue-200 rounded-sm">
-                           <div className="flex items-center gap-2 mb-4 text-blue-700">
+                       <div className="mb-6 p-4 bg-slate-50 border border-blue-200 rounded-sm print:bg-white print:border-none print:p-0">
+                           <div className="flex items-center gap-2 mb-4 text-blue-700 print:text-black">
                                <FormInput size={16}/>
                                <h4 className="text-sm font-bold uppercase">{activeForm.name}</h4>
                            </div>
@@ -574,8 +628,34 @@ export const TaskInbox: React.FC = () => {
                        </div>
                    )}
 
+                   {/* CHECKLIST */}
+                   {selectedTask.status !== TaskStatus.COMPLETED && selectedTask.assignee !== 'Unassigned' && (
+                       <div className="mb-6 print:hidden">
+                           <h4 className="text-xs font-bold text-secondary uppercase mb-2 flex items-center gap-2"><ListChecks size={14}/> Checklist</h4>
+                           <div className="space-y-2 mb-2">
+                               {(selectedTask.checklist || []).map(item => (
+                                   <div key={item.id} className="flex items-center gap-2 group">
+                                       <input type="checkbox" checked={item.completed} onChange={() => toggleChecklistItem(item.id)} className="rounded-sm text-blue-600 focus:ring-blue-500"/>
+                                       <span className={`text-sm ${item.completed ? 'line-through text-slate-400' : 'text-slate-700'}`}>{item.text}</span>
+                                       <button onClick={() => deleteChecklistItem(item.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-rose-500"><Trash2 size={12}/></button>
+                                   </div>
+                               ))}
+                           </div>
+                           <div className="flex gap-2">
+                               <input 
+                                   className="prop-input py-1 text-xs" 
+                                   placeholder="Add subtask..." 
+                                   value={checklistText}
+                                   onChange={e => setChecklistText(e.target.value)}
+                                   onKeyDown={e => e.key === 'Enter' && handleAddChecklist()}
+                               />
+                               <NexButton size="sm" variant="secondary" onClick={handleAddChecklist} icon={Plus}>Add</NexButton>
+                           </div>
+                       </div>
+                   )}
+
                    {/* Context Actions */}
-                   <div className="flex gap-2">
+                   <div className="flex gap-2 print:hidden">
                        {selectedTask.status === TaskStatus.PENDING && selectedTask.assignee === 'Unassigned' && (
                            <NexButton variant="primary" onClick={() => claimTask(selectedTask.id)} icon={CheckCircle}>Claim Task</NexButton>
                        )}
@@ -592,7 +672,7 @@ export const TaskInbox: React.FC = () => {
                </div>
 
                {/* Activity Stream */}
-               <div className="bg-panel rounded-base border border-default shadow-sm flex flex-col">
+               <div className="bg-panel rounded-base border border-default shadow-sm flex flex-col print:hidden">
                    <div className="p-3 bg-subtle border-b border-subtle">
                        <h3 className="text-xs font-bold text-secondary uppercase">Discussion</h3>
                    </div>
