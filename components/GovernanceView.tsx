@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { ShieldCheck, History, AlertTriangle, FileText, User, Search, Filter, CheckCircle, Fingerprint, ShieldAlert, Globe, ExternalLink, Eye } from 'lucide-react';
@@ -33,7 +32,10 @@ export const GovernanceView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in pb-20">
+    <div 
+      className="animate-fade-in pb-20 flex flex-col"
+      style={{ gap: 'var(--section-gap)' }}
+    >
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-default pb-4">
         <div>
           <h2 className="text-xl font-bold text-primary tracking-tight">Audit Center</h2>
@@ -51,7 +53,10 @@ export const GovernanceView: React.FC = () => {
         </div>
       </header>
 
-      <div className="flex flex-col lg:flex-row gap-6">
+      <div 
+        className="flex flex-col lg:flex-row"
+        style={{ gap: 'var(--layout-gap)' }}
+      >
         <div className="flex-1 bg-panel border border-default rounded-base shadow-sm flex flex-col">
           <div className="p-3 border-b border-subtle flex items-center justify-between bg-subtle">
             <h3 className="text-xs font-bold text-secondary uppercase flex items-center gap-2"><History size={14}/> Operational Ledger</h3>
@@ -116,7 +121,10 @@ export const GovernanceView: React.FC = () => {
           </div>
         </div>
 
-        <div className="w-full lg:w-80 space-y-4">
+        <div 
+          className="w-full lg:w-80 flex flex-col"
+          style={{ gap: 'var(--layout-gap)' }}
+        >
           <div className="bg-brand-slate p-5 rounded-base shadow-sm text-white">
             <h3 className="text-xs font-bold uppercase tracking-wider text-blue-400 mb-4 flex items-center gap-2"><ShieldCheck size={14}/> Compliance</h3>
             <div className="space-y-2">

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ProcessStepType } from '../../types';
 import { getStepTypeMetadata, STEP_CATEGORIES } from './designerUtils';
@@ -33,7 +32,7 @@ const PaletteItem: React.FC<PaletteItemProps> = ({ type, onAdd }) => {
         <div className="flex-1 min-w-0">
             <span className="block text-xs font-bold text-slate-700 truncate">{label}</span>
         </div>
-        <Plus size={14} className="text-slate-300 group-hover:text-blue-500 opacity-0 group-hover:opacity-100" />
+        <Plus size={14} className="text-slate-300 group-hover:text-blue-50 opacity-0 group-hover:opacity-100" />
         </button>
     </div>
   );
@@ -87,7 +86,7 @@ export const PaletteSidebar = ({ onAddNode }: { onAddNode: (type: ProcessStepTyp
 
   return (
     <aside className="w-full h-full bg-slate-50 border-r border-slate-300 flex flex-col shrink-0">
-      <div className="px-4 py-3 border-b border-slate-200">
+      <div className="border-b border-slate-200" style={{ padding: 'var(--space-base)' }}>
         <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Component Library</h2>
         <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={12}/>
@@ -100,7 +99,7 @@ export const PaletteSidebar = ({ onAddNode }: { onAddNode: (type: ProcessStepTyp
         </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto no-scrollbar px-2 py-4 space-y-1">
+      <div className="flex-1 overflow-y-auto no-scrollbar" style={{ padding: 'var(--space-base)', gap: 'var(--space-base)', display: 'flex', flexDirection: 'column' }}>
         {STEP_CATEGORIES.map(category => {
             const steps = groupedSteps[category] || [];
             if (steps.length === 0) return null;

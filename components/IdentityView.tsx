@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { 
@@ -38,7 +37,10 @@ export const IdentityView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in pb-20 relative">
+    <div 
+      className="animate-fade-in pb-20 relative flex flex-col"
+      style={{ gap: 'var(--section-gap)' }}
+    >
       <header className="flex flex-col gap-4 border-b border-slate-300 pb-4">
         <div>
           <h2 className="text-xl font-bold text-slate-900 tracking-tight">Identity & Access</h2>
@@ -56,7 +58,10 @@ export const IdentityView: React.FC = () => {
       {/* --- Main Content --- */}
 
       {activeTab === 'profile' && currentUser && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div 
+          className="grid grid-cols-1 lg:grid-cols-3"
+          style={{ gap: 'var(--layout-gap)' }}
+        >
            <NexCard className="lg:col-span-1 p-0 flex flex-col">
               <div className="p-6 text-center border-b border-slate-200 bg-slate-50">
                  <div className="w-16 h-16 bg-white border border-slate-300 rounded-sm flex items-center justify-center text-2xl font-bold text-slate-800 mx-auto mb-3 shadow-sm">
@@ -125,7 +130,10 @@ export const IdentityView: React.FC = () => {
       )}
 
       {activeTab === 'users' && (
-        <div className="space-y-4">
+        <div 
+          className="flex flex-col"
+          style={{ gap: 'var(--layout-gap)' }}
+        >
           <div className="flex gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14}/>
@@ -141,7 +149,10 @@ export const IdentityView: React.FC = () => {
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div 
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+            style={{ gap: 'var(--layout-gap)' }}
+          >
             {filteredUsers.map(user => (
               <NexCard key={user.id} className="p-4 flex flex-col gap-3 group relative">
                 <div className="flex items-center justify-between">
@@ -173,11 +184,17 @@ export const IdentityView: React.FC = () => {
       )}
 
       {activeTab === 'roles' && (
-          <div className="space-y-4">
+          <div 
+            className="flex flex-col"
+            style={{ gap: 'var(--layout-gap)' }}
+          >
               <div className="flex justify-end">
                   <NexButton variant="secondary" icon={Shield} onClick={() => navigateTo('create-role')}>Define Role</NexButton>
               </div>
-              <div className="grid gap-4">
+              <div 
+                className="grid"
+                style={{ gap: 'var(--layout-gap)' }}
+              >
                   {roles.map(role => (
                       <NexCard key={role.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group">
                           <div>
@@ -203,11 +220,17 @@ export const IdentityView: React.FC = () => {
       )}
 
       {activeTab === 'groups' && (
-          <div className="space-y-4">
+          <div 
+            className="flex flex-col"
+            style={{ gap: 'var(--layout-gap)' }}
+          >
               <div className="flex justify-end">
                   <NexButton variant="secondary" icon={Landmark} onClick={() => navigateTo('create-group')}>Create Group</NexButton>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div 
+                className="grid sm:grid-cols-2 lg:grid-cols-3"
+                style={{ gap: 'var(--layout-gap)' }}
+              >
                   {groups.map(group => (
                       <NexCard key={group.id} className="p-4 group relative">
                           <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -227,7 +250,10 @@ export const IdentityView: React.FC = () => {
       )}
 
       {activeTab === 'sso' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div 
+            className="grid grid-cols-1 lg:grid-cols-2"
+            style={{ gap: 'var(--layout-gap)' }}
+          >
               <NexCard className="p-6 space-y-4">
                   <IntegrationCard isHeader name="Identity Providers" />
                   <div className="space-y-3">
@@ -242,7 +268,10 @@ export const IdentityView: React.FC = () => {
                       </div>
                   </div>
               </NexCard>
-              <div className="space-y-6">
+              <div 
+                className="flex flex-col"
+                style={{ gap: 'var(--layout-gap)' }}
+              >
                  <NexCard className="p-6">
                      <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
                         <ShieldAlert size={16} className="text-amber-500"/> Password Policy

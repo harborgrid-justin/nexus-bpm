@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { Briefcase, Plus, Search, Filter, Clock, ChevronRight, AlertCircle, X, SearchX, CheckCircle, PieChart, BarChart3, User as UserIcon } from 'lucide-react';
@@ -54,7 +53,10 @@ export const CaseManagerView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in pb-20">
+    <div 
+      className="animate-fade-in pb-20 flex flex-col"
+      style={{ gap: 'var(--section-gap)' }}
+    >
       <header className="flex items-center justify-between border-b border-slate-300 pb-4">
         <div>
           <h2 className="text-xl font-bold text-slate-900 tracking-tight">Case Management</h2>
@@ -64,7 +66,10 @@ export const CaseManagerView: React.FC = () => {
       </header>
 
       {/* --- KPI Stats --- */}
-      <div className="grid grid-cols-3 gap-4">
+      <div 
+        className="grid grid-cols-3"
+        style={{ gap: 'var(--layout-gap)' }}
+      >
           <div className="bg-white p-3 border border-slate-200 rounded-sm shadow-sm flex items-center justify-between">
               <div>
                   <p className="text-[10px] font-bold text-slate-500 uppercase">Active Cases</p>
@@ -88,7 +93,10 @@ export const CaseManagerView: React.FC = () => {
           </div>
       </div>
 
-      <div className="space-y-4">
+      <div 
+        className="flex flex-col"
+        style={{ gap: 'var(--layout-gap)' }}
+      >
         {/* Toolbar */}
         <div className="flex flex-col md:flex-row gap-2">
           <div className="relative flex-1">

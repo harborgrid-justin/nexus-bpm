@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import ReactFlow, { 
   Node, 
@@ -102,14 +101,20 @@ const ProcessSettingsPanel = ({ meta, onChange, onClose, roles }: { meta: Partia
 
     return (
         <aside className="w-[320px] h-full bg-white border-l border-slate-300 flex flex-col shadow-xl z-20">
-            <div className="h-10 flex items-center justify-between px-4 border-b border-slate-300 bg-slate-50">
+            <div 
+              className="flex items-center justify-between border-b border-slate-300 bg-slate-50"
+              style={{ height: 'var(--header-height)', paddingLeft: 'var(--space-base)', paddingRight: 'var(--space-base)' }}
+            >
                 <div className="flex items-center gap-2">
                     <Settings size={14} className="text-slate-500"/>
                     <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Process Settings</h3>
                 </div>
                 <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={14}/></button>
             </div>
-            <div className="p-6 space-y-6 overflow-y-auto flex-1">
+            <div 
+              className="overflow-y-auto flex-1"
+              style={{ padding: 'var(--card-padding)', display: 'flex', flexDirection: 'column', gap: 'var(--layout-gap)' }}
+            >
                 <NexFormGroup label="Process Name">
                     <input className="prop-input font-bold" value={meta.name || ''} onChange={e => onChange({ name: e.target.value })} />
                 </NexFormGroup>
@@ -120,8 +125,8 @@ const ProcessSettingsPanel = ({ meta, onChange, onClose, roles }: { meta: Partia
                 <div className="h-px bg-slate-200"></div>
                 
                 {/* SWIMLANES CONFIG */}
-                <div>
-                    <div className="flex items-center justify-between mb-2">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-base)' }}>
+                    <div className="flex items-center justify-between">
                         <h4 className="text-xs font-bold text-slate-700 uppercase flex items-center gap-2"><Layers size={14}/> Swimlanes</h4>
                         <button onClick={addLane} className="text-blue-600 hover:bg-blue-50 p-1 rounded"><Plus size={14}/></button>
                     </div>
@@ -649,10 +654,23 @@ const ProcessDesignerContent: React.FC = () => {
   }, [selectedNodeId]);
 
   return (
-      <div className="h-[calc(100vh-100px)] flex flex-col bg-panel border border-default rounded-base shadow-sm overflow-hidden">
+      <div 
+        className="flex flex-col bg-panel border border-default rounded-base shadow-sm overflow-hidden"
+        style={{ 
+          height: 'calc(100vh - 100px)',
+          borderRadius: 'var(--radius-base)' 
+        }}
+      >
         {/* 1. Rigid Toolbar */}
-        <div className="h-header bg-subtle border-b border-default flex items-center justify-between px-3 shrink-0">
-           <div className="flex items-center gap-3">
+        <div 
+          className="bg-subtle border-b border-default flex items-center justify-between shrink-0"
+          style={{ 
+            height: 'var(--header-height)', 
+            paddingLeft: 'var(--layout-padding)', 
+            paddingRight: 'var(--layout-padding)' 
+          }}
+        >
+           <div className="flex items-center" style={{ gap: 'var(--space-base)' }}>
               <button 
                 onClick={() => setLeftOpen(!leftOpen)} 
                 className={`p-1 rounded-base hover:bg-white border border-transparent hover:border-subtle ${leftOpen ? 'text-blue-600' : 'text-secondary'}`}
@@ -673,7 +691,7 @@ const ProcessDesignerContent: React.FC = () => {
            </div>
            
            {/* Center Controls */}
-           <div className="flex items-center gap-1 bg-slate-200/50 p-0.5 rounded-base border border-default">
+           <div className="flex items-center p-0.5 rounded-base border border-default bg-slate-200/50" style={{ gap: 'calc(var(--space-base) * 0.5)' }}>
               <button 
                 onClick={() => setViewMode('canvas')}
                 className={`flex items-center gap-2 px-3 py-1 rounded-sm text-xs font-medium transition-all ${viewMode === 'canvas' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
@@ -688,7 +706,7 @@ const ProcessDesignerContent: React.FC = () => {
               </button>
            </div>
 
-           <div className="flex items-center gap-2">
+           <div className="flex items-center" style={{ gap: 'var(--space-base)' }}>
               <input className="h-7 w-48 bg-panel border border-default rounded-base px-2 text-xs hidden lg:block" placeholder="Describe workflow for AI generation..." value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAiGenerate(e)} disabled={isGenerating}/>
               
               <button 

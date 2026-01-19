@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { ProcessStep, UserRole, IOMapping, RetryPolicy, EscalationRule } from '../../types';
 import { useBPM } from '../../contexts/BPMContext';
@@ -66,13 +65,6 @@ export const PropertiesPanel = ({
         return 'w-[320px]';
     }, [step?.type, activeTab, step?.onEntryAction, step?.onExitAction]);
 
-    // Render Empty State early return is safe here ONLY because we don't call hooks after.
-    // However, for consistency we'll use a conditional variable approach if complex logic was involved.
-    // Given the current structure, if (!step) is safe because no hooks follow it. 
-    // But let's verify no hooks are hidden in helper functions called later.
-    // updateField, updateDataField, etc are closures, not hooks.
-    // renderDynamicField is a function, not a hook.
-    
     if (!step) {
       return (
         <aside className={`${panelWidthClass} hidden md:flex h-full flex-col items-center justify-center text-center p-8 bg-white border-l border-slate-300 transition-all duration-300 ease-in-out`}>
@@ -151,7 +143,10 @@ export const PropertiesPanel = ({
     return (
       <aside className={`${panelWidthClass} h-full bg-white border-l border-slate-300 flex flex-col shadow-xl z-20 transition-all duration-300 ease-in-out`}>
         {/* Header */}
-        <div className="h-10 flex items-center justify-between px-4 border-b border-slate-300 bg-slate-50">
+        <div 
+          className="flex items-center justify-between border-b border-slate-300 bg-slate-50"
+          style={{ height: 'var(--header-height)', paddingLeft: 'var(--space-base)', paddingRight: 'var(--space-base)' }}
+        >
           <div className="flex items-center gap-2">
             <meta.icon size={14} className={meta.color} />
             <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">{meta.category}</h3>
@@ -164,7 +159,7 @@ export const PropertiesPanel = ({
         </div>
 
         {/* Identity Block (Always Visible) */}
-        <div className="p-4 border-b border-slate-100 bg-white">
+        <div className="border-b border-slate-100 bg-white" style={{ padding: 'var(--card-padding)' }}>
             <input 
               type="text" 
               className="text-sm font-bold text-slate-900 w-full outline-none border-b border-transparent focus:border-blue-500 placeholder:text-slate-300 transition-all mb-1" 
@@ -199,14 +194,14 @@ export const PropertiesPanel = ({
             ))}
         </div>
 
-        <div className="flex-1 p-4 overflow-y-auto no-scrollbar bg-slate-50/30">
+        <div className="flex-1 overflow-y-auto no-scrollbar bg-slate-50/30" style={{ padding: 'var(--card-padding)' }}>
           
           {/* TAB: CONFIGURATION (Dynamic based on type) */}
           {activeTab === 'config' && (
-             <div className="space-y-4">
+             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--layout-gap)' }}>
                 {/* User Task Specifics */}
                 {step.type === 'user-task' && (
-                    <div className="space-y-4">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--layout-gap)' }}>
                         <NexFormGroup label="User Interface">
                             <div className="flex items-center gap-2">
                                 <Layout size={16} className="text-slate-400"/>
@@ -218,7 +213,7 @@ export const PropertiesPanel = ({
                             {step.formId && <button onClick={() => navigateTo('form-designer', step.formId)} className="text-[10px] text-blue-600 hover:underline mt-1 ml-6">Edit Form Definition</button>}
                         </NexFormGroup>
 
-                        <div className="h-px bg-slate-200 my-2"></div>
+                        <div className="h-px bg-slate-200"></div>
 
                         <NexFormGroup label="Role Assignment">
                             <select className="prop-input" value={step.role || ''} onChange={e => updateField('role', e.target.value)}>
@@ -234,7 +229,7 @@ export const PropertiesPanel = ({
 
                 {/* Gateway Specifics */}
                 {meta.category === 'Gateways' && (
-                    <div className="space-y-4">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--layout-gap)' }}>
                         <NexFormGroup label="Default Route ID">
                             <input className="prop-input font-mono" placeholder="Flow ID" value={step.data?.defaultFlow || ''} onChange={e => updateDataField('defaultFlow', e.target.value)} />
                         </NexFormGroup>
@@ -250,7 +245,7 @@ export const PropertiesPanel = ({
                 {schema.map(renderDynamicField)}
                 
                 {schema.length === 0 && step.type !== 'user-task' && meta.category !== 'Gateways' && (
-                    <div className="p-4 text-center text-slate-400 italic text-xs">
+                    <div className="text-center text-slate-400 italic text-xs">
                         No configuration required for this component.
                     </div>
                 )}
@@ -259,7 +254,7 @@ export const PropertiesPanel = ({
 
           {/* TAB: DATA WIRING (Visual Mapper) */}
           {activeTab === 'data' && (
-              <div className="space-y-6">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--layout-gap)' }}>
                   <div>
                       <div className="flex items-center justify-between mb-2">
                           <h4 className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1"><ArrowRightLeft size={10}/> Input Transformation</h4>
@@ -276,7 +271,7 @@ export const PropertiesPanel = ({
 
           {/* TAB: LOGIC (Rules & Triggers) */}
           {activeTab === 'logic' && (
-              <div className="space-y-4">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--layout-gap)' }}>
                   <NexFormGroup label="Pre-Flight Rule" helpText="Execute business rule before step starts">
                         <select className="prop-input" value={step.businessRuleId || ''} onChange={e => updateField('businessRuleId', e.target.value)}>
                             <option value="">None</option>
@@ -304,7 +299,7 @@ export const PropertiesPanel = ({
 
           {/* TAB: POLICY (Retry, Timeout, Escalation) */}
           {activeTab === 'policy' && (
-              <div className="space-y-6">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--layout-gap)' }}>
                   {/* Retry Section */}
                   <div className="space-y-3">
                       <div className="flex items-center justify-between">
@@ -375,7 +370,7 @@ export const PropertiesPanel = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-between items-center">
+        <div className="border-t border-slate-200 bg-slate-50 flex justify-between items-center" style={{ padding: 'var(--space-base)' }}>
           <button onClick={() => onDelete(step.id)} className="text-rose-600 hover:bg-rose-50 p-2 rounded-sm transition-colors" title="Delete Step">
               <Trash2 size={16}/>
           </button>

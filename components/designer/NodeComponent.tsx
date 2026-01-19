@@ -1,4 +1,3 @@
-
 import React, { memo, useMemo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { ProcessStep } from '../../types';
@@ -28,20 +27,22 @@ export const NodeComponent = memo(({ data, selected }: NodeProps<CustomNodeData>
 
   return (
     <div 
-      className={`w-[200px] h-[80px] bg-panel border flex flex-col shadow-sm transition-shadow select-none group ${
+      className={`w-[200px] h-[80px] border flex flex-col shadow-sm transition-shadow select-none group ${
         selected 
           ? 'border-active ring-2 ring-blue-500/20 shadow-md' 
           : (isValid ? 'border-default hover:border-tertiary' : 'border-rose-300 ring-1 ring-rose-200')
       }`} 
       style={{ 
         borderRadius: 'var(--radius-base)',
+        backgroundColor: 'var(--component-bg)',
       }}
     >
       {/* React Flow Handles */}
       <Handle 
         type="target" 
         position={Position.Left} 
-        className="!bg-slate-400 !border-white !w-2.5 !h-2.5 !-left-1.5 hover:!bg-blue-600 transition-colors" 
+        className="!bg-slate-400 !w-2.5 !h-2.5 !-left-1.5 hover:!bg-blue-600 transition-colors" 
+        style={{ borderColor: 'var(--component-bg)', borderWidth: '2px' }}
       />
       
       {/* Main Body */}
@@ -94,7 +95,8 @@ export const NodeComponent = memo(({ data, selected }: NodeProps<CustomNodeData>
       <Handle 
         type="source" 
         position={Position.Right} 
-        className="!bg-slate-400 !border-white !w-2.5 !h-2.5 !-right-1.5 hover:!bg-blue-600 transition-colors" 
+        className="!bg-slate-400 !w-2.5 !h-2.5 !-right-1.5 hover:!bg-blue-600 transition-colors"
+        style={{ borderColor: 'var(--component-bg)', borderWidth: '2px' }}
       />
     </div>
   );

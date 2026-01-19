@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BaseEdge, EdgeLabelRenderer, EdgeProps, getSmoothStepPath } from 'reactflow';
 import { X } from 'lucide-react';
@@ -50,7 +49,13 @@ export const CustomEdge = ({
           className="nodrag nopan"
         >
           {label && (
-            <div className="bg-white px-2 py-1 border border-slate-200 rounded-sm shadow-sm text-slate-600 font-mono text-[9px]">
+            <div 
+                className="px-2 py-1 border border-slate-200 shadow-sm text-slate-600 font-mono text-[9px]"
+                style={{ 
+                    backgroundColor: 'var(--component-bg)', 
+                    borderRadius: 'var(--radius-base)' 
+                }}
+            >
               {label}
             </div>
           )}

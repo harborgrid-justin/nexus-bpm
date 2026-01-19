@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { Play, FileText, Layers, Plus, Activity, Eye, ChevronRight, Globe, ShieldCheck, Clock, Hash, MoreVertical, Copy, Trash2, Edit, PauseCircle, StopCircle, Search, History, BookOpen } from 'lucide-react';
@@ -61,7 +60,10 @@ export const ProcessRepository: React.FC = () => {
   );
 
   return (
-    <div className="space-y-6 animate-fade-in pb-20">
+    <div 
+      className="animate-fade-in pb-20 flex flex-col"
+      style={{ gap: 'var(--section-gap)' }}
+    >
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-300 pb-4">
         <div>
           <h2 className="text-xl font-bold text-slate-800 tracking-tight">Process Registry</h2>
@@ -84,7 +86,7 @@ export const ProcessRepository: React.FC = () => {
       </header>
 
       {/* Filter Bar */}
-      <div className="flex gap-4 items-center mb-2">
+      <div className="flex gap-4 items-center">
           <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14}/>
               <input 
@@ -103,14 +105,21 @@ export const ProcessRepository: React.FC = () => {
       </div>
 
       {activeTab === 'definitions' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div 
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+          style={{ gap: 'var(--layout-gap)' }}
+        >
           <button onClick={() => navigateTo('designer')} className="group border border-dashed border-slate-300 rounded-sm p-6 flex flex-col items-center justify-center text-slate-400 hover:border-blue-500 hover:bg-blue-50 transition-all min-h-[200px]">
              <Plus size={24} className="mb-2 group-hover:text-blue-600"/>
              <span className="text-xs font-bold uppercase tracking-wider group-hover:text-blue-700">Deploy New Model</span>
           </button>
 
           {filteredProcesses.map(process => (
-            <div key={process.id} className="bg-white p-5 rounded-sm border border-slate-300 shadow-sm flex flex-col hover:border-blue-400 transition-all group relative">
+            <div 
+              key={process.id} 
+              className="bg-white rounded-sm border border-slate-300 shadow-sm flex flex-col hover:border-blue-400 transition-all group relative"
+              style={{ padding: 'var(--card-padding)' }}
+            >
               <div className="flex items-start justify-between mb-4">
                  <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-sm transition-colors ${process.isActive ? 'bg-slate-100 text-slate-600 group-hover:bg-blue-600 group-hover:text-white' : 'bg-slate-100 text-slate-400'}`}>

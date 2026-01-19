@@ -37,35 +37,41 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const root = document.documentElement;
     
     // 1. Global Scale (Affects rem units: padding, margin, font-size)
-    // Tailwind base is 16px. We adjust this percentage.
     root.style.fontSize = `${scale * 100}%`; 
 
-    // 2. Layout Dimensions (Independent of scale to allow precise control)
+    // 2. Layout Dimensions
     root.style.setProperty('--sidebar-width', `${sidebarWidth}px`);
     root.style.setProperty('--header-height', `${headerHeight}px`);
     
     // 3. Component Styling
     root.style.setProperty('--radius-base', `${radius}px`);
+    root.style.setProperty('--component-bg', '#ffffff');
 
-    // 4. Density & Spacing (Affects specific spacing variables)
+    // 4. Density & Spacing
     const densityMap = {
       compact: { 
         space: '0.5rem', 
         text: '12px',
         padding: '16px',
-        gap: '12px' 
+        gap: '12px',
+        cardPadding: '12px',
+        sectionGap: '16px'
       },
       comfortable: { 
         space: '0.75rem', 
         text: '13px', 
         padding: '32px', 
-        gap: '24px' 
+        gap: '24px',
+        cardPadding: '20px',
+        sectionGap: '32px'
       },
       spacious: { 
         space: '1.25rem', 
         text: '14px', 
         padding: '48px', 
-        gap: '40px' 
+        gap: '40px',
+        cardPadding: '32px',
+        sectionGap: '48px'
       }
     };
     
@@ -74,6 +80,8 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     root.style.setProperty('--text-base', d.text);
     root.style.setProperty('--layout-padding', d.padding);
     root.style.setProperty('--layout-gap', d.gap);
+    root.style.setProperty('--card-padding', d.cardPadding);
+    root.style.setProperty('--section-gap', d.sectionGap);
 
   }, [scale, sidebarWidth, headerHeight, radius, density]);
 

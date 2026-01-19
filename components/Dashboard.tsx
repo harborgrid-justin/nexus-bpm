@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Activity, Clock, AlertCircle, ShieldCheck, Briefcase, Sparkles, ListChecks, DollarSign, Gauge, LucideIcon, TrendingUp } from 'lucide-react';
 import { useBPM } from '../contexts/BPMContext';
@@ -24,7 +23,11 @@ const MetricPanel = ({ label, value, sub, icon: Icon, color, onClick }: MetricPa
   };
 
   return (
-    <NexCard onClick={onClick} className={`p-4 flex items-center justify-between border-l-4 border-l-transparent hover:border-l-blue-600 transition-all cursor-pointer`}>
+    <NexCard 
+      onClick={onClick} 
+      className={`flex items-center justify-between border-l-4 border-l-transparent hover:border-l-blue-600 transition-all cursor-pointer`}
+      style={{ padding: 'var(--card-padding)' }} // Dynamic Padding
+    >
       <div>
         <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">{label}</p>
         <div className="text-2xl font-bold text-slate-900 leading-none mb-1">{value}</div>
@@ -101,13 +104,15 @@ export const Dashboard: React.FC = () => {
     fetchInsight();
   }, [tasks.length, criticalCount]);
 
-  // WIRE: Chart click navigates to governance view
   const handleChartClick = () => {
       navigateTo('governance');
   };
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div 
+      className="animate-fade-in flex flex-col"
+      style={{ gap: 'var(--layout-gap)' }}
+    >
       {/* Dense Top Bar */}
       <div className="flex items-center justify-between bg-white border border-slate-300 p-2 rounded-sm shadow-sm">
         <div className="flex gap-1">
@@ -128,14 +133,20 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div 
+        className="grid grid-cols-1 md:grid-cols-4"
+        style={{ gap: 'var(--layout-gap)' }}
+      >
         <MetricPanel onClick={() => navigateTo('inbox')} label="Progress" value={`${progress}%`} sub={`${completedTasks}/${totalTasks} Tasks`} icon={ListChecks} color="blue" />
         <MetricPanel onClick={() => navigateTo('analytics')} label="Variance" value={`$${varianceValue}M`} sub="Projected Spend" icon={DollarSign} color="green" />
         <MetricPanel onClick={() => navigateTo('inbox', undefined, 'Critical')} label="Risks" value={criticalCount} sub="Critical Items" icon={AlertCircle} color="red" />
         <MetricPanel onClick={() => navigateTo('governance')} label="Quality" value={`${qualityRate}%`} sub="Approval Rate" icon={ShieldCheck} color="green" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div 
+        className="grid grid-cols-1 lg:grid-cols-3"
+        style={{ gap: 'var(--layout-gap)' }}
+      >
         {/* Main Chart Area */}
         <NexCard className="lg:col-span-2 p-0 overflow-hidden min-h-[300px]">
           <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
