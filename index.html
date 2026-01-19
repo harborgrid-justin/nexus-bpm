@@ -12,187 +12,108 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       :root {
-        /* --- 1. PALETTE TOKENS --- */
+        /* --- SaaS Palette --- */
         --brand-slate: #1e293b;
-        --brand-dark: #0f172a; /* slate-950 */
-        --brand-blue: #0284c7;
-        --brand-blue-hover: #0369a1;
+        --brand-dark: #0f172a;
+        --brand-blue: #2563eb;
+        --brand-blue-hover: #1d4ed8;
         
         /* Surfaces */
-        --surface-app: #eaebef;
-        --surface-canvas: #f0f2f5;
+        --surface-app: #f8fafc;
+        --surface-canvas: #f1f5f9;
         --surface-panel: #ffffff;
-        --surface-subtle: #f8fafc; /* slate-50 */
-        --surface-hover: #f1f5f9; /* slate-100 */
-        --surface-active: #eff6ff; /* blue-50 */
+        --surface-subtle: #f8fafc;
+        --surface-hover: #f1f5f9;
+        --surface-active: #eff6ff;
         
         /* Borders */
-        --border-subtle: #e2e8f0; /* slate-200 */
-        --border-default: #cbd5e1; /* slate-300 */
-        --border-active: #0284c7;
+        --border-subtle: #f1f5f9;
+        --border-default: #e2e8f0;
+        --border-active: #2563eb;
         
         /* Text */
-        --text-primary: #0f172a; /* slate-900 */
-        --text-secondary: #64748b; /* slate-500 */
-        --text-tertiary: #94a3b8; /* slate-400 */
+        --text-primary: #0f172a;
+        --text-secondary: #475569;
+        --text-tertiary: #94a3b8;
         
         /* Semantic */
-        --color-success: #059669; /* emerald-600 */
-        --color-danger: #e11d48; /* rose-600 */
-        --color-warning: #d97706; /* amber-600 */
-        --color-info: #0284c7; /* blue-600 */
+        --color-success: #10b981;
+        --color-danger: #ef4444;
+        --color-warning: #f59e0b;
+        --color-info: #3b82f6;
 
-        /* --- 2. DYNAMIC DIMENSIONS (Managed by ThemeContext) --- */
+        /* Dimensions */
         --header-height: 56px;
-        --toolbar-height: 48px;
-        --sidebar-width: 256px;
-        --inbox-list-width: 420px;
-        --prop-panel-width: 288px;
-        --node-width: 200px;
-        --node-height: 80px;
-        
-        /* Appearance */
-        --radius-base: 2px;
-        --radius-lg: 4px;
-        
-        /* Density & Typography (Managed by ThemeContext) */
-        --space-base: 1rem;
-        --text-base: 13px; /* Base body font size */
-        
-        /* --- 3. TYPOGRAPHY TOKENS --- */
-        --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-        --font-mono: 'JetBrains Mono', monospace;
-        
-        /* --- 4. Z-INDEX SCALE --- */
-        --z-base: 0;
-        --z-node: 10;
-        --z-node-active: 20;
-        --z-sticky: 40;
-        --z-dropdown: 50;
-        --z-modal: 100;
-        --z-tooltip: 110;
-        --z-toast: 200;
+        --radius-base: 6px;
+        --radius-lg: 12px;
+        --text-base: 14px;
       }
       
-      html {
-        /* Default base font size for rem calculation */
-        font-size: 100%; /* 16px */
-      }
-
       body {
-        font-family: var(--font-sans);
-        /* Use the dynamic text base variable */
+        font-family: 'Inter', sans-serif;
         font-size: var(--text-base); 
         background-color: var(--surface-app);
         color: var(--text-primary);
-        overscroll-behavior-y: none;
         -webkit-font-smoothing: antialiased;
+        letter-spacing: -0.011em;
       }
 
-      /* --- 5. UTILITY CLASS MAPPINGS --- */
-      
-      /* Surfaces */
-      .bg-app { background-color: var(--surface-app); }
-      .bg-canvas { background-color: var(--surface-canvas); }
-      .bg-panel { background-color: var(--surface-panel); }
-      .bg-subtle { background-color: var(--surface-subtle); }
-      .bg-active { background-color: var(--surface-active); }
-      .bg-brand-slate { background-color: var(--brand-slate); }
-      
-      /* Borders */
-      .border-subtle { border-color: var(--border-subtle); }
-      .border-default { border-color: var(--border-default); }
-      .border-active { border-color: var(--border-active); }
-      .rounded-base { border-radius: var(--radius-base); }
-      
-      /* Text */
-      .text-primary { color: var(--text-primary); }
-      .text-secondary { color: var(--text-secondary); }
-      .text-tertiary { color: var(--text-tertiary); }
-      
-      /* Dynamic Dimensions Classes */
-      .h-header { height: var(--header-height); }
-      .w-sidebar { width: var(--sidebar-width); }
-      .w-inbox-list { width: var(--inbox-list-width); }
-      .h-content-area { height: calc(100vh - var(--header-height) - 48px); } /* Approx */
-      
-      /* Z-Index */
-      .z-sticky { z-index: var(--z-sticky); }
-      .z-dropdown { z-index: var(--z-dropdown); }
-      .z-modal { z-index: var(--z-modal); }
-      .z-toast { z-index: var(--z-toast); }
-
-      /* Components */
-      .card-shadow {
-        box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-      }
-      
-      .designer-grid {
-        background-image: 
-          linear-gradient(to right, #e2e8f0 1px, transparent 1px),
-          linear-gradient(to bottom, #e2e8f0 1px, transparent 1px);
-        background-size: 20px 20px;
-      }
-
+      /* Enterprise Clean Inputs */
       .prop-input {
-        @apply w-full px-3 py-2 bg-panel border border-default rounded-base text-base text-primary outline-none focus:ring-1 focus:ring-blue-600 focus:border-active transition-all shadow-sm;
+        @apply w-full h-[40px] px-3 bg-white border border-slate-200 rounded-[var(--radius-base)] text-[14px] text-slate-900 outline-none transition-all duration-200;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
       }
       
+      .prop-input:focus {
+        @apply border-blue-500 ring-4 ring-blue-500/10;
+      }
+
+      .prop-input::placeholder {
+        @apply text-slate-400;
+      }
+
       .prop-label {
-        @apply text-sm font-bold text-secondary mb-1 block uppercase tracking-wide;
+        @apply text-[12px] font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5 uppercase tracking-wide;
       }
 
-      .tab-capsule {
-        @apply px-4 py-2 font-medium transition-all border-b-2 border-transparent hover:text-blue-700 whitespace-nowrap text-sm;
-      }
-      .tab-active {
-        @apply text-blue-700 border-active bg-panel;
-      }
-      .tab-inactive {
-        @apply text-secondary hover:bg-subtle;
+      .section-card {
+        @apply bg-white border border-slate-200 rounded-[var(--radius-lg)] p-6 shadow-sm mb-6;
       }
 
-      .animate-fade-in { animation: fadeIn 0.3s ease-out; }
-      .animate-slide-up { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+      .section-header {
+        @apply flex items-center gap-2 pb-4 mb-6 border-b border-slate-100;
+      }
 
+      .section-title {
+        @apply text-[13px] font-bold text-slate-900 uppercase tracking-widest;
+      }
+
+      /* Scrollbars */
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+      ::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+
+      .animate-fade-in { animation: fadeIn 0.2s ease-out; }
       @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-      @keyframes slideUp { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-      
-      .no-scrollbar::-webkit-scrollbar { display: none; }
-      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-      
-      /* React Flow Overrides */
-      .react-flow__handle {
-        width: 8px;
-        height: 8px;
-        background: #94a3b8;
-        border: 1px solid #ffffff;
-      }
-      .react-flow__handle:hover {
-        background: #2563eb;
-        transform: scale(1.2);
-      }
-      .react-flow__attribution {
-        display: none;
-      }
     </style>
-    <script type="importmap">
-    {
-      "imports": {
-        "recharts": "https://esm.sh/recharts@^3.6.0",
-        "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
-        "react": "https://esm.sh/react@^19.2.3",
-        "react/": "https://esm.sh/react@^19.2.3/",
-        "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
-        "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-        "immer": "https://esm.sh/immer@10.1.1",
-        "reactflow": "https://esm.sh/reactflow@11.10.1",
-        "dagre": "https://esm.sh/dagre@0.8.5"
-      }
-    }
-    </script>
-  </head>
-  <body class="bg-app text-primary antialiased overflow-hidden selection:bg-blue-100 selection:text-blue-900">
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.37.0",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "recharts": "https://esm.sh/recharts@^3.6.0",
+    "reactflow": "https://esm.sh/reactflow@^11.11.4",
+    "immer": "https://esm.sh/immer@^11.1.3",
+    "dagre": "https://esm.sh/dagre@^0.8.5"
+  }
+}
+</script>
+</head>
+  <body class="bg-app text-primary antialiased overflow-hidden selection:bg-blue-100">
     <div id="root"></div>
   </body>
 </html>

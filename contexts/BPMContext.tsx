@@ -80,7 +80,7 @@ interface BPMContextType {
   createAdHocTask: (title: string, priority?: TaskPriority) => Promise<void>;
   
   // Case Management
-  createCase: (title: string, description: string) => Promise<string>;
+  createCase: (title: string, description: string, options?: { priority?: TaskPriority, data?: any, ownerId?: string }) => Promise<string>;
   updateCase: (id: string, updates: Partial<Case>) => Promise<void>;
   deleteCase: (id: string) => Promise<void>;
   addCaseEvent: (caseId: string, description: string) => Promise<void>;
@@ -620,11 +620,15 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // --- Case Methods ---
-  const createCase = async (t: string, d: string) => {
+  const createCase = async (t: string, d: string, options?: { priority?: TaskPriority, data?: any, ownerId?: string }) => {
     if (!state.currentUser) return 'error';
     const nc: Case = {
-      id: `case-${Date.now()}`, title: t, description: d, status: 'Open', priority: TaskPriority.MEDIUM, createdAt: new Date().toISOString(),
-      stakeholders: [{ userId: state.currentUser.id, role: 'Owner' }], data: {}, timeline: [{ id: 'evt-1', timestamp: new Date().toISOString(), type: 'Manual', description: 'Case opened.', author: state.currentUser.name }],
+      id: `case-${Date.now()}`, title: t, description: d, status: 'Open', 
+      priority: options?.priority || TaskPriority.MEDIUM, 
+      createdAt: new Date().toISOString(),
+      stakeholders: [{ userId: options?.ownerId || state.currentUser.id, role: 'Owner' }], 
+      data: options?.data || {}, 
+      timeline: [{ id: `evt-1`, timestamp: new Date().toISOString(), type: 'Manual', description: 'Case opened.', author: state.currentUser.name }],
       attachments: [], policies: [], domainId: state.currentUser.domainId
     };
     await dbService.add('cases', nc);
