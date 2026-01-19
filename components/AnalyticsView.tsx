@@ -1,9 +1,29 @@
-
 import React, { useMemo } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, Cell } from 'recharts';
 import { TrendingUp, Clock, Target, Zap, Activity, Globe, ArrowUpRight } from 'lucide-react';
 import { NexCard } from './shared/NexUI';
+
+const KPICard = ({ title, value, change, icon: Icon, color, onClick }: any) => {
+    const colors: any = {
+        blue: 'text-blue-600 bg-blue-50 border-blue-200',
+        emerald: 'text-emerald-600 bg-emerald-50 border-emerald-200',
+        rose: 'text-rose-600 bg-rose-50 border-rose-200',
+        slate: 'text-slate-600 bg-slate-50 border-slate-200'
+    };
+    return (
+        <div onClick={onClick} className={`bg-white p-4 border rounded-sm shadow-sm cursor-pointer hover:shadow-md transition-all ${colors[color].replace('text-', 'hover:border-').split(' ')[2]}`}>
+            <div className="flex justify-between items-start mb-2">
+                <div className={`p-1.5 rounded-sm ${colors[color]}`}>
+                    <Icon size={16}/>
+                </div>
+                {change && <span className="text-[10px] font-bold text-emerald-600 flex items-center bg-emerald-50 px-1 rounded-sm">+{change}</span>}
+            </div>
+            <p className="text-[11px] font-bold text-slate-500 uppercase">{title}</p>
+            <h4 className="text-2xl font-bold text-slate-900 leading-tight">{value}</h4>
+        </div>
+    );
+};
 
 export const AnalyticsView: React.FC = () => {
   const { instances, processes, tasks, navigateTo } = useBPM();
@@ -51,27 +71,6 @@ export const AnalyticsView: React.FC = () => {
       const payload = data.activePayload[0].payload;
       navigateTo('explorer', undefined, 'Pending');
     }
-  };
-
-  const KPICard = ({ title, value, change, icon: Icon, color, onClick }: any) => {
-    const colors = {
-        blue: 'text-blue-600 bg-blue-50 border-blue-200',
-        emerald: 'text-emerald-600 bg-emerald-50 border-emerald-200',
-        rose: 'text-rose-600 bg-rose-50 border-rose-200',
-        slate: 'text-slate-600 bg-slate-50 border-slate-200'
-    };
-    return (
-        <div onClick={onClick} className={`bg-white p-4 border rounded-sm shadow-sm cursor-pointer hover:shadow-md transition-all ${colors[color].replace('text-', 'hover:border-').split(' ')[2]}`}>
-            <div className="flex justify-between items-start mb-2">
-                <div className={`p-1.5 rounded-sm ${colors[color]}`}>
-                    <Icon size={16}/>
-                </div>
-                {change && <span className="text-[10px] font-bold text-emerald-600 flex items-center bg-emerald-50 px-1 rounded-sm">+{change}</span>}
-            </div>
-            <p className="text-[11px] font-bold text-slate-500 uppercase">{title}</p>
-            <h4 className="text-2xl font-bold text-slate-900 leading-tight">{value}</h4>
-        </div>
-    );
   };
 
   return (
