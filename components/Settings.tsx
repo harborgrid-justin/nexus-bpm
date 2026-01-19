@@ -1,4 +1,3 @@
-
 import React, { useRef, useState } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -55,8 +54,14 @@ export const Settings: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto animate-fade-in space-y-6">
-      <header className="mb-6 border-b border-slate-300 pb-4 flex items-center justify-between">
+    <div 
+        className="max-w-4xl mx-auto animate-fade-in flex flex-col"
+        style={{ gap: 'var(--section-gap)' }}
+    >
+      <header 
+        className="border-b border-slate-300 flex items-center justify-between"
+        style={{ paddingBottom: 'var(--space-base)' }}
+      >
         <div>
             <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
             <Server size={24} className="text-blue-600"/> 
@@ -87,31 +92,49 @@ export const Settings: React.FC = () => {
       </header>
 
       {statusMsg && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-sm flex items-center gap-2 text-emerald-700 font-bold text-xs">
+        <div 
+            className="bg-emerald-50 border border-emerald-200 flex items-center gap-2 text-emerald-700 font-bold text-xs"
+            style={{ padding: 'var(--space-base)', borderRadius: 'var(--radius-base)' }}
+        >
           <CheckCircle size={16} />
           {statusMsg}
         </div>
       )}
 
       {activeTab === 'system' && (
-          <div className="space-y-6">
+          <div className="flex flex-col" style={{ gap: 'var(--layout-gap)' }}>
             {/* Data Persistence Section */}
-            <section className="bg-white rounded-sm shadow-sm border border-slate-300 overflow-hidden">
-                <div className="p-4 border-b border-slate-200 bg-slate-50">
+            <section 
+                className="bg-white shadow-sm border border-slate-300 overflow-hidden"
+                style={{ borderRadius: 'var(--radius-base)' }}
+            >
+                <div 
+                    className="border-b border-slate-200 bg-slate-50"
+                    style={{ padding: 'var(--card-padding)' }}
+                >
                 <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                     <Database size={16} className="text-slate-500" />
                     Backup & Restore
                 </h3>
                 </div>
                 
-                <div className="p-6 grid gap-6 md:grid-cols-2">
-                <div className="p-4 border border-slate-200 rounded-sm bg-white hover:border-blue-400 transition-colors">
+                <div 
+                    className="grid gap-6 md:grid-cols-2"
+                    style={{ padding: 'var(--card-padding)', gap: 'var(--layout-gap)' }}
+                >
+                <div 
+                    className="border border-slate-200 bg-white hover:border-blue-400 transition-colors"
+                    style={{ padding: 'var(--space-base)', borderRadius: 'var(--radius-base)' }}
+                >
                     <h4 className="font-bold text-slate-800 text-sm mb-1">Export Database</h4>
                     <p className="text-xs text-slate-500 mb-4">Download full system snapshot (JSON).</p>
                     <NexButton variant="secondary" onClick={exportData} disabled={loading} icon={Download}>Download Backup</NexButton>
                 </div>
 
-                <div className="p-4 border border-slate-200 rounded-sm bg-white hover:border-blue-400 transition-colors">
+                <div 
+                    className="border border-slate-200 bg-white hover:border-blue-400 transition-colors"
+                    style={{ padding: 'var(--space-base)', borderRadius: 'var(--radius-base)' }}
+                >
                     <h4 className="font-bold text-slate-800 text-sm mb-1">Import Database</h4>
                     <p className="text-xs text-slate-500 mb-4">Restore state from JSON file.</p>
                     <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden"/>
@@ -121,16 +144,28 @@ export const Settings: React.FC = () => {
             </section>
 
             {/* Danger Zone */}
-            <section className="bg-white rounded-sm shadow-sm border border-rose-200 overflow-hidden">
-                <div className="p-4 border-b border-rose-100 bg-rose-50">
+            <section 
+                className="bg-white shadow-sm border border-rose-200 overflow-hidden"
+                style={{ borderRadius: 'var(--radius-base)' }}
+            >
+                <div 
+                    className="border-b border-rose-100 bg-rose-50"
+                    style={{ padding: 'var(--card-padding)' }}
+                >
                 <h3 className="text-sm font-bold text-rose-700 flex items-center gap-2">
                     <AlertTriangle size={16} />
                     Danger Zone
                 </h3>
                 </div>
                 
-                <div className="p-6 space-y-4">
-                <div className="flex items-center justify-between p-4 border border-slate-200 rounded-sm bg-white">
+                <div 
+                    className="flex flex-col"
+                    style={{ padding: 'var(--card-padding)', gap: 'var(--space-base)' }}
+                >
+                <div 
+                    className="flex items-center justify-between border border-slate-200 bg-white"
+                    style={{ padding: 'var(--space-base)', borderRadius: 'var(--radius-base)' }}
+                >
                     <div>
                         <h4 className="font-bold text-slate-800 text-sm">Reseed Database</h4>
                         <p className="text-xs text-slate-500">Restore default demo dataset.</p>
@@ -138,7 +173,10 @@ export const Settings: React.FC = () => {
                     <NexButton variant="secondary" onClick={handleReseed} disabled={loading} icon={RefreshCw}>Reseed Data</NexButton>
                 </div>
 
-                <div className="flex items-center justify-between p-4 border border-rose-100 rounded-sm bg-rose-50/20">
+                <div 
+                    className="flex items-center justify-between border border-rose-100 bg-rose-50/20"
+                    style={{ padding: 'var(--space-base)', borderRadius: 'var(--radius-base)' }}
+                >
                     <div>
                         <h4 className="font-bold text-rose-700 text-sm">Factory Reset</h4>
                         <p className="text-xs text-rose-500">Permanently delete all local data.</p>
@@ -151,9 +189,15 @@ export const Settings: React.FC = () => {
       )}
 
       {activeTab === 'appearance' && (
-          <div className="space-y-6">
-              <section className="bg-white rounded-sm shadow-sm border border-slate-300 overflow-hidden">
-                  <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+          <div className="flex flex-col" style={{ gap: 'var(--layout-gap)' }}>
+              <section 
+                className="bg-white shadow-sm border border-slate-300 overflow-hidden"
+                style={{ borderRadius: 'var(--radius-base)' }}
+              >
+                  <div 
+                    className="border-b border-slate-200 bg-slate-50 flex justify-between items-center"
+                    style={{ padding: 'var(--card-padding)' }}
+                  >
                       <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                           <Monitor size={16} className="text-slate-500" />
                           Display Density & Scale
@@ -161,7 +205,10 @@ export const Settings: React.FC = () => {
                       <button onClick={resetTheme} className="text-xs text-blue-600 hover:underline">Reset to Defaults</button>
                   </div>
                   
-                  <div className="p-6 space-y-8">
+                  <div 
+                    className="flex flex-col"
+                    style={{ padding: 'var(--card-padding)', gap: 'var(--layout-gap)' }}
+                  >
                       {/* Scale Control */}
                       <div className="space-y-3">
                           <div className="flex justify-between items-center">
@@ -186,7 +233,10 @@ export const Settings: React.FC = () => {
                       <div className="h-px bg-slate-200"></div>
 
                       {/* Dimensions Control */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div 
+                        className="grid grid-cols-1 md:grid-cols-2"
+                        style={{ gap: 'var(--layout-gap)' }}
+                      >
                           <div className="space-y-3">
                               <div className="flex justify-between items-center">
                                   <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
@@ -257,16 +307,25 @@ export const Settings: React.FC = () => {
       )}
 
       {activeTab === 'calendar' && (
-          <div className="space-y-6">
-              <section className="bg-white rounded-sm shadow-sm border border-slate-300 overflow-hidden">
-                  <div className="p-4 border-b border-slate-200 bg-slate-50">
+          <div className="flex flex-col" style={{ gap: 'var(--layout-gap)' }}>
+              <section 
+                className="bg-white shadow-sm border border-slate-300 overflow-hidden"
+                style={{ borderRadius: 'var(--radius-base)' }}
+              >
+                  <div 
+                    className="border-b border-slate-200 bg-slate-50"
+                    style={{ padding: 'var(--card-padding)' }}
+                  >
                       <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                           <Calendar size={16} className="text-slate-500" />
                           Business Calendar & SLA
                       </h3>
                   </div>
                   
-                  <div className="p-6 space-y-6">
+                  <div 
+                    className="flex flex-col"
+                    style={{ padding: 'var(--card-padding)', gap: 'var(--space-base)' }}
+                  >
                       <div className="space-y-3">
                           <label className="prop-label">Working Days</label>
                           <div className="flex gap-2">
@@ -282,7 +341,10 @@ export const Settings: React.FC = () => {
                           </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-6">
+                      <div 
+                        className="grid grid-cols-2"
+                        style={{ gap: 'var(--layout-gap)' }}
+                      >
                           <div className="space-y-2">
                               <label className="prop-label">Business Hours Start</label>
                               <input type="time" className="prop-input" value={workHours.start} onChange={e => setWorkHours({...workHours, start: e.target.value})} />
@@ -304,7 +366,10 @@ export const Settings: React.FC = () => {
                           </select>
                       </div>
 
-                      <div className="p-4 bg-blue-50 border border-blue-100 rounded-sm text-xs text-blue-800">
+                      <div 
+                        className="bg-blue-50 border border-blue-100 text-xs text-blue-800"
+                        style={{ padding: 'var(--space-base)', borderRadius: 'var(--radius-base)' }}
+                      >
                           <h4 className="font-bold mb-1">Impact on SLAs</h4>
                           <p>Task due dates will automatically skip non-working days. E.g., a task due in "2 days" created on Friday will be due Tuesday.</p>
                       </div>

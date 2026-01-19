@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { 
@@ -115,9 +114,6 @@ export const ProcessInstanceViewer: React.FC<Props> = ({ instanceId, onClose }) 
       return [];
   }, [instance, process, playbackIndex, currentHistoryItem]);
 
-
-  if (!instance || !process) return null;
-
   const handlePointerDown = (e: React.PointerEvent) => {
     isDragging.current = true;
     dragStart.current = { x: e.clientX, y: e.clientY };
@@ -132,10 +128,10 @@ export const ProcessInstanceViewer: React.FC<Props> = ({ instanceId, onClose }) 
   const handlePointerUp = () => { isDragging.current = false; };
 
   // Health Logic
-  const isHealthy = instance.status === 'Active' || instance.status === 'Completed';
+  const isHealthy = instance && (instance.status === 'Active' || instance.status === 'Completed');
   
   const handleAddComment = () => {
-      if(!newComment.trim()) return;
+      if(!newComment.trim() || !instance) return;
       if (addInstanceComment) {
           addInstanceComment(instance.id, newComment);
       }
@@ -143,6 +139,8 @@ export const ProcessInstanceViewer: React.FC<Props> = ({ instanceId, onClose }) 
   };
 
   const adminPanelWidth = rightPanelTab === 'variables' ? 'w-[500px]' : 'w-[320px]';
+
+  if (!instance || !process) return null;
 
   return (
     <div className="fixed inset-0 bg-slate-100 z-[100] flex flex-col animate-fade-in overflow-hidden">

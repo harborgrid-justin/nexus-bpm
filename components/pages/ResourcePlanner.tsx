@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useBPM } from '../../contexts/BPMContext';
 import { FormPageLayout } from '../shared/PageTemplates';
@@ -87,8 +86,9 @@ export const ResourcePlanner = () => {
         title="Resource Planner" 
         subtitle="Capacity allocation and deadline tracking." 
         onBack={() => navigateTo('dashboard')} 
+        fullWidth={true}
         actions={
-            <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-sm border border-slate-200">
+            <div className="flex items-center" style={{ gap: 'var(--space-base)', padding: 'calc(var(--space-base) * 0.5)', background: '#f1f5f9', borderRadius: 'var(--radius-base)', border: '1px solid #e2e8f0' }}>
                 <button onClick={handlePrevWeek} className="p-1 hover:bg-white rounded-sm text-slate-500 hover:text-slate-800 transition-all"><ChevronLeft size={16}/></button>
                 <span className="text-xs font-mono font-bold text-slate-700 px-2 w-24 text-center">
                     {startDate.toLocaleDateString(undefined, {month:'short', day:'numeric'})}
@@ -97,11 +97,17 @@ export const ResourcePlanner = () => {
             </div>
         }
     >
-        <div className="space-y-6">
+        <div 
+            className="flex flex-col h-full overflow-hidden"
+            style={{ 
+                padding: 'var(--layout-padding)', 
+                gap: 'var(--layout-gap)' 
+            }}
+        >
             
             {/* Top Toolbar */}
-            <div className="flex flex-col md:flex-row gap-4 justify-between items-end">
-                <div className="flex gap-2 flex-1 w-full">
+            <div className="flex flex-col md:flex-row justify-between items-end shrink-0" style={{ gap: 'var(--layout-gap)' }}>
+                <div className="flex flex-1 w-full" style={{ gap: 'var(--space-base)' }}>
                     <div className="relative flex-1 max-w-xs">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14}/>
                         <input 
@@ -124,7 +130,7 @@ export const ResourcePlanner = () => {
                     </div>
                 </div>
 
-                <div className="flex gap-4">
+                <div className="flex" style={{ gap: 'var(--layout-gap)' }}>
                     <div className="flex flex-col items-end">
                         <span className="text-[10px] font-bold text-slate-400 uppercase">Load</span>
                         <span className="text-lg font-bold text-slate-800 leading-none">{totalTasksInView} <span className="text-xs font-normal text-slate-400">Tasks</span></span>
@@ -138,17 +144,17 @@ export const ResourcePlanner = () => {
             </div>
 
             {/* Scheduler Grid */}
-            <div className="bg-white border border-slate-200 rounded-sm overflow-hidden shadow-sm">
+            <div className="bg-white border border-slate-200 rounded-sm overflow-hidden shadow-sm flex flex-col flex-1 min-h-0">
                 
                 {/* Header Row */}
-                <div className="grid grid-cols-12 bg-slate-50 border-b border-slate-200">
-                    <div className="col-span-3 py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Principal</div>
-                    <div className="col-span-1 py-3 px-2 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-100">W/L</div>
+                <div className="grid grid-cols-12 bg-slate-50 border-b border-slate-200 shrink-0">
+                    <div className="col-span-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center" style={{ padding: 'var(--space-base)' }}>Principal</div>
+                    <div className="col-span-1 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider border-l border-slate-100 flex items-center justify-center" style={{ padding: 'var(--space-base)' }}>W/L</div>
                     <div className="col-span-8 flex border-l border-slate-100">
                         {days.map((d, i) => {
                             const isToday = d.toDateString() === new Date().toDateString();
                             return (
-                                <div key={i} className={`flex-1 py-2 text-center border-r border-slate-100 last:border-0 ${isToday ? 'bg-blue-50/50' : ''}`}>
+                                <div key={i} className={`flex-1 text-center border-r border-slate-100 last:border-0 flex flex-col justify-center ${isToday ? 'bg-blue-50/50' : ''}`} style={{ padding: 'var(--space-base)' }}>
                                     <div className={`text-[10px] font-bold uppercase ${isToday ? 'text-blue-700' : 'text-slate-500'}`}>{d.toLocaleDateString(undefined, {weekday: 'short'})}</div>
                                     <div className={`text-[9px] font-medium ${isToday ? 'text-blue-600' : 'text-slate-400'}`}>{d.getDate()}</div>
                                 </div>
@@ -158,14 +164,14 @@ export const ResourcePlanner = () => {
                 </div>
 
                 {/* Rows */}
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-slate-100 overflow-y-auto">
                     {scheduleData.length === 0 ? (
-                        <div className="p-8 text-center text-slate-400 italic text-xs">No resources match current filter.</div>
+                        <div className="text-center text-slate-400 italic text-xs" style={{ padding: 'var(--layout-padding)' }}>No resources match current filter.</div>
                     ) : (
                         scheduleData.map((row) => (
                             <div key={row.user.id} className="grid grid-cols-12 items-stretch hover:bg-slate-50 transition-colors group min-h-[60px]">
                                 {/* User Info */}
-                                <div className="col-span-3 p-3 flex items-center gap-3">
+                                <div className="col-span-3 flex items-center" style={{ padding: 'var(--space-base)', gap: 'var(--space-base)' }}>
                                     <div 
                                         className={`w-9 h-9 rounded-sm flex items-center justify-center text-xs font-bold shrink-0 border cursor-pointer transition-transform hover:scale-105 ${row.user.status === 'Active' ? 'bg-slate-800 text-white border-slate-900' : 'bg-slate-100 text-slate-400 border-dashed border-slate-300'}`}
                                         onClick={() => navigateTo('edit-user', row.user.id)}
@@ -215,7 +221,7 @@ export const ResourcePlanner = () => {
                                         }
 
                                         return (
-                                            <div key={i} className={`flex-1 p-1 border-r border-slate-100 last:border-0 relative ${isToday ? 'bg-blue-50/30' : ''}`}>
+                                            <div key={i} className={`flex-1 border-r border-slate-100 last:border-0 relative ${isToday ? 'bg-blue-50/30' : ''}`} style={{ padding: '4px' }}>
                                                 {dayData.count > 0 ? (
                                                     <div 
                                                         className={`w-full h-full rounded-sm flex flex-col items-center justify-center cursor-pointer transition-all hover:brightness-95 border ${
@@ -225,7 +231,6 @@ export const ResourcePlanner = () => {
                                                         }`}
                                                         style={{ opacity: Math.min(1, 0.4 + (dayData.count * 0.15)) }}
                                                         title={dayData.tasks.map(t => `• ${t.title} (${t.priority})`).join('\n')}
-                                                        // WIRE: Clicking day cell navigates to inbox filtered by user + date (conceptually, just user for now)
                                                         onClick={() => navigateTo('inbox', undefined, undefined, { assignee: row.user.id })}
                                                     >
                                                         <span className="text-[10px] font-black">{dayData.count}</span>
