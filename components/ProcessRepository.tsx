@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useBPM } from '../contexts/BPMContext';
-import { Play, FileText, Layers, Plus, Activity, Eye, ChevronRight, Globe, ShieldCheck, Clock, Hash, MoreVertical, Copy, Trash2, Edit, PauseCircle, StopCircle, Search, History, BookOpen } from 'lucide-react';
-import { NexCard, NexButton, NexBadge, NexModal } from './shared/NexUI';
+import { Play, FileText, Layers, Plus, Edit, MoreVertical, Copy, Trash2, PauseCircle, StopCircle, Search, History, BookOpen, Globe } from 'lucide-react';
+import { NexBadge, NexModal } from './shared/NexUI';
 import { ProcessDiffViewer } from './governance/ProcessDiffViewer';
 import { ProcessDefinition } from '../types';
 import { generateProcessDocumentation } from '../services/geminiService';
@@ -19,14 +19,14 @@ export const ProcessRepository: React.FC = () => {
   // Docs Modal State
   const [docContent, setDocContent] = useState('');
   const [docModalOpen, setDocModalOpen] = useState(false);
-  const [generatingDocs, setGeneratingDocs] = useState(false);
+  const [, setGeneratingDocs] = useState(false);
 
-  const handleStart = (id: string, name: string) => {
+  const handleStart = (id: string) => {
     startProcess(id, { summary: `Automated initiation via Registry` });
   };
 
-  const handleDuplicate = async (proc: any) => {
-      const newProc = { ...proc, id: '', name: `${proc.name} (Copy)`, version: 1, history: [] };
+  const handleDuplicate = async (proc: ProcessDefinition) => {
+      const newProc: Partial<ProcessDefinition> = { ...proc, id: undefined, name: `${proc.name} (Copy)`, version: 1, history: [] };
       await deployProcess(newProc);
   };
 
@@ -162,7 +162,7 @@ export const ProcessRepository: React.FC = () => {
                 
                 {process.isActive && (
                     <button 
-                    onClick={() => handleStart(process.id, process.name)}
+                    onClick={() => handleStart(process.id)}
                     className="p-2 bg-slate-50 text-slate-600 border border-slate-200 rounded-sm hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all"
                     >
                     <Play size={14} fill="currentColor" />
@@ -209,7 +209,7 @@ export const ProcessRepository: React.FC = () => {
                               {inst.status === 'Active' && <button onClick={() => suspendInstance(inst.id)} title="Suspend" className="p-1 hover:bg-amber-100 text-amber-600 rounded"><PauseCircle size={14}/></button>}
                               {inst.status === 'Suspended' && <button onClick={() => suspendInstance(inst.id)} title="Resume" className="p-1 hover:bg-emerald-100 text-emerald-600 rounded"><Play size={14}/></button>}
                               {inst.status !== 'Terminated' && inst.status !== 'Completed' && <button onClick={() => terminateInstance(inst.id)} title="Terminate" className="p-1 hover:bg-rose-100 text-rose-600 rounded"><StopCircle size={14}/></button>}
-                              <button onClick={() => openInstanceViewer(inst.id)} title="View" className="p-1 hover:bg-blue-100 text-blue-600 rounded"><Eye size={14}/></button>
+                              <button onClick={() => openInstanceViewer(inst.id)} title="View" className="p-1 hover:bg-blue-100 text-blue-600 rounded"><Edit size={14}/></button>
                           </div>
                       </td>
                     </tr>

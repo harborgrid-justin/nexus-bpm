@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Database, Activity, ChevronUp, ChevronDown, X, Terminal } from 'lucide-react';
+import { Database, X, Terminal, ChevronDown } from 'lucide-react';
 
 interface DBLog {
   id: string;
@@ -9,19 +9,26 @@ interface DBLog {
   type: 'read' | 'write' | 'delete' | 'error';
 }
 
+interface NexflowDBLogDetail {
+  action: string;
+  detail: any;
+  type: 'read' | 'write' | 'delete' | 'error';
+}
+
 export const DevToolbar: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(false); // Default closed to not obstruct
+  const [isOpen, setIsOpen] = useState(false); 
   const [logs, setLogs] = useState<DBLog[]>([]);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleLog = (e: CustomEvent) => {
+    const handleLog = (e: Event) => {
+      const customEvent = e as CustomEvent<NexflowDBLogDetail>;
       const newLog: DBLog = {
         id: Math.random().toString(36).substr(2, 9),
-        action: e.detail.action,
-        detail: JSON.stringify(e.detail.detail),
+        action: customEvent.detail.action,
+        detail: JSON.stringify(customEvent.detail.detail),
         timestamp: new Date().toLocaleTimeString(),
-        type: e.detail.type || 'read'
+        type: customEvent.detail.type || 'read'
       };
       
       setLogs(prev => {
@@ -31,8 +38,8 @@ export const DevToolbar: React.FC = () => {
       });
     };
 
-    window.addEventListener('nexflow-db-log' as any, handleLog);
-    return () => window.removeEventListener('nexflow-db-log' as any, handleLog);
+    window.addEventListener('nexflow-db-log', handleLog);
+    return () => window.removeEventListener('nexflow-db-log', handleLog);
   }, []);
 
   useEffect(() => {

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { 
   CheckCircle, AlertTriangle, 
-  X, Activity, Send, Clock, PlayCircle, Rewind, FastForward, Pause, Play, History
+  X, Activity, Send, Clock, PlayCircle, FastForward, Pause, Play, History
 } from 'lucide-react';
 import { NexButton } from './shared/NexUI';
 
@@ -14,28 +14,25 @@ interface Props {
 export const ProcessInstanceViewer: React.FC<Props> = ({ instanceId, onClose }) => {
   const { instances, processes, addInstanceComment } = useBPM();
   
-  const instance = instances.find(i => i.id === instanceId);
-  const process = processes.find(p => p.id === instance?.definitionId);
-  
   const [viewport, setViewport] = useState({ x: 0, y: 0, zoom: 1 });
   const [rightPanelTab, setRightPanelTab] = useState<'info' | 'variables' | 'comments'>('info');
   const [showAdminPanel, setShowAdminPanel] = useState(true);
   const [variableJson, setVariableJson] = useState('');
   const [newComment, setNewComment] = useState('');
   const [showMetrics, setShowMetrics] = useState(false);
-
-  // Time Travel State
-  const [playbackIndex, setPlaybackIndex] = useState<number>(-1); // -1 means live/latest
+  const [playbackIndex, setPlaybackIndex] = useState<number>(-1); 
   const [isPlaying, setIsPlaying] = useState(false);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const dragStart = useRef({ x: 0, y: 0 });
 
+  const instance = instances.find(i => i.id === instanceId);
+  const process = processes.find(p => p.id === instance?.definitionId);
+
   useEffect(() => {
     if (instance) {
         setVariableJson(JSON.stringify(instance.variables, null, 2));
-        // Reset playback when instance loads
         setPlaybackIndex(instance.history.length - 1);
     }
     
@@ -49,11 +46,10 @@ export const ProcessInstanceViewer: React.FC<Props> = ({ instanceId, onClose }) 
         });
       }
     }
-  }, [instanceId, process]);
+  }, [instanceId, process, instance]);
 
-  // Playback Loop
   useEffect(() => {
-      let interval: any;
+      let interval: ReturnType<typeof setInterval>;
       if (isPlaying && instance) {
           interval = setInterval(() => {
               setPlaybackIndex(prev => {
@@ -65,21 +61,21 @@ export const ProcessInstanceViewer: React.FC<Props> = ({ instanceId, onClose }) 
               });
           }, 1000);
       }
-      return () => clearInterval(interval);
+      return () => {
+          if (interval) clearInterval(interval);
+      };
   }, [isPlaying, instance]);
 
-  // Derived State for Time Travel
-  const currentHistoryItem = instance && playbackIndex >= 0 && playbackIndex < instance.history.length 
+  const currentHistoryItem = useMemo(() => 
+      instance && playbackIndex >= 0 && playbackIndex < instance.history.length 
       ? instance.history[playbackIndex] 
-      : null;
+      : null
+  , [instance, playbackIndex]);
 
-  // Calculate executed path links UP TO the playback index
   const executedLinks = useMemo(() => {
       if (!instance || !process) return [];
       
       const sortedHistory = [...instance.history].sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-      
-      // Filter history based on playback
       const visibleHistory = playbackIndex === -1 ? sortedHistory : sortedHistory.slice(0, playbackIndex + 1);
 
       const takenPaths: Set<string> = new Set();
@@ -100,13 +96,10 @@ export const ProcessInstanceViewer: React.FC<Props> = ({ instanceId, onClose }) 
       return Array.from(takenPaths);
   }, [instance, process, playbackIndex]);
 
-  // Determine Active Steps based on Playback
-  // If playing back, the "active" step is the one in the current history item
   const displayActiveStepIds = useMemo(() => {
       if (!instance || !process) return [];
       if (playbackIndex === -1 || playbackIndex === instance.history.length - 1) return instance.activeStepIds;
       
-      // Find the step ID corresponding to the current history item
       if (currentHistoryItem) {
           const step = process.steps.find(s => s.name === currentHistoryItem.stepName);
           return step ? [step.id] : [];
@@ -127,17 +120,13 @@ export const ProcessInstanceViewer: React.FC<Props> = ({ instanceId, onClose }) 
 
   const handlePointerUp = () => { isDragging.current = false; };
 
-  // Health Logic
-  const isHealthy = instance && (instance.status === 'Active' || instance.status === 'Completed');
-  
   const handleAddComment = () => {
       if(!newComment.trim() || !instance) return;
-      if (addInstanceComment) {
-          addInstanceComment(instance.id, newComment);
-      }
+      addInstanceComment(instance.id, newComment);
       setNewComment('');
   };
 
+  const isHealthy = instance && (instance.status === 'Active' || instance.status === 'Completed');
   const adminPanelWidth = rightPanelTab === 'variables' ? 'w-[500px]' : 'w-[320px]';
 
   if (!instance || !process) return null;
@@ -185,9 +174,7 @@ export const ProcessInstanceViewer: React.FC<Props> = ({ instanceId, onClose }) 
                   
                   return (
                       <g key={`${step.id}-${targetId}`}>
-                          {/* Base Line */}
                           <path d={`M ${x1} ${y1} C ${x1+50} ${y1}, ${x2-50} ${y2}, ${x2} ${y2}`} stroke={isTraversed ? "#10b981" : "#cbd5e1"} strokeWidth={isTraversed ? 4 : 2} fill="none" className="transition-all duration-1000 ease-out"/>
-                          {/* Animated Dash for Active Paths */}
                           {isTraversed && (
                               <path d={`M ${x1} ${y1} C ${x1+50} ${y1}, ${x2-50} ${y2}, ${x2} ${y2}`} stroke="#ffffff" strokeWidth="2" strokeDasharray="10,10" fill="none" className="animate-[dash_1s_linear_infinite] opacity-30"/>
                           )}
@@ -198,10 +185,7 @@ export const ProcessInstanceViewer: React.FC<Props> = ({ instanceId, onClose }) 
 
              {process.steps.map(step => {
                const isActive = displayActiveStepIds.includes(step.id);
-               // Visited if in history UP TO playback index
                const isVisited = instance.history.slice(0, playbackIndex + 1).some(h => h.stepName === step.name);
-               
-               // Mock Metrics
                const avgDuration = step.metrics?.avgDuration || (Math.floor(Math.random() * 120) + 10);
                const errorRate = step.metrics?.errorRate || Math.floor(Math.random() * 5);
 
@@ -224,7 +208,6 @@ export const ProcessInstanceViewer: React.FC<Props> = ({ instanceId, onClose }) 
           </div>
         </div>
 
-        {/* Time Travel Controls (Bottom Overlay) */}
         <div className="absolute bottom-6 left-6 right-6 lg:right-96 bg-white/90 backdrop-blur border border-slate-200 rounded-sm p-4 shadow-xl z-40 flex flex-col gap-2 animate-slide-up">
             <div className="flex items-center justify-between text-xs font-bold text-slate-600 uppercase tracking-wider">
                 <span className="flex items-center gap-2"><History size={14}/> Time Travel Debugger</span>

@@ -1,19 +1,28 @@
 import React, { useEffect, useRef } from 'react';
 import { 
-  Copy, Trash2, Edit, Link2Off, Settings, 
-  Plus, Play, Square, GitBranch, Crosshair, 
+  Copy, Trash2, Link2Off, Settings, 
+  Plus, Play, GitBranch, Crosshair, 
   ClipboardPaste, Eraser, Clipboard
 } from 'lucide-react';
-import { ProcessStepType } from '../../types';
 
 interface ContextMenuProps {
   position: { x: number; y: number } | null;
   targetId: string | null;
   onClose: () => void;
-  onAction: (action: string, payload?: any) => void;
+  onAction: (action: string, payload?: unknown) => void;
 }
 
-const MenuItem = ({ icon: Icon, label, action, payload, shortcut, danger, onClick }: any) => (
+interface MenuItemProps {
+    icon: React.ElementType;
+    label: string;
+    action: string;
+    payload?: unknown;
+    shortcut?: string;
+    danger?: boolean;
+    onClick: (e: React.MouseEvent, action: string, payload?: unknown) => void;
+}
+
+const MenuItem: React.FC<MenuItemProps> = ({ icon: Icon, label, action, payload, shortcut, danger, onClick }) => (
   <button 
     type="button"
     onClick={(e) => onClick(e, action, payload)}
@@ -34,22 +43,19 @@ export const CanvasContextMenu: React.FC<ContextMenuProps> = ({ position, target
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      // If the menu is clicked, we rely on stopPropagation below, 
-      // but for extra safety we check containment here too.
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         onClose();
       }
     };
-    // Use capture to ensure we catch events, but our stopPropagation in the div helps isolate it.
     document.addEventListener('mousedown', handleClickOutside, true);
     return () => document.removeEventListener('mousedown', handleClickOutside, true);
   }, [onClose]);
 
   if (!position) return null;
 
-  const handleItemClick = (e: React.MouseEvent, action: string, payload?: any) => {
+  const handleItemClick = (e: React.MouseEvent, action: string, payload?: unknown) => {
     e.preventDefault();
-    e.stopPropagation(); // Prevent bubbling to any parent handlers
+    e.stopPropagation(); 
     onAction(action, payload);
     onClose();
   };
@@ -57,13 +63,11 @@ export const CanvasContextMenu: React.FC<ContextMenuProps> = ({ position, target
   return (
     <div 
       ref={menuRef}
-      // Critical: Stop mousedown propagation so the document listener doesn't see it and close the menu
       onMouseDown={(e) => e.stopPropagation()} 
       className="fixed z-dropdown bg-white border border-slate-200 rounded-sm shadow-xl min-w-[180px] animate-fade-in flex flex-col py-1"
       style={{ top: position.y, left: position.x }}
     >
       {targetId ? (
-        // --- NODE CONTEXT ---
         <>
           <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1">
             Component Options
@@ -76,7 +80,6 @@ export const CanvasContextMenu: React.FC<ContextMenuProps> = ({ position, target
           <MenuItem icon={Trash2} label="Delete" action="delete" danger shortcut="Del" onClick={handleItemClick} />
         </>
       ) : (
-        // --- CANVAS CONTEXT ---
         <>
           <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1">
             Canvas Actions

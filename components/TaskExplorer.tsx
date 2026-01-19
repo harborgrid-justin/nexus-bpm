@@ -1,9 +1,17 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useBPM } from '../contexts/BPMContext';
-import { Task, TaskStatus, TaskPriority } from '../types';
-import { Search, LayoutGrid, List as ListIcon, Briefcase, Layers, ChevronRight, Activity, ExternalLink, PenTool, CheckSquare } from 'lucide-react';
-import { NexBadge, NexCard } from './shared/NexUI';
+import { Search, LayoutGrid, List as ListIcon, Briefcase, Layers, ChevronRight, CheckSquare } from 'lucide-react';
+import { NexBadge } from './shared/NexUI';
+
+interface SearchResultItem {
+    id: string;
+    title: string;
+    description?: string;
+    status: string;
+    nexusType: 'Task' | 'Case' | 'Instance';
+    assignee?: string;
+    definitionName?: string;
+}
 
 export const TaskExplorer: React.FC = () => {
   const { tasks, cases, instances, globalSearch, navigateTo, openInstanceViewer } = useBPM();
@@ -15,20 +23,27 @@ export const TaskExplorer: React.FC = () => {
     if (globalSearch) setSearchTerm(globalSearch);
   }, [globalSearch]);
 
-  const searchResults = useMemo(() => {
+  const searchResults = useMemo<SearchResultItem[]>(() => {
     const s = searchTerm.toLowerCase();
     
     const taskMatches = tasks
       .filter(t => t.title.toLowerCase().includes(s) || t.description?.toLowerCase().includes(s))
-      .map(t => ({ ...t, nexusType: 'Task' as const }));
+      .map(t => ({ ...t, nexusType: 'Task' as const, description: t.description || 'Active task' }));
       
     const caseMatches = cases
       .filter(c => c.title.toLowerCase().includes(s) || c.description.toLowerCase().includes(s))
-      .map(c => ({ ...c, nexusType: 'Case' as const }));
+      .map(c => ({ ...c, nexusType: 'Case' as const, assignee: 'Case Owner' }));
       
     const instanceMatches = instances
       .filter(i => i.definitionName.toLowerCase().includes(s) || i.id.toLowerCase().includes(s))
-      .map(i => ({ ...i, nexusType: 'Instance' as const }));
+      .map(i => ({ 
+          id: i.id, 
+          title: i.definitionName, 
+          status: i.status, 
+          nexusType: 'Instance' as const, 
+          assignee: 'System',
+          description: `Started ${new Date(i.startDate).toLocaleDateString()}`
+      }));
 
     let combined = [...taskMatches, ...caseMatches, ...instanceMatches];
     
@@ -39,7 +54,7 @@ export const TaskExplorer: React.FC = () => {
     return combined;
   }, [searchTerm, tasks, cases, instances, activeFilter]);
 
-  const handleNavigate = (item: any) => {
+  const handleNavigate = (item: SearchResultItem) => {
     if (item.nexusType === 'Task') navigateTo('inbox', item.id);
     else if (item.nexusType === 'Case') navigateTo('case-viewer', item.id);
     else if (item.nexusType === 'Instance') openInstanceViewer(item.id);
@@ -83,7 +98,7 @@ export const TaskExplorer: React.FC = () => {
        </div>
 
        <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid-cols-1'}`}>
-          {searchResults.map((item: any, idx) => (
+          {searchResults.map((item, idx) => (
              <div 
                key={`${item.id}-${idx}`} 
                onClick={() => handleNavigate(item)} 
@@ -99,13 +114,13 @@ export const TaskExplorer: React.FC = () => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <NexBadge variant={item.nexusType === 'Task' ? 'blue' : item.nexusType === 'Case' ? 'amber' : 'slate'}>{item.nexusType}</NexBadge>
-                    <span className="text-[10px] text-slate-400 font-mono">{item.id.split('-')[1]}</span>
+                    <span className="text-[10px] text-slate-400 font-mono">{item.id.split('-')[1] || item.id}</span>
                   </div>
                   <h3 className="font-bold text-slate-900 text-sm mb-0.5 leading-tight truncate">
-                    {item.title || item.definitionName}
+                    {item.title}
                   </h3>
                   <p className="text-[11px] text-slate-500 truncate">
-                    {item.description || item.status || 'Active runtime context'}
+                    {item.description || item.status}
                   </p>
                 </div>
 

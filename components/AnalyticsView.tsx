@@ -1,16 +1,26 @@
 import React, { useMemo } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, Cell } from 'recharts';
-import { TrendingUp, Clock, Target, Zap, Activity, Globe, ArrowUpRight } from 'lucide-react';
+import { TrendingUp, Clock, Target, Zap, Activity, Globe, LucideIcon } from 'lucide-react';
 import { NexCard } from './shared/NexUI';
 
-const KPICard = ({ title, value, change, icon: Icon, color, onClick }: any) => {
-    const colors: any = {
+interface KPICardProps {
+    title: string;
+    value: string | number;
+    change?: string;
+    icon: LucideIcon;
+    color: 'blue' | 'emerald' | 'rose' | 'slate';
+    onClick: () => void;
+}
+
+const KPICard: React.FC<KPICardProps> = ({ title, value, change, icon: Icon, color, onClick }) => {
+    const colors: Record<string, string> = {
         blue: 'text-blue-600 bg-blue-50 border-blue-200',
         emerald: 'text-emerald-600 bg-emerald-50 border-emerald-200',
         rose: 'text-rose-600 bg-rose-50 border-rose-200',
         slate: 'text-slate-600 bg-slate-50 border-slate-200'
     };
+    
     return (
         <div onClick={onClick} className={`bg-white p-4 border rounded-sm shadow-sm cursor-pointer hover:shadow-md transition-all ${colors[color].replace('text-', 'hover:border-').split(' ')[2]}`}>
             <div className="flex justify-between items-start mb-2">
@@ -28,18 +38,15 @@ const KPICard = ({ title, value, change, icon: Icon, color, onClick }: any) => {
 export const AnalyticsView: React.FC = () => {
   const { instances, processes, tasks, navigateTo } = useBPM();
 
-  // Dynamic Data Aggregation
   const completedInstances = instances.filter(i => i.status === 'Completed').length;
   
-  // Calculate Avg SLA Compliance from completed tasks
   const avgSLACompliance = useMemo(() => {
      const completedTasks = tasks.filter(t => t.status === 'Completed');
      if (completedTasks.length === 0) return 100;
-     const onTime = completedTasks.filter(t => new Date(t.dueDate) > new Date()).length; // Approximation using current time as completion
+     const onTime = completedTasks.filter(t => new Date(t.dueDate) > new Date()).length;
      return ((onTime / completedTasks.length) * 100).toFixed(1);
   }, [tasks]);
 
-  // Dynamic Volume Data (Instances grouped by start date)
   const taskVolumeData = useMemo(() => {
     const grouped: Record<string, number> = {};
     instances.forEach(inst => {
@@ -47,14 +54,13 @@ export const AnalyticsView: React.FC = () => {
       grouped[date] = (grouped[date] || 0) + 1;
     });
 
-    // Fill last 5 days if empty for chart
     const result = [];
     const today = new Date();
     for (let i = 4; i >= 0; i--) {
         const d = new Date(today);
         d.setDate(d.getDate() - i);
         const key = d.toLocaleDateString(undefined, { weekday: 'short' });
-        result.push({ name: key, volume: grouped[key] || 0, baseline: 5 }); // Baseline 5 for demo
+        result.push({ name: key, volume: grouped[key] || 0, baseline: 5 });
     }
     return result;
   }, [instances]);
@@ -68,7 +74,6 @@ export const AnalyticsView: React.FC = () => {
 
   const handleChartClick = (data: any) => {
     if (data && data.activePayload && data.activePayload[0]) {
-      const payload = data.activePayload[0].payload;
       navigateTo('explorer', undefined, 'Pending');
     }
   };

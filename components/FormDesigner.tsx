@@ -1,17 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useBPM } from '../contexts/BPMContext';
-import { FormDefinition, FormField, FormFieldType, FormValidation, FormVisibilityRule, FormFieldLayout, FormFieldAppearance, FormDataSource, FormBehavior } from '../types';
+import { FormDefinition, FormField, FormFieldType, FormValidation, FormFieldLayout, FormFieldAppearance, FormDataSource, FormBehavior } from '../types';
 import { FormPageLayout } from './shared/PageTemplates';
-import { NexFormGroup, NexButton } from './shared/NexUI';
+import { NexFormGroup } from './shared/NexUI';
 import { 
   Type, Hash, Calendar, CheckSquare, List, AlignLeft, FileText, 
-  Trash2, GripVertical, Settings, Plus, Info, Upload, PenTool, EyeOff, AlertTriangle,
-  PanelLeft, PanelRight, Smartphone, Monitor, Maximize, Star, Sliders, Tag, Palette, Lock, Key, Clock, Minus, LayoutGrid, Globe, Calculator,
-  Columns, Box, ToggleLeft, Copy, MoreVertical, MousePointerClick, Forward
+  Trash2, GripVertical, Settings, Info, Upload, PenTool, EyeOff, AlertTriangle,
+  PanelLeft, PanelRight, Smartphone, Monitor, Star, Sliders, Tag, Palette, Lock, Clock, Minus, LayoutGrid, Globe, Calculator,
+  Columns, Forward, Copy, MousePointerClick
 } from 'lucide-react';
 import { produce } from 'immer';
 
-// ... (Keep FIELD_TYPES constant as is)
 const FIELD_TYPES: { type: FormFieldType; icon: React.ElementType; label: string; category: string }[] = [
   { type: 'text', icon: Type, label: 'Text Field', category: 'Basic' },
   { type: 'textarea', icon: AlignLeft, label: 'Text Area', category: 'Basic' },
@@ -46,20 +45,17 @@ export const FormDesigner: React.FC = () => {
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'general' | 'appearance' | 'data' | 'validation' | 'logic'>('general');
   
-  // UI State
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, fieldId: string } | null>(null);
 
-  // Drag and Drop State
   const [dragInfo, setDragInfo] = useState<{ type: 'library' | 'field', id?: string, fieldType?: FormFieldType } | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [isCopyMode, setIsCopyMode] = useState(false);
 
-  // DOM Refs
   const canvasRef = useRef<HTMLDivElement>(null);
-  const scrollIntervalRef = useRef<any>(null);
+  const scrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (nav.selectedId) {
@@ -68,7 +64,6 @@ export const FormDesigner: React.FC = () => {
     }
   }, [nav.selectedId, forms]);
 
-  // Window Resize Listener
   useEffect(() => {
       const handleResize = () => {
           if (window.innerWidth < 768 && previewMode === 'desktop') {
@@ -79,7 +74,6 @@ export const FormDesigner: React.FC = () => {
       return () => window.removeEventListener('resize', handleResize);
   }, [previewMode]);
 
-  // Keyboard Listener
   useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
           if (e.key === 'Escape') {
@@ -109,7 +103,6 @@ export const FormDesigner: React.FC = () => {
       }
   }, [selectedFieldId]);
 
-  // Auto-Scroll Cleanup
   useEffect(() => {
       return () => {
           if (scrollIntervalRef.current) clearInterval(scrollIntervalRef.current);
@@ -262,7 +255,7 @@ export const FormDesigner: React.FC = () => {
 
       if (dropIndex !== index) setDropIndex(index);
       if (e.ctrlKey !== isCopyMode) setIsCopyMode(e.ctrlKey);
-  }, [dropIndex, dragInfo, formDef.fields, isCopyMode]);
+  }, [dropIndex, dragInfo, isCopyMode]);
 
   const handleDrop = (e: React.DragEvent, index: number) => {
       e.preventDefault();
@@ -298,7 +291,6 @@ export const FormDesigner: React.FC = () => {
       setSelectedFieldId(fieldId);
   };
 
-  // Converted from inline component to render function
   const renderDropZone = (index: number) => {
       const isActive = dropIndex === index && dragInfo !== null;
       
@@ -336,7 +328,6 @@ export const FormDesigner: React.FC = () => {
     <FormPageLayout title={formDef.name || "Form Designer"} onBack={() => navigateTo('forms')} onSave={handleSave} saveLabel="Publish Form" fullWidth>
       <div className="flex h-full relative overflow-hidden" onClick={() => setContextMenu(null)}>
         
-        {/* Left: Palette */}
         <div className={`border-r border-slate-200 bg-slate-50 flex flex-col transition-all duration-300 ${leftOpen ? 'w-[260px]' : 'w-0 overflow-hidden'}`}>
            <div className="p-4 border-b border-slate-200 flex items-center justify-between shrink-0">
               <h3 className="text-xs font-bold text-slate-500 uppercase">Field Library</h3>
@@ -366,9 +357,7 @@ export const FormDesigner: React.FC = () => {
            </div>
         </div>
 
-        {/* Center: Canvas */}
         <div className="flex-1 bg-slate-100 flex flex-col min-w-0 relative">
-           {/* Canvas Toolbar */}
            <div className="h-10 bg-white border-b border-slate-200 flex items-center justify-between px-4 shrink-0 z-10">
               <div className="flex items-center gap-2">
                  {!leftOpen && <button onClick={() => setLeftOpen(true)} className="p-1.5 hover:bg-slate-50 rounded text-slate-500" title="Open Library"><PanelLeft size={16}/></button>}
@@ -390,7 +379,6 @@ export const FormDesigner: React.FC = () => {
               </div>
            </div>
 
-           {/* Canvas Scroll Area */}
            <div 
              ref={canvasRef}
              className="flex-1 overflow-y-auto p-8 relative scroll-smooth"
@@ -429,7 +417,6 @@ export const FormDesigner: React.FC = () => {
                  )}
 
                  <div className={`flex flex-wrap content-start ${previewMode === 'mobile' ? 'px-4 pb-4' : 'gap-y-0'}`}>
-                    {/* Initial Drop Zone */}
                     {renderDropZone(0)}
 
                     {formDef.fields.map((field, idx) => (
@@ -458,7 +445,6 @@ export const FormDesigner: React.FC = () => {
                                     </div>
                                 </div>
                                 
-                                {/* Interactive Preview of the Field */}
                                 <div className="w-full pointer-events-none opacity-80">
                                     {field.type === 'divider' ? (
                                         <div className="w-full my-4 flex items-center gap-2">
@@ -487,7 +473,6 @@ export const FormDesigner: React.FC = () => {
                                 {field.id === selectedFieldId && <div className="absolute -left-[1px] top-0 bottom-0 w-1 bg-blue-500 rounded-l-sm"></div>}
                             </div>
                         </div>
-                        {/* Drop Zone After Item */}
                         {renderDropZone(idx + 1)}
                     </React.Fragment>
                     ))}
@@ -495,7 +480,6 @@ export const FormDesigner: React.FC = () => {
               </div>
            </div>
            
-           {/* Context Menu Overlay */}
            {contextMenu && (
                <div 
                  className="fixed z-50 bg-white border border-slate-200 rounded-sm shadow-xl min-w-[160px] py-1 flex flex-col animate-fade-in"
@@ -509,7 +493,6 @@ export const FormDesigner: React.FC = () => {
            )}
         </div>
 
-        {/* Right: Properties */}
         <div className={`border-l border-slate-200 bg-white flex flex-col shadow-xl z-10 shrink-0 transition-all duration-300 ${rightOpen ? 'w-[320px]' : 'w-0 overflow-hidden'}`}>
            <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
               <h3 className="text-xs font-bold text-slate-800 uppercase flex items-center gap-2">
@@ -533,7 +516,6 @@ export const FormDesigner: React.FC = () => {
                 </div>
 
                 <div className="p-5 space-y-5 overflow-y-auto flex-1">
-                    {/* --- GENERAL TAB --- */}
                     {activeTab === 'general' && (
                         <>
                             <NexFormGroup label="Field Label">
@@ -566,7 +548,6 @@ export const FormDesigner: React.FC = () => {
                         </>
                     )}
 
-                    {/* --- APPEARANCE TAB --- */}
                     {activeTab === 'appearance' && (
                         <div className="space-y-5">
                             <NexFormGroup label="Column Width">
@@ -604,7 +585,6 @@ export const FormDesigner: React.FC = () => {
                         </div>
                     )}
 
-                    {/* --- DATA TAB --- */}
                     {activeTab === 'data' && (
                         <div className="space-y-5">
                             {(selectedField.type === 'select' || selectedField.type === 'tags') && (
@@ -653,7 +633,6 @@ export const FormDesigner: React.FC = () => {
                         </div>
                     )}
 
-                    {/* --- VALIDATION TAB --- */}
                     {activeTab === 'validation' && (
                         <div className="space-y-5">
                             {(selectedField.type === 'number' || selectedField.type === 'slider' || selectedField.type === 'rating' || selectedField.type === 'text') && (
@@ -690,10 +669,8 @@ export const FormDesigner: React.FC = () => {
                         </div>
                     )}
 
-                    {/* --- LOGIC TAB --- */}
                     {activeTab === 'logic' && (
                         <div className="space-y-5">
-                            {/* Behaviors */}
                             <div className="space-y-2 mb-4 p-3 bg-slate-50 rounded-sm border border-slate-200">
                                 <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Behavior</h4>
                                 <label className="flex items-center justify-between cursor-pointer">

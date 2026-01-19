@@ -2,27 +2,22 @@ import React, { memo, useMemo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { ProcessStep } from '../../types';
 import { getStepTypeMetadata } from './designerUtils';
-import { FunctionSquare, RefreshCw, Code, AlertCircle, Layers, ShieldAlert } from 'lucide-react';
+import { FunctionSquare, RefreshCw, Code, Layers, ShieldAlert } from 'lucide-react';
 import { validateStepConfiguration } from './stepSchemas';
 
-// Define the custom data interface
 interface CustomNodeData {
   step: ProcessStep;
-  // We can pass visual flags via data if needed, but 'selected' comes from props
 }
 
-// React Flow passes `selected` as a direct prop to custom nodes
 export const NodeComponent = memo(({ data, selected }: NodeProps<CustomNodeData>) => {
   const { step } = data;
   const { icon: Icon, color } = getStepTypeMetadata(step.type);
   
-  // Logic Detection
   const hasRule = !!step.businessRuleId;
   const hasScript = !!step.onEntryAction || !!step.onExitAction;
   const hasRetry = step.retryPolicy?.enabled;
   const isLoop = step.isMultiInstance;
   
-  // Guard Validation: Check if the step meets its schema requirements
   const isValid = useMemo(() => validateStepConfiguration(step.type, step.data), [step.type, step.data]);
 
   return (
@@ -37,7 +32,6 @@ export const NodeComponent = memo(({ data, selected }: NodeProps<CustomNodeData>
         backgroundColor: 'var(--component-bg)',
       }}
     >
-      {/* React Flow Handles */}
       <Handle 
         type="target" 
         position={Position.Left} 
@@ -45,7 +39,6 @@ export const NodeComponent = memo(({ data, selected }: NodeProps<CustomNodeData>
         style={{ borderColor: 'var(--component-bg)', borderWidth: '2px' }}
       />
       
-      {/* Main Body */}
       <div className="flex items-center gap-3 px-3 pt-3 pb-1 flex-1 overflow-hidden pointer-events-none">
         <div className={`w-8 h-8 flex items-center justify-center rounded-base bg-subtle border border-default relative shrink-0`}>
           <Icon size={16} className={color.replace('text-', 'text-opacity-80 text-')} />
@@ -66,7 +59,6 @@ export const NodeComponent = memo(({ data, selected }: NodeProps<CustomNodeData>
         </div>
       </div>
 
-      {/* Logic Badges Bar */}
       {(hasRule || hasScript || hasRetry || isLoop) && (
           <div className="px-3 pb-2 flex gap-1.5 items-center pointer-events-none">
               {hasRule && (

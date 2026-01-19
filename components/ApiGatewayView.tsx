@@ -1,9 +1,8 @@
-
 import React, { useState, useMemo } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { 
-  Globe, Server, Key, Activity, Play, Copy, RefreshCw, 
-  Database, Lock, Zap, CheckCircle, XCircle, Terminal, Plus
+  Globe, Server, Activity, Play, Copy, RefreshCw, 
+  Database, Terminal, Plus
 } from 'lucide-react';
 import { NexCard, NexButton, NexBadge } from './shared/NexUI';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -39,7 +38,6 @@ export const ApiGatewayView: React.FC = () => {
   const [testResponse, setTestResponse] = useState<string | null>(null);
   const [isTesting, setIsTesting] = useState(false);
 
-  // Combine Rules and Tables into a single registry list
   const registry = useMemo(() => {
     const rItems = rules.map(r => ({ ...r, type: 'Rule' as const, method: 'POST', endpoint: `/v1/execute/rule/${r.id}` }));
     const tItems = decisionTables.map(t => ({ ...t, type: 'Table' as const, method: 'POST', endpoint: `/v1/execute/table/${t.id}` }));
@@ -51,9 +49,7 @@ export const ApiGatewayView: React.FC = () => {
     addNotification('info', 'Endpoint URL copied to clipboard');
   };
 
-  // Local interpreter for Decision Tables since Context might only have Rule logic
-  // (Simplified for demo, real implementation would be in Context)
-  const evaluateTableLocally = (tableId: string, input: any) => {
+  const evaluateTableLocally = (tableId: string, input: Record<string, any>) => {
     const table = decisionTables.find(t => t.id === tableId);
     if (!table) return { error: 'Table not found' };
 
@@ -78,7 +74,7 @@ export const ApiGatewayView: React.FC = () => {
         }
 
         if (match) {
-            const result: any = { matched: true, rowId: table.rules.indexOf(row) + 1 };
+            const result: Record<string, any> = { matched: true, rowId: table.rules.indexOf(row) + 1 };
             table.outputs.forEach((outCol, idx) => {
                 result[outCol] = row[table.inputs.length + idx];
             });
@@ -97,10 +93,9 @@ export const ApiGatewayView: React.FC = () => {
         const payload = JSON.parse(testPayload);
         let result;
         
-        await new Promise(r => setTimeout(r, 600)); // Sim Network Latency
+        await new Promise(r => setTimeout(r, 600));
 
         if (selectedEndpoint.type === 'Rule') {
-            // WIRE: Call the actual context logic
             result = await executeRules(selectedEndpoint.id, payload);
         } else {
             result = evaluateTableLocally(selectedEndpoint.id, payload);
@@ -116,7 +111,6 @@ export const ApiGatewayView: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full bg-app animate-fade-in pb-20">
-      {/* Header */}
       <header className="bg-panel border-b border-default px-6 py-4 flex items-center justify-between sticky top-0 z-10">
         <div>
           <h1 className="text-xl font-bold text-primary flex items-center gap-2">
@@ -138,10 +132,7 @@ export const ApiGatewayView: React.FC = () => {
       </header>
 
       <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
-        {/* Main Content Area */}
         <main className="flex-1 flex flex-col min-w-0 overflow-y-auto p-6">
-           
-           {/* Traffic Chart */}
            <NexCard className="mb-6 p-0 overflow-hidden shrink-0">
               <div className="px-4 py-3 border-b border-subtle bg-subtle flex justify-between items-center">
                  <h3 className="text-xs font-bold text-secondary uppercase flex items-center gap-2">
@@ -168,7 +159,6 @@ export const ApiGatewayView: React.FC = () => {
               </div>
            </NexCard>
 
-           {/* Tabs */}
            <div className="flex border-b border-default mb-4">
               {['endpoints', 'clients', 'logs'].map(tab => (
                  <button 
@@ -181,10 +171,8 @@ export const ApiGatewayView: React.FC = () => {
               ))}
            </div>
 
-           {/* Tab Content */}
            {activeTab === 'endpoints' && (
                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full min-h-0">
-                   {/* Endpoint List */}
                    <div className="lg:col-span-1 border border-default rounded-sm bg-white flex flex-col overflow-hidden">
                        <div className="p-3 border-b border-subtle bg-slate-50">
                            <h4 className="text-xs font-bold text-slate-700 uppercase">Available Routes</h4>
@@ -207,7 +195,6 @@ export const ApiGatewayView: React.FC = () => {
                        </div>
                    </div>
 
-                   {/* Test Console */}
                    <div className="lg:col-span-2 border border-default rounded-sm bg-white flex flex-col overflow-hidden">
                        {selectedEndpoint ? (
                            <>
@@ -232,7 +219,6 @@ export const ApiGatewayView: React.FC = () => {
                                    </div>
                                    <div className="flex justify-between items-center">
                                        <div className="flex gap-2">
-                                            {/* Auth Header Mock */}
                                             <div className="px-2 py-1 bg-slate-100 rounded-sm text-[10px] font-mono text-slate-600 border border-slate-200">Authorization: Bearer sk_live_...</div>
                                        </div>
                                        <NexButton variant="primary" icon={Play} onClick={handleTest} disabled={isTesting}>

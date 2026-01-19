@@ -1,18 +1,21 @@
-
 import React, { useState, ChangeEvent, useMemo } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { BusinessRule, RuleCondition, RuleAction, DecisionTable, Condition, ConditionGroup } from '../types';
 import { 
   FunctionSquare, Plus, BrainCircuit, Table, TestTube, Trash2, Save, 
   Upload, Play, GitMerge, X, 
-  Activity, Tag, ArrowUp, ArrowDown, Download, Maximize2, Sparkles, MessageSquare, Search
+  Activity, Tag, ArrowUp, ArrowDown, Download, Maximize2, Sparkles, MessageSquare, Search, LucideIcon
 } from 'lucide-react';
 import { produce } from 'immer';
 import { NexButton, NexBadge } from './shared/NexUI';
 import { explainRuleLogic } from '../services/geminiService';
 
-// --- Reusable UI Components ---
-const RuleInput = ({ value, onChange, ...props }: any) => (
+interface RuleInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+    value: string | number;
+    onChange: (val: string) => void;
+}
+
+const RuleInput: React.FC<RuleInputProps> = ({ value, onChange, ...props }) => (
   <input 
     value={value} 
     onChange={e => onChange(e.target.value)} 
@@ -21,7 +24,7 @@ const RuleInput = ({ value, onChange, ...props }: any) => (
   />
 );
 
-const RuleSelect = ({ value, onChange, children }: any) => (
+const RuleSelect = ({ value, onChange, children }: { value: string, onChange: (val: string) => void, children?: React.ReactNode }) => (
   <select 
     value={value} 
     onChange={e => onChange(e.target.value)} 
@@ -31,7 +34,15 @@ const RuleSelect = ({ value, onChange, children }: any) => (
   </select>
 );
 
-const IconButton = ({ icon: Icon, onClick, tooltip, className, disabled }: any) => (
+interface IconButtonProps {
+    icon: LucideIcon;
+    onClick: () => void;
+    tooltip: string;
+    className?: string;
+    disabled?: boolean;
+}
+
+const IconButton: React.FC<IconButtonProps> = ({ icon: Icon, onClick, tooltip, className, disabled }) => (
     <button 
       onClick={onClick} 
       title={tooltip} 
@@ -54,7 +65,6 @@ const generateConditionSummary = (condition: Condition): string => {
     return `"${condition.fact}" ${operatorToText(condition.operator)} "${condition.value}"`;
 };
 
-// Calculate Complexity Score (Depth + Count)
 const calculateComplexity = (condition: Condition, depth = 1): number => {
     if ('children' in condition) {
         return condition.children.reduce((acc, child) => acc + calculateComplexity(child, depth + 1), 0) + (depth > 3 ? 5 : 1);
@@ -62,21 +72,18 @@ const calculateComplexity = (condition: Condition, depth = 1): number => {
     return 1;
 };
 
-// --- Test Case Interface ---
 interface TestCase {
     id: string;
     name: string;
-    input: string; // JSON string
+    input: string; 
 }
 
-// --- Live Test Panel Component ---
 const LiveTestPanel = ({ ruleId, rules, decisionTables }: { ruleId: string | null, rules: BusinessRule[], decisionTables: DecisionTable[] }) => {
     const { executeRules } = useBPM();
     const [inputData, setInputData] = useState('{\n  "invoice": {\n    "amount": 7500,\n    "region": "EMEA"\n  }\n}');
     const [output, setOutput] = useState<any>(null);
     const [isRunning, setIsRunning] = useState(false);
     
-    // Saved Test Cases State
     const [testCases, setTestCases] = useState<TestCase[]>([
         { id: 'tc-1', name: 'Standard EMEA Invoice', input: '{\n  "invoice": {\n    "amount": 7500,\n    "region": "EMEA"\n  }\n}' },
         { id: 'tc-2', name: 'High Value Fraud Check', input: '{\n  "invoice": {\n    "amount": 99000,\n    "isNew": true\n  }\n}' }
@@ -114,8 +121,6 @@ const LiveTestPanel = ({ ruleId, rules, decisionTables }: { ruleId: string | nul
             </div>
             
             <div className="p-4 space-y-6 flex-1 flex flex-col min-h-0 overflow-y-auto">
-                
-                {/* Saved Tests */}
                 <div className="space-y-2">
                     <h4 className="text-xs font-bold text-secondary uppercase">Test Suite Library</h4>
                     <div className="space-y-1">
@@ -163,7 +168,6 @@ const LiveTestPanel = ({ ruleId, rules, decisionTables }: { ruleId: string | nul
     );
 };
 
-// --- Condition Components ---
 const ConditionEditor = ({ condition, onUpdate, onDelete }: { condition: RuleCondition, onUpdate: (c: RuleCondition) => void, onDelete: () => void }) => (
     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2 bg-subtle border border-default rounded-base">
         <div className="flex-1">
@@ -237,7 +241,6 @@ const ConditionGroupEditor = ({ group, onUpdate, path }: { group: ConditionGroup
     );
 };
 
-// --- Visual Rule Builder ---
 interface RuleBuilderProps {
   rule: BusinessRule;
   onSave: (r: BusinessRule) => void;
@@ -255,7 +258,6 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({ rule, onSave, onDelete, isFul
     const summary = useMemo(() => generateConditionSummary(localRule.conditions), [localRule.conditions]);
     const complexity = useMemo(() => calculateComplexity(localRule.conditions), [localRule.conditions]);
 
-    // Calculate Dependencies
     const usedInProcesses = useMemo(() => {
         return processes.filter(p => 
             p.steps.some(s => s.businessRuleId === rule.id || s.data?.ruleId === rule.id)
@@ -416,7 +418,6 @@ const BotIcon = ({ className }: { className?: string }) => (
     <Sparkles size={14} className={className} />
 );
 
-// --- Visual Table Builder ---
 interface TableBuilderProps {
   table: DecisionTable;
   onSave: (t: DecisionTable) => void;
@@ -467,7 +468,6 @@ const TableBuilder: React.FC<TableBuilderProps> = ({ table, onSave, onDelete, is
         reader.onload = (evt) => {
             const text = evt.target?.result as string;
             const rows = text.split('\n').filter(r => r.trim());
-            // Skip header, map rest
             const newRules = rows.slice(1).map(r => r.split(',').map(c => c.trim()));
             updateTable(d => { d.rules = newRules; });
         };
@@ -538,7 +538,6 @@ const TableBuilder: React.FC<TableBuilderProps> = ({ table, onSave, onDelete, is
     );
 };
 
-// --- Main View ---
 export const RulesEngineView: React.FC = () => {
     const { rules, decisionTables, saveRule, deleteRule, saveDecisionTable, deleteDecisionTable, reseedSystem, navigateTo } = useBPM();
     const [selectedAsset, setSelectedAsset] = useState<{type: 'rule' | 'table', id: string} | null>(null);
@@ -597,7 +596,6 @@ export const RulesEngineView: React.FC = () => {
 
     return (
         <div className="h-content-area flex flex-col md:flex-row bg-panel rounded-base border border-default overflow-hidden shadow-sm animate-fade-in">
-            {/* Assets Sidebar */}
             <aside className="w-full md:w-[var(--prop-panel-width)] bg-subtle border-r border-default flex flex-col shrink-0">
                 <div className="p-3 border-b border-default bg-panel">
                     <div className="flex items-center justify-between mb-2">
@@ -675,7 +673,6 @@ export const RulesEngineView: React.FC = () => {
                 </div>
             </aside>
 
-            {/* Main Builder Area */}
             <main className="flex-1 flex flex-col min-w-0 bg-panel">
                 <div className="flex-1 overflow-y-auto no-scrollbar">
                     {selectedAsset && currentAsset ? (
@@ -691,7 +688,6 @@ export const RulesEngineView: React.FC = () => {
                 </div>
             </main>
 
-            {/* Test Sidebar */}
             <aside className="w-full md:w-[var(--prop-panel-width)] border-l border-default shrink-0 hidden md:block">
                 <LiveTestPanel ruleId={selectedAsset?.id || null} rules={rules} decisionTables={decisionTables} />
             </aside>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ProcessStepType } from '../../types';
 import { getStepTypeMetadata, STEP_CATEGORIES } from './designerUtils';
-import { Plus, ChevronDown, ChevronRight, Search, GripVertical } from 'lucide-react';
+import { Plus, ChevronDown, ChevronRight, Search } from 'lucide-react';
 
 interface PaletteItemProps {
   type: ProcessStepType;
@@ -11,7 +11,7 @@ interface PaletteItemProps {
 const PaletteItem: React.FC<PaletteItemProps> = ({ type, onAdd }) => {
   const { icon: Icon, color, defaultName: label } = getStepTypeMetadata(type);
   
-  const onDragStart = (event: React.DragEvent, nodeType: string) => {
+  const onDragStart = (event: React.DragEvent<HTMLDivElement>, nodeType: string) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
     event.dataTransfer.effectAllowed = 'move';
   };
@@ -46,33 +46,20 @@ export const PaletteSidebar = ({ onAddNode }: { onAddNode: (type: ProcessStepTyp
     setOpenCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
   };
 
-  // Group steps by category based on metadata
   const groupedSteps: Record<string, ProcessStepType[]> = {};
   
   const allTypes: ProcessStepType[] = [
-    // CORE
     'start', 'end', 'user-task', 'service-task', 'sub-process', 'script-task',
-    // GATEWAYS
     'exclusive-gateway', 'parallel-gateway', 'inclusive-gateway', 'complex-gateway', 'event-gateway',
-    // EVENTS
     'timer-event', 'message-event', 'signal-event', 'error-event', 'escalation-event', 'compensation-event',
-    // COMMUNICATION
     'email-send', 'slack-post', 'teams-message', 'sms-twilio', 'whatsapp-msg', 'push-notification', 'sendgrid-email', 'mailchimp-add',
-    // DOCUMENTS
     'pdf-generate', 'doc-sign', 'ocr-extract', 's3-upload', 'gdrive-save', 'sharepoint-store', 'dropbox-save', 'template-render',
-    // CRM
     'salesforce-create', 'salesforce-update', 'hubspot-add', 'zoho-lead', 'pipedrive-deal', 'dynamics-record', 'zendesk-ticket', 'intercom-msg',
-    // DEV
     'jira-issue', 'github-pr', 'gitlab-merge', 'bitbucket-commit', 'trello-card', 'asana-task', 'linear-issue', 'pagerduty-alert',
-    // CLOUD
     'aws-lambda', 'azure-func', 'gcp-function', 'kubernetes-job', 'vm-provision', 'db-provision', 'dns-update', 'cdn-purge',
-    // DATA
     'sql-query', 'rest-api', 'graphql-query', 'soap-call', 'kafka-publish', 'rabbit-mq', 'ftp-upload', 'csv-parse', 'xml-transform', 'json-map',
-    // AI
     'ai-text-gen', 'ai-summarize', 'ai-sentiment', 'ai-vision', 'ai-translate', 'ai-classify', 'automl-predict', 'vector-embed',
-    // FINANCE
     'stripe-charge', 'paypal-payout', 'quickbooks-invoice', 'xero-bill', 'sap-posting', 'oracle-ledger', 'expensify-report',
-    // LOGIC
     'business-rule', 'decision-table', 'wait-state', 'terminate-end', 'loop-container'
   ];
 

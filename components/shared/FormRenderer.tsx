@@ -62,8 +62,6 @@ export const validateForm = (form: FormDefinition, data: Record<string, any>): R
     return errors;
 };
 
-// --- Extracted Components (Must be outside FormRenderer) ---
-
 const FieldWrapper: React.FC<{ field: FormField; children: React.ReactNode }> = ({ field, children }) => (
     <div className="relative w-full">
         {field.appearance?.prefix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">{field.appearance.prefix}</span>}
@@ -111,12 +109,18 @@ const SignatureField = ({ value, onChange, readOnly }: { value: string, onChange
     );
 };
 
-const FieldInput: React.FC<{ field: FormField; value: any; onChange: (k: string, v: any) => void; readOnly?: boolean }> = ({ field, value, onChange, readOnly }) => {
+type FieldValue = string | number | boolean | string[] | undefined;
+
+const FieldInput: React.FC<{ field: FormField; value: FieldValue; onChange: (k: string, v: FieldValue) => void; readOnly?: boolean }> = ({ field, value, onChange, readOnly }) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+      onChange(field.key, e.target.value);
+  };
+
   const commonProps = {
     className: `prop-input w-full ${readOnly ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-dashed' : ''} ${field.appearance?.prefix ? 'pl-8' : ''} ${field.appearance?.suffix ? 'pr-12' : ''}`,
     disabled: readOnly,
-    value: value,
-    onChange: (e: any) => onChange(field.key, e.target.value),
+    value: typeof value === 'boolean' ? '' : (value as string | number | string[]), // Safe casting for standard inputs
+    onChange: handleChange,
     placeholder: field.placeholder,
     readOnly: readOnly
   };
@@ -174,13 +178,13 @@ const FieldInput: React.FC<{ field: FormField; value: any; onChange: (k: string,
       );
 
     case 'signature':
-        return <SignatureField value={value} onChange={(v) => onChange(field.key, v)} readOnly={readOnly} />;
+        return <SignatureField value={value as string} onChange={(v) => onChange(field.key, v)} readOnly={readOnly} />;
 
     case 'rating':
         return (
             <div className="flex gap-1">
                 {[1,2,3,4,5].map(v => (
-                    <button type="button" key={v} onClick={() => !readOnly && onChange(field.key, v)} className={`transition-all hover:scale-110 ${value >= v ? 'text-amber-400' : 'text-slate-200'}`}>
+                    <button type="button" key={v} onClick={() => !readOnly && onChange(field.key, v)} className={`transition-all hover:scale-110 ${Number(value) >= v ? 'text-amber-400' : 'text-slate-200'}`}>
                         <Star fill="currentColor" size={24} />
                     </button>
                 ))}
@@ -194,20 +198,20 @@ const FieldInput: React.FC<{ field: FormField; value: any; onChange: (k: string,
                     type="range" 
                     min={field.validation?.min || 0} 
                     max={field.validation?.max || 100} 
-                    value={value || 0} 
+                    value={Number(value) || 0} 
                     onChange={e => onChange(field.key, Number(e.target.value))}
                     disabled={readOnly}
                     className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600" 
                 />
-                <span className="text-sm font-mono font-bold text-slate-700 w-8 text-right">{value || 0}</span>
+                <span className="text-sm font-mono font-bold text-slate-700 w-8 text-right">{Number(value) || 0}</span>
             </div>
         );
 
     case 'color':
         return (
             <div className="flex items-center gap-2">
-                <input type="color" value={value || '#000000'} onChange={e => onChange(field.key, e.target.value)} disabled={readOnly} className="h-9 w-16 p-0 border-0 rounded-sm cursor-pointer"/>
-                <input type="text" value={value || ''} onChange={e => onChange(field.key, e.target.value)} className="prop-input flex-1" placeholder="#RRGGBB" disabled={readOnly}/>
+                <input type="color" value={(value as string) || '#000000'} onChange={e => onChange(field.key, e.target.value)} disabled={readOnly} className="h-9 w-16 p-0 border-0 rounded-sm cursor-pointer"/>
+                <input type="text" value={(value as string) || ''} onChange={e => onChange(field.key, e.target.value)} className="prop-input flex-1" placeholder="#RRGGBB" disabled={readOnly}/>
             </div>
         );
 
@@ -227,7 +231,8 @@ const FieldInput: React.FC<{ field: FormField; value: any; onChange: (k: string,
                         className="prop-input" 
                         onChange={e => { 
                             const val = e.target.value; 
-                            if(val && !value?.includes(val)) onChange(field.key, [...(value||[]), val]); 
+                            const currentTags = Array.isArray(value) ? value : [];
+                            if(val && !currentTags.includes(val)) onChange(field.key, [...currentTags, val]); 
                             e.target.value = '';
                         }}
                     >
@@ -246,7 +251,6 @@ const FieldInput: React.FC<{ field: FormField; value: any; onChange: (k: string,
 export const FormRenderer: React.FC<FormRendererProps> = ({ form, data, onChange, readOnly, errors = {} }) => {
   const [currentStep, setCurrentStep] = useState(0);
 
-  // Group fields into steps based on Dividers
   const steps = useMemo(() => {
       const grouped: FormField[][] = [];
       let currentGroup: FormField[] = [];
@@ -254,20 +258,18 @@ export const FormRenderer: React.FC<FormRendererProps> = ({ form, data, onChange
       form.fields.forEach(field => {
           if (field.type === 'divider' && form.layoutMode === 'wizard') {
               if (currentGroup.length > 0) grouped.push(currentGroup);
-              currentGroup = []; // Divider itself is consumed as a break
+              currentGroup = [];
           } else {
               currentGroup.push(field);
           }
       });
       if (currentGroup.length > 0) grouped.push(currentGroup);
       
-      // If single page mode or no dividers, just one group
       if (form.layoutMode !== 'wizard' || grouped.length === 0) return [form.fields];
       
       return grouped;
   }, [form.fields, form.layoutMode]);
 
-  // Check visibility for all fields
   const isFieldVisible = (field: FormField): boolean => {
       if (!field.visibility) return true;
       const { targetFieldKey, operator, value } = field.visibility;
@@ -283,11 +285,9 @@ export const FormRenderer: React.FC<FormRendererProps> = ({ form, data, onChange
       }
   };
 
-  // Perform Calculations (Basic implementation)
   useEffect(() => {
       form.fields.forEach(field => {
           if (field.behavior?.calculation) {
-              // Very simple parser: {{var}} replacement then eval (dangerous in prod, good for demo)
               let calc = field.behavior.calculation;
               let hasVar = false;
               for(const key in data) {
@@ -311,7 +311,6 @@ export const FormRenderer: React.FC<FormRendererProps> = ({ form, data, onChange
 
   return (
     <div className="flex flex-col h-full">
-      {/* Wizard Progress Header */}
       {form.layoutMode === 'wizard' && steps.length > 1 && (
           <div className="flex items-center justify-between mb-6 px-2">
               {steps.map((_, idx) => (
@@ -358,7 +357,7 @@ export const FormRenderer: React.FC<FormRendererProps> = ({ form, data, onChange
                         label={field.label} 
                         helpText={field.required ? undefined : '(Optional)'}
                     >
-                        <FieldInput field={field} value={data[field.key] || ''} onChange={onChange} readOnly={isDisabled} />
+                        <FieldInput field={field} value={data[field.key]} onChange={onChange} readOnly={isDisabled} />
                     </NexFormGroup>
                     
                     {field.helpText && (
@@ -378,7 +377,6 @@ export const FormRenderer: React.FC<FormRendererProps> = ({ form, data, onChange
         })}
       </div>
 
-      {/* Wizard Footer */}
       {form.layoutMode === 'wizard' && steps.length > 1 && (
           <div className="flex justify-between pt-4 border-t border-slate-200 mt-4">
               <NexButton 
