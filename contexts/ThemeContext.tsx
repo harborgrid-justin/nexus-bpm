@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 type Density = 'compact' | 'comfortable' | 'spacious';
@@ -48,14 +47,33 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     // 3. Component Styling
     root.style.setProperty('--radius-base', `${radius}px`);
 
-    // 4. Density (Affects specific spacing variables)
+    // 4. Density & Spacing (Affects specific spacing variables)
     const densityMap = {
-      compact: { space: '0.75rem', text: '12px' },
-      comfortable: { space: '1rem', text: '13px' },
-      spacious: { space: '1.5rem', text: '14px' }
+      compact: { 
+        space: '0.5rem', 
+        text: '12px',
+        padding: '16px',
+        gap: '12px' 
+      },
+      comfortable: { 
+        space: '0.75rem', 
+        text: '13px', 
+        padding: '32px', 
+        gap: '24px' 
+      },
+      spacious: { 
+        space: '1.25rem', 
+        text: '14px', 
+        padding: '48px', 
+        gap: '40px' 
+      }
     };
-    root.style.setProperty('--space-base', densityMap[density].space);
-    root.style.setProperty('--text-base', densityMap[density].text);
+    
+    const d = densityMap[density];
+    root.style.setProperty('--space-base', d.space);
+    root.style.setProperty('--text-base', d.text);
+    root.style.setProperty('--layout-padding', d.padding);
+    root.style.setProperty('--layout-gap', d.gap);
 
   }, [scale, sidebarWidth, headerHeight, radius, density]);
 

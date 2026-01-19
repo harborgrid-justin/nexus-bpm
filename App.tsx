@@ -3,7 +3,8 @@ import {
   LayoutDashboard, CheckSquare, PenTool, BarChart3, Menu, X, Bell, 
   Search, Layers, Settings as SettingsIcon, ShieldCheck, 
   Fingerprint, Briefcase, FunctionSquare, Info, CheckCircle, AlertCircle, ChevronRight, Loader2,
-  Plus, Zap, MoreHorizontal, UserCircle, Sparkles, ChevronDown, Database, LogIn, Command, Home, Calendar, Globe, FormInput
+  Plus, Zap, MoreHorizontal, UserCircle, Sparkles, ChevronDown, Database, LogIn, Command, Home, Calendar, Globe, FormInput,
+  PanelLeftClose, PanelLeftOpen, LogOut
 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { TaskInbox } from './components/TaskInbox';
@@ -61,20 +62,50 @@ const ToastContainer = () => {
   );
 };
 
-const NavItem = ({ view, icon: Icon, label, active }: { view: ViewState; icon: React.ElementType; label: string; active: boolean }) => {
+const NavItem = ({ view, icon: Icon, label, active, collapsed }: { view: ViewState; icon: React.ElementType; label: string; active: boolean; collapsed: boolean }) => {
   const { navigateTo } = useBPM();
+  
   return (
     <button
       onClick={() => navigateTo(view)}
-      className={`w-full flex items-center gap-3 px-4 py-2 text-base font-medium transition-colors border-l-4 ${
-        active
-          ? 'bg-blue-50 text-blue-700 border-blue-600'
-          : 'text-secondary hover:bg-subtle hover:text-primary border-transparent'
-      }`}
+      title={collapsed ? label : undefined}
+      className={`
+        relative flex items-center transition-all duration-200 ease-out group outline-none
+        ${collapsed ? 'justify-center w-10 h-10 mx-auto rounded-xl' : 'w-full px-3 py-2.5 mx-0 rounded-lg'}
+        ${active 
+          ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20' 
+          : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}
+      `}
     >
-      <Icon size={16} className={active ? 'text-blue-600' : 'text-tertiary'} />
-      <span className="flex-1 text-left">{label}</span>
+      <Icon 
+        size={20} 
+        strokeWidth={active ? 2.5 : 2}
+        className={`transition-transform duration-200 shrink-0 ${!collapsed && 'mr-3'} ${active ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'}`} 
+      />
+      
+      {!collapsed && (
+        <span className={`text-sm font-medium tracking-tight truncate flex-1 text-left ${active ? 'font-semibold' : ''}`}>
+          {label}
+        </span>
+      )}
+      
+      {/* Active Indicator for collapsed state */}
+      {collapsed && active && (
+        <span className="absolute right-0.5 top-0.5 w-2 h-2 bg-blue-400 border-2 border-white rounded-full"></span>
+      )}
     </button>
+  );
+};
+
+const NavGroup = ({ title, children, collapsed }: { title: string, children?: React.ReactNode, collapsed: boolean }) => {
+  if (collapsed) {
+    return <div className="space-y-1 mb-2 pt-2 border-t border-slate-100 first:border-0">{children}</div>;
+  }
+  return (
+    <div className="mb-6 px-3">
+      <div className="px-3 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{title}</div>
+      <div className="space-y-0.5">{children}</div>
+    </div>
   );
 };
 
@@ -91,7 +122,10 @@ const Breadcrumbs = ({ nav }: { nav: { view: ViewState, selectedId?: string } })
     const getViewName = (v: string) => v.charAt(0).toUpperCase() + v.slice(1).replace(/-/g, ' ');
 
     return (
-        <div className="flex items-center gap-2 px-6 py-2 bg-subtle border-b border-default text-xs text-secondary">
+        <div 
+          className="flex items-center gap-2 py-2 bg-subtle border-b border-default text-xs text-secondary"
+          style={{ paddingLeft: 'var(--layout-padding)', paddingRight: 'var(--layout-padding)' }}
+        >
             <Home size={12} className="text-tertiary"/>
             <ChevronRight size={10} className="text-tertiary"/>
             <span className="font-medium text-primary">{getViewName(nav.view)}</span>
@@ -110,6 +144,7 @@ const Breadcrumbs = ({ nav }: { nav: { view: ViewState, selectedId?: string } })
 const AppContent: React.FC = () => {
   const { nav, navigateTo, viewingInstanceId, closeInstanceViewer, currentUser, loading, reseedSystem, notifications } = useBPM();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const renderCurrentView = () => {
     switch (nav.view) {
@@ -184,83 +219,113 @@ const AppContent: React.FC = () => {
   return (
     <div className="flex h-screen bg-app overflow-hidden">
       {/* Sidebar - Enterprise Style */}
-      {/* Dynamic width is handled by w-sidebar class mapped to var(--sidebar-width) */}
-      <aside className={`fixed inset-y-0 left-0 z-dropdown w-sidebar bg-panel border-r border-default transform transition-transform duration-200 lg:translate-x-0 lg:static flex flex-col ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="h-header flex items-center px-4 border-b border-default bg-subtle shrink-0">
-          <div className="w-6 h-6 bg-blue-700 rounded-base flex items-center justify-center text-white font-bold text-xs mr-3">N</div>
-          <span className="text-sm font-bold text-primary tracking-tight truncate">NexFlow Enterprise</span>
-          <button onClick={() => setMobileMenuOpen(false)} className="lg:hidden ml-auto text-secondary"><X size={18}/></button>
+      <aside 
+        className={`
+          fixed inset-y-0 left-0 z-dropdown bg-panel border-r border-default flex flex-col 
+          transform transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1.0)] 
+          ${mobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0 lg:static'}
+        `}
+        style={{ width: sidebarCollapsed ? '72px' : 'var(--sidebar-width)' }}
+      >
+        <div 
+          className={`h-header flex items-center ${sidebarCollapsed ? 'justify-center px-0' : 'px-5'} border-b border-default bg-subtle shrink-0 transition-all overflow-hidden`}
+          style={{ gap: 'var(--space-base)' }}
+        >
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm shadow-blue-600/20 shrink-0">N</div>
+          <div className={`overflow-hidden transition-all duration-300 ${sidebarCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
+            <h1 className="text-sm font-bold text-primary tracking-tight leading-none">NexFlow</h1>
+            <p className="text-[10px] text-secondary font-semibold mt-0.5 tracking-wide">ENTERPRISE</p>
+          </div>
+          {!sidebarCollapsed && (
+            <button onClick={() => setMobileMenuOpen(false)} className="lg:hidden ml-auto text-secondary hover:text-primary"><X size={18}/></button>
+          )}
         </div>
         
-        <nav className="flex-1 overflow-y-auto py-4 space-y-6">
-          <div>
-            <div className="px-4 mb-2 text-xs font-bold text-tertiary uppercase tracking-wider">Operations</div>
-            <NavItem view="dashboard" icon={LayoutDashboard} label="Overview" active={nav.view === 'dashboard'} />
-            <NavItem view="inbox" icon={CheckSquare} label="Task List" active={nav.view === 'inbox'} />
-            <NavItem view="cases" icon={Briefcase} label="Case Management" active={nav.view === 'cases'} />
-          </div>
+        <nav className="flex-1 overflow-y-auto py-6 overflow-x-hidden no-scrollbar" style={{ gap: 'var(--space-base)', display: 'flex', flexDirection: 'column' }}>
+          <NavGroup title="Operations" collapsed={sidebarCollapsed}>
+            <NavItem view="dashboard" icon={LayoutDashboard} label="Overview" active={nav.view === 'dashboard'} collapsed={sidebarCollapsed} />
+            <NavItem view="inbox" icon={CheckSquare} label="Task List" active={nav.view === 'inbox'} collapsed={sidebarCollapsed} />
+            <NavItem view="cases" icon={Briefcase} label="Case Management" active={nav.view === 'cases'} collapsed={sidebarCollapsed} />
+          </NavGroup>
           
-          <div>
-            <div className="px-4 mb-2 text-xs font-bold text-tertiary uppercase tracking-wider">Configuration</div>
-            <NavItem view="processes" icon={Layers} label="Process Registry" active={nav.view === 'processes'} />
-            <NavItem view="designer" icon={PenTool} label="Workflow Designer" active={nav.view === 'designer'} />
-            <NavItem view="forms" icon={FormInput} label="Form Builder" active={nav.view === 'forms'} />
-            <NavItem view="resource-planner" icon={Calendar} label="Resource Planner" active={nav.view === 'resource-planner'} />
-            <NavItem view="rules" icon={FunctionSquare} label="Business Rules" active={nav.view === 'rules'} />
-            <NavItem view="api-gateway" icon={Globe} label="API Gateway" active={nav.view === 'api-gateway'} />
-          </div>
+          <NavGroup title="Configuration" collapsed={sidebarCollapsed}>
+            <NavItem view="processes" icon={Layers} label="Process Registry" active={nav.view === 'processes'} collapsed={sidebarCollapsed} />
+            <NavItem view="designer" icon={PenTool} label="Workflow Designer" active={nav.view === 'designer'} collapsed={sidebarCollapsed} />
+            <NavItem view="forms" icon={FormInput} label="Form Builder" active={nav.view === 'forms'} collapsed={sidebarCollapsed} />
+            <NavItem view="resource-planner" icon={Calendar} label="Resource Planner" active={nav.view === 'resource-planner'} collapsed={sidebarCollapsed} />
+            <NavItem view="rules" icon={FunctionSquare} label="Business Rules" active={nav.view === 'rules'} collapsed={sidebarCollapsed} />
+            <NavItem view="api-gateway" icon={Globe} label="API Gateway" active={nav.view === 'api-gateway'} collapsed={sidebarCollapsed} />
+          </NavGroup>
           
-          <div>
-            <div className="px-4 mb-2 text-xs font-bold text-tertiary uppercase tracking-wider">Administration</div>
-            <NavItem view="analytics" icon={BarChart3} label="Analytics & KPI" active={nav.view === 'analytics'} />
-            <NavItem view="identity" icon={Fingerprint} label="Access Control" active={nav.view === 'identity'} />
-            <NavItem view="governance" icon={ShieldCheck} label="Audit Logs" active={nav.view === 'governance'} />
-            <NavItem view="settings" icon={Database} label="System" active={nav.view === 'settings'} />
-          </div>
+          <NavGroup title="Administration" collapsed={sidebarCollapsed}>
+            <NavItem view="analytics" icon={BarChart3} label="Analytics & KPI" active={nav.view === 'analytics'} collapsed={sidebarCollapsed} />
+            <NavItem view="identity" icon={Fingerprint} label="Access Control" active={nav.view === 'identity'} collapsed={sidebarCollapsed} />
+            <NavItem view="governance" icon={ShieldCheck} label="Audit Logs" active={nav.view === 'governance'} collapsed={sidebarCollapsed} />
+            <NavItem view="settings" icon={Database} label="System" active={nav.view === 'settings'} collapsed={sidebarCollapsed} />
+          </NavGroup>
         </nav>
 
-        <div className="p-4 border-t border-default bg-subtle shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-base bg-blue-100 border border-blue-200 flex items-center justify-center text-blue-700 font-bold text-xs">
+        {/* Footer User Profile */}
+        <div className={`border-t border-default bg-subtle shrink-0 transition-all ${sidebarCollapsed ? 'p-2' : 'p-4'}`}>
+          <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} transition-all`}>
+            <div className="w-9 h-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-blue-700 font-bold text-sm shadow-sm shrink-0">
               {currentUser.name.charAt(0)}
             </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-primary truncate">{currentUser.name}</p>
+            
+            <div className={`min-w-0 overflow-hidden transition-all duration-300 ${sidebarCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100 flex-1'}`}>
+              <p className="text-sm font-bold text-primary truncate">{currentUser.name}</p>
               <p className="text-xs text-secondary truncate">{currentUser.email}</p>
             </div>
+
+            {!sidebarCollapsed && (
+               <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-md transition-colors">
+                  <PanelLeftClose size={16} />
+               </button>
+            )}
           </div>
+          {sidebarCollapsed && (
+             <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="w-full mt-2 py-2 flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-white rounded-md transition-all">
+                <PanelLeftOpen size={16} />
+             </button>
+          )}
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 transition-all duration-300">
         {/* Enterprise Header */}
-        <header className="h-header bg-panel border-b border-default flex items-center justify-between px-6 sticky top-0 z-sticky shadow-sm shrink-0">
-          <div className="flex items-center gap-4">
-            <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden text-secondary"><Menu size={20}/></button>
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-subtle border border-default rounded-base">
-               <span className="text-xs font-semibold text-secondary">Domain:</span>
-               <span className="text-xs text-primary font-mono">{currentUser.domainId || 'GLOBAL'}</span>
-               <ChevronDown size={12} className="text-tertiary" />
+        <header 
+          className="h-header bg-panel border-b border-default flex items-center justify-between sticky top-0 z-sticky shadow-sm shrink-0 transition-all"
+          style={{ paddingLeft: 'var(--layout-padding)', paddingRight: 'var(--layout-padding)' }}
+        >
+          <div className="flex items-center" style={{ gap: 'var(--space-base)' }}>
+            <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden text-secondary p-1 hover:bg-slate-100 rounded-md"><Menu size={20}/></button>
+            <div 
+              className="flex items-center px-3 py-1.5 bg-subtle border border-default rounded-md hover:border-slate-300 transition-colors cursor-pointer group"
+              style={{ gap: 'var(--space-base)' }}
+            >
+               <span className="text-xs font-semibold text-secondary group-hover:text-primary">Domain:</span>
+               <span className="text-xs text-primary font-mono font-bold">{currentUser.domainId || 'GLOBAL'}</span>
+               <ChevronDown size={12} className="text-tertiary group-hover:text-secondary" />
             </div>
           </div>
           
-          <div className="flex items-center gap-4">
-            <div className="relative hidden md:block">
-              <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-tertiary"/>
-              <input className="pl-8 pr-3 py-1.5 text-xs bg-subtle border border-default rounded-base w-64 focus:ring-1 focus:ring-blue-500 outline-none" placeholder="Global Search (ID, Task, Case)..." />
+          <div className="flex items-center" style={{ gap: 'var(--space-base)' }}>
+            <div className="relative hidden md:block group">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors"/>
+              <input className="pl-9 pr-3 py-1.5 text-sm bg-subtle border border-default rounded-md w-64 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="Global Search..." />
             </div>
-            <div className="h-4 w-px bg-default mx-1"></div>
+            <div className="h-5 w-px bg-default hidden lg:block"></div>
             <div className="flex items-center gap-2 text-xs text-tertiary font-medium px-2 py-1 bg-subtle rounded border border-default hidden lg:flex">
-               <Command size={10} /> + K
+               <Command size={12} /> <span className="font-sans">K</span>
             </div>
-            <button className="text-secondary hover:text-blue-600 transition-colors relative">
-              <Bell size={18}/>
+            <button className="text-secondary hover:text-blue-600 transition-colors relative p-1.5 hover:bg-slate-50 rounded-full">
+              <Bell size={20}/>
               {notifications.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 rounded-full border border-white"></span>
+                <span className="absolute top-1 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>
               )}
             </button>
-            <button className="text-secondary hover:text-blue-600 transition-colors" onClick={() => navigateTo('settings')}><SettingsIcon size={18}/></button>
+            <button className="text-secondary hover:text-blue-600 transition-colors p-1.5 hover:bg-slate-50 rounded-full" onClick={() => navigateTo('settings')}><SettingsIcon size={20}/></button>
           </div>
         </header>
 
@@ -268,8 +333,14 @@ const AppContent: React.FC = () => {
         <Breadcrumbs nav={nav} />
 
         {/* Content Canvas */}
-        <main className="flex-1 overflow-y-auto p-6 bg-app">
-          <div className="max-w-[1600px] mx-auto">
+        <main 
+          className="flex-1 overflow-y-auto bg-app" 
+          style={{ padding: 'var(--layout-padding)' }}
+        >
+          <div 
+            className="max-w-[1600px] mx-auto h-full flex flex-col"
+            style={{ gap: 'var(--layout-gap)' }}
+          >
             {renderCurrentView()}
           </div>
         </main>
