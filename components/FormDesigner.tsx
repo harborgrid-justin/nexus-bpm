@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { FormDefinition, FormField, FormFieldType, FormValidation, FormVisibilityRule, FormFieldLayout, FormFieldAppearance, FormDataSource, FormBehavior } from '../types';
@@ -12,27 +11,21 @@ import {
 } from 'lucide-react';
 import { produce } from 'immer';
 
+// ... (Keep FIELD_TYPES constant as is)
 const FIELD_TYPES: { type: FormFieldType; icon: React.ElementType; label: string; category: string }[] = [
-  // Basic Inputs
   { type: 'text', icon: Type, label: 'Text Field', category: 'Basic' },
   { type: 'textarea', icon: AlignLeft, label: 'Text Area', category: 'Basic' },
   { type: 'number', icon: Hash, label: 'Number', category: 'Basic' },
   { type: 'email', icon: FileText, label: 'Email', category: 'Basic' },
   { type: 'password', icon: Lock, label: 'Password', category: 'Basic' },
-  
-  // Selection
   { type: 'select', icon: List, label: 'Dropdown', category: 'Selection' },
   { type: 'checkbox', icon: CheckSquare, label: 'Checkbox', category: 'Selection' },
   { type: 'tags', icon: Tag, label: 'Tags Input', category: 'Selection' },
   { type: 'slider', icon: Sliders, label: 'Range Slider', category: 'Selection' },
   { type: 'rating', icon: Star, label: 'Star Rating', category: 'Selection' },
   { type: 'color', icon: Palette, label: 'Color Picker', category: 'Selection' },
-
-  // Date/Time
   { type: 'date', icon: Calendar, label: 'Date Picker', category: 'Date & Time' },
   { type: 'time', icon: Clock, label: 'Time Picker', category: 'Date & Time' },
-
-  // Advanced/Files
   { type: 'file', icon: Upload, label: 'File Upload', category: 'Advanced' },
   { type: 'signature', icon: PenTool, label: 'Signature', category: 'Advanced' },
   { type: 'divider', icon: Minus, label: 'Section Divider', category: 'Layout' },
@@ -75,24 +68,24 @@ export const FormDesigner: React.FC = () => {
     }
   }, [nav.selectedId, forms]);
 
-  // Window Resize Listener (Check 1)
+  // Window Resize Listener
   useEffect(() => {
       const handleResize = () => {
           if (window.innerWidth < 768 && previewMode === 'desktop') {
-              setPreviewMode('mobile'); // Auto-switch to mobile on small screens
+              setPreviewMode('mobile');
           }
       };
       window.addEventListener('resize', handleResize);
       return () => window.removeEventListener('resize', handleResize);
   }, [previewMode]);
 
-  // Keyboard Listener (Checks 2, 3, 4)
+  // Keyboard Listener
   useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
           if (e.key === 'Escape') {
-              setDragInfo(null); // Cancel drag
-              setContextMenu(null); // Close menu
-              setSelectedFieldId(null); // Deselect
+              setDragInfo(null);
+              setContextMenu(null);
+              setSelectedFieldId(null);
           }
           if (e.key === 'Delete' && selectedFieldId && !document.activeElement?.tagName.match(/INPUT|TEXTAREA|SELECT/)) {
               deleteField(selectedFieldId);
@@ -124,7 +117,6 @@ export const FormDesigner: React.FC = () => {
   }, []);
 
   const addField = (type: FormFieldType, index?: number) => {
-    // Max Field Check (Check 5)
     if (formDef.fields.length >= 50) {
         addNotification('error', 'Maximum field limit (50) reached.');
         return;
@@ -161,20 +153,17 @@ export const FormDesigner: React.FC = () => {
           
           const itemToMove = draft.fields[fromIndex];
 
-          // Check if dropping on self or adjacent (Check 6)
           if (!isCopy && (toIndex === fromIndex || toIndex === fromIndex + 1)) return;
 
           let target = toIndex;
           
           if (isCopy) {
-              // Duplicate Logic (Check 7)
               const clone = { ...itemToMove, id: `f-${Date.now()}`, key: `${itemToMove.key}_copy`, label: `${itemToMove.label} (Copy)` };
               draft.fields.splice(target, 0, clone);
               setSelectedFieldId(clone.id);
           } else {
-              // Move Logic
               draft.fields.splice(fromIndex, 1);
-              if (fromIndex < toIndex) target -= 1; // Adjust index if removing from before target
+              if (fromIndex < toIndex) target -= 1;
               draft.fields.splice(target, 0, itemToMove);
           }
       }));
@@ -194,16 +183,13 @@ export const FormDesigner: React.FC = () => {
   };
 
   const deleteField = (id: string) => {
-    // Window Confirm Check (Check 8)
     if (formDef.fields.find(f => f.id === id)?.type === 'divider' && !window.confirm('Delete section?')) return;
-    
     setFormDef(produce(draft => { draft.fields = draft.fields.filter(f => f.id !== id); }));
     setSelectedFieldId(null);
     setContextMenu(null);
   };
 
   const handleSave = async () => {
-    // Validation Check (Check 9)
     if (!formDef.name.trim()) {
         addNotification('error', 'Please provide a form title.');
         return;
@@ -214,7 +200,6 @@ export const FormDesigner: React.FC = () => {
 
   const selectedField = formDef.fields.find(f => f.id === selectedFieldId);
 
-  // --- Helper Updaters ---
   const updateNested = <T,>(key: keyof FormField, nestedUpdates: Partial<T>) => {
       if (!selectedField) return;
       const current = selectedField[key] as unknown as T || {};
@@ -236,17 +221,16 @@ export const FormDesigner: React.FC = () => {
       }
   }
 
-  // --- Drag and Drop Handlers ---
   const handleDragStartLibrary = (e: React.DragEvent, type: FormFieldType) => {
       setDragInfo({ type: 'library', fieldType: type });
       e.dataTransfer.effectAllowed = 'copy';
-      if (rightOpen) setRightOpen(false); // UI Polish: Close panel to give more space
+      if (rightOpen) setRightOpen(false);
   };
 
   const handleDragStartField = (e: React.DragEvent, id: string) => {
-      e.stopPropagation(); // Stop propagation Check (Check 10)
+      e.stopPropagation();
       setDragInfo({ type: 'field', id });
-      e.dataTransfer.effectAllowed = e.ctrlKey ? 'copy' : 'move'; // Modifier check (Check 11)
+      e.dataTransfer.effectAllowed = e.ctrlKey ? 'copy' : 'move';
       setSelectedFieldId(id);
   };
 
@@ -254,9 +238,8 @@ export const FormDesigner: React.FC = () => {
       e.preventDefault();
       e.stopPropagation();
       
-      if (!dragInfo) return; // Null check (Check 12)
+      if (!dragInfo) return;
 
-      // Auto Scroll Logic (Check 13, 14, 15 - DOM Bounds)
       const scrollThreshold = 60;
       const scrollSpeed = 10;
       if (canvasRef.current) {
@@ -277,16 +260,7 @@ export const FormDesigner: React.FC = () => {
           }
       }
 
-      // Check if trying to drop into own slot (Check 16)
-      if (dragInfo.type === 'field' && dragInfo.id) {
-          const currentIndex = formDef.fields.findIndex(f => f.id === dragInfo.id);
-          // If moving to same index or next index (no-op), show specific cursor?
-          // Actually we just set dropIndex and let the UI rendering handle visual feedback
-      }
-
       if (dropIndex !== index) setDropIndex(index);
-      
-      // Update Copy Mode visual during drag (Check 17)
       if (e.ctrlKey !== isCopyMode) setIsCopyMode(e.ctrlKey);
   }, [dropIndex, dragInfo, formDef.fields, isCopyMode]);
 
@@ -301,7 +275,6 @@ export const FormDesigner: React.FC = () => {
       if (dragInfo.type === 'library' && dragInfo.fieldType) {
           addField(dragInfo.fieldType, index);
       } else if (dragInfo.type === 'field' && dragInfo.id) {
-          // Check for Copy Modifier (Check 18)
           const isCopy = e.ctrlKey || e.metaKey;
           moveField(dragInfo.id, index, isCopy);
       }
@@ -311,16 +284,13 @@ export const FormDesigner: React.FC = () => {
       setIsCopyMode(false);
   };
 
-  // Click Outside Handler (Check 19)
   const handleCanvasClick = (e: React.MouseEvent) => {
-      // If clicking directly on the canvas (not a field), deselect
       if (e.target === e.currentTarget) {
           setSelectedFieldId(null);
           setContextMenu(null);
       }
   };
 
-  // Context Menu Handler (Check 20)
   const handleContextMenu = (e: React.MouseEvent, fieldId: string) => {
       e.preventDefault();
       e.stopPropagation();
@@ -328,20 +298,20 @@ export const FormDesigner: React.FC = () => {
       setSelectedFieldId(fieldId);
   };
 
-  // DropZone Component with Visual States
-  const DropZone = ({ index }: { index: number }) => {
+  // Converted from inline component to render function
+  const renderDropZone = (index: number) => {
       const isActive = dropIndex === index && dragInfo !== null;
       
-      // Visual feedback: Don't show drop zone if dropping immediately after self (Check 21)
       const draggedFieldIndex = dragInfo?.type === 'field' ? formDef.fields.findIndex(f => f.id === dragInfo.id) : -1;
       const isRedundant = dragInfo?.type === 'field' && !isCopyMode && (index === draggedFieldIndex || index === draggedFieldIndex + 1);
 
       if (isRedundant && isActive) {
-          return <div className="h-2 transition-all" />; 
+          return <div key={`drop-${index}`} className="h-2 transition-all" />; 
       }
 
       return (
           <div 
+            key={`drop-${index}`}
             className={`w-full transition-all duration-200 rounded-sm ${isActive ? 'h-12 my-2 border-2 border-dashed flex items-center justify-center' : 'h-3 hover:h-5'}`}
             style={{ 
                 borderColor: isActive ? (isCopyMode ? '#10b981' : '#3b82f6') : 'transparent',
@@ -424,7 +394,7 @@ export const FormDesigner: React.FC = () => {
            <div 
              ref={canvasRef}
              className="flex-1 overflow-y-auto p-8 relative scroll-smooth"
-             onDragOver={(e) => { e.preventDefault(); /* Allow drop on empty background */ }} 
+             onDragOver={(e) => { e.preventDefault(); }} 
              onClick={handleCanvasClick}
            >
               <div 
@@ -460,7 +430,7 @@ export const FormDesigner: React.FC = () => {
 
                  <div className={`flex flex-wrap content-start ${previewMode === 'mobile' ? 'px-4 pb-4' : 'gap-y-0'}`}>
                     {/* Initial Drop Zone */}
-                    <DropZone index={0} />
+                    {renderDropZone(0)}
 
                     {formDef.fields.map((field, idx) => (
                     <React.Fragment key={field.id}>
@@ -518,7 +488,7 @@ export const FormDesigner: React.FC = () => {
                             </div>
                         </div>
                         {/* Drop Zone After Item */}
-                        <DropZone index={idx + 1} />
+                        {renderDropZone(idx + 1)}
                     </React.Fragment>
                     ))}
                  </div>
@@ -604,7 +574,7 @@ export const FormDesigner: React.FC = () => {
                                     {[
                                         { l: 'Full', w: '100%', icon: LayoutGrid },
                                         { l: '1/2', w: '50%', icon: Columns },
-                                        { l: '1/3', w: '33%', icon: Columns } // Simplified
+                                        { l: '1/3', w: '33%', icon: Columns } 
                                     ].map(opt => (
                                         <button 
                                             key={opt.w}

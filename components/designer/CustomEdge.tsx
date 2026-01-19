@@ -1,7 +1,6 @@
 import React from 'react';
 import { BaseEdge, EdgeLabelRenderer, EdgeProps, getSmoothStepPath } from 'reactflow';
 import { X } from 'lucide-react';
-import { useBPM } from '../../contexts/BPMContext';
 
 export const CustomEdge = ({
   id,
@@ -16,7 +15,6 @@ export const CustomEdge = ({
   label,
   selected
 }: EdgeProps) => {
-  const { setDesignerDraft } = useBPM();
   // Using SmoothStep for orthogonal-like routing which is standard in BPMN
   const [edgePath, labelX, labelY] = getSmoothStepPath({
     sourceX,
@@ -26,14 +24,6 @@ export const CustomEdge = ({
     targetY,
     targetPosition,
   });
-
-  // Function to delete edge (logic would typically be passed down or handled via context in full implementation)
-  // For now, we rely on the parent selection deletion, but this demonstrates the UI capability
-  const onEdgeClick = (evt: React.MouseEvent) => {
-    evt.stopPropagation();
-    // In a real implementation, we would dispatch a delete action here
-    // For now, it selects the edge
-  };
 
   return (
     <>
@@ -61,7 +51,6 @@ export const CustomEdge = ({
           )}
           {selected && (
              <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-rose-500 text-white rounded-full p-0.5 shadow-sm cursor-pointer hover:scale-110 transition-transform" title="Delete Connection">
-                 {/* This button is purely visual in this demo until we wire the delete handler directly */}
                  <X size={10} />
              </div>
           )}
