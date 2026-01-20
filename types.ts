@@ -406,6 +406,12 @@ export interface FormBehavior {
   calculation?: string; // e.g. "price * qty"
 }
 
+// --- ENTERPRISE FEATURE: Field Level Security (FLS) ---
+export interface FieldPermission {
+  roleId: string;
+  access: 'read_write' | 'read_only' | 'hidden';
+}
+
 export interface FormField {
   id: string;
   type: FormFieldType;
@@ -424,6 +430,9 @@ export interface FormField {
   appearance?: FormFieldAppearance;
   dataSource?: FormDataSource;
   behavior?: FormBehavior;
+  
+  // FLS
+  permissions?: FieldPermission[];
 }
 
 export interface FormDefinition {
@@ -493,6 +502,18 @@ export interface AlertRule {
   cooldownMinutes: number;
 }
 
+// ---- SAVED VIEWS (Enterprise Feature) ----
+export interface SavedView {
+  id: string;
+  name: string;
+  filters: {
+    status?: string;
+    priority?: string;
+    assignee?: string;
+    search?: string;
+  };
+  type: 'Task' | 'Case';
+}
 
 export type ViewState = 
   | 'dashboard' 

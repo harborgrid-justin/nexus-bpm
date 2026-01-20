@@ -6,7 +6,7 @@ import {
   ViewState, AuditLog, Comment, User, UserRole, UserGroup, Permission, 
   Delegation, BusinessRule, DecisionTable, Case, CaseEvent, CasePolicy, CaseStakeholder,
   Condition, RuleAction, ProcessStep, ProcessLink, FormDefinition, ProcessVersionSnapshot, ChecklistItem,
-  Integration, ApiClient, SystemSettings
+  Integration, ApiClient, SystemSettings, SavedView
 } from '../types';
 import { dbService, DEFAULT_SETTINGS } from '../services/dbService';
 
@@ -42,6 +42,8 @@ interface BPMContextType {
   integrations: Integration[]; 
   apiClients: ApiClient[]; 
   settings: SystemSettings;
+  savedViews: SavedView[];
+  
   viewingInstanceId: string | null;
   
   // Designer Persistence
@@ -128,6 +130,10 @@ interface BPMContextType {
   // Api Client Management
   toggleApiClient: (id: string) => Promise<void>;
 
+  // Views
+  saveView: (view: SavedView) => Promise<void>;
+  deleteView: (id: string) => Promise<void>;
+
   // System
   updateSystemSettings: (updates: Partial<SystemSettings>) => Promise<void>;
   hasPermission: (perm: Permission) => boolean;
@@ -135,6 +141,9 @@ interface BPMContextType {
   resetSystem: () => Promise<void>;
   exportData: () => Promise<void>;
   importData: (file: File) => Promise<void>;
+  
+  // Presence (Simulated)
+  getActiveUsersOnRecord: (recordId: string) => User[];
 }
 
 const BPMContext = createContext<BPMContextType | undefined>(undefined);
@@ -156,6 +165,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     integrations: [] as Integration[],
     apiClients: [] as ApiClient[],
     settings: DEFAULT_SETTINGS,
+    savedViews: [] as SavedView[],
     notifications: [] as Notification[],
     globalSearch: '',
     nav: { view: 'dashboard' } as { view: ViewState; selectedId?: string; filter?: string; data?: any },
@@ -165,9 +175,12 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     designerDraft: null as { steps: ProcessStep[], links: ProcessLink[] } | null
   });
 
+  // Simulated Presence State
+  const [activePresence, setActivePresence] = useState<Record<string, string[]>>({}); // recordId -> [userIds]
+
   const loadData = useCallback(async () => {
     try {
-      const [p, inst, t, c, logs, u, r, g, d, bRules, tables, f, ints, apis, setts] = await Promise.all([
+      const [p, inst, t, c, logs, u, r, g, d, bRules, tables, f, ints, apis, setts, views] = await Promise.all([
         dbService.getAll<ProcessDefinition>('processes'),
         dbService.getAll<ProcessInstance>('instances'),
         dbService.getAll<Task>('tasks'),
@@ -182,7 +195,8 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         dbService.getAll<FormDefinition>('forms'),
         dbService.getAll<Integration>('integrations'),
         dbService.getAll<ApiClient>('apiClients'),
-        dbService.getAll<SystemSettings>('systemSettings')
+        dbService.getAll<SystemSettings>('systemSettings'),
+        dbService.getAll<SavedView>('savedViews')
       ]);
 
       setState(prev => ({
@@ -202,6 +216,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         integrations: ints,
         apiClients: apis,
         settings: setts[0] || DEFAULT_SETTINGS,
+        savedViews: views,
         currentUser: prev.currentUser || u[0] || null,
         loading: false
       }));
@@ -212,6 +227,28 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Presence Simulation
+  useEffect(() => {
+      const interval = setInterval(() => {
+          // Randomly assign online users to random tasks/cases
+          const mockPresence: Record<string, string[]> = {};
+          if (state.tasks.length > 0 && state.users.length > 1) {
+              const randomTask = state.tasks[Math.floor(Math.random() * state.tasks.length)];
+              const otherUsers = state.users.filter(u => u.id !== state.currentUser?.id);
+              if (otherUsers.length > 0) {
+                  mockPresence[randomTask.id] = [otherUsers[0].id];
+              }
+          }
+          setActivePresence(mockPresence);
+      }, 5000);
+      return () => clearInterval(interval);
+  }, [state.tasks, state.users, state.currentUser]);
+
+  const getActiveUsersOnRecord = (recordId: string) => {
+      const userIds = activePresence[recordId] || [];
+      return state.users.filter(u => userIds.includes(u.id));
+  };
 
   const hasPermission = (perm: Permission): boolean => {
       if (!state.currentUser) return false;
@@ -247,7 +284,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }));
   };
 
-  // --- RECURSIVE LOGIC ENGINE ---
+  // ... (Previous logic engine code omitted for brevity but assumed present) ...
   const executeRules = async (ruleId: string, fact: any): Promise<any> => {
       const rule = state.rules.find(r => r.id === ruleId);
       if (!rule) return { error: 'Rule definition not found', matched: false };
@@ -354,7 +391,6 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
   };
 
-  // Aggregates real metrics from execution history
   const getStepStatistics = (defId: string, stepName: string): { avgDuration: number, errorRate: number } => {
       const relatedInstances = state.instances.filter(i => i.definitionId === defId && i.history.length > 0);
       let totalDuration = 0;
@@ -362,7 +398,6 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       let errorCount = 0;
 
       relatedInstances.forEach(inst => {
-          // Sort history by timestamp
           const sorted = [...inst.history].sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
           
           for(let i=0; i<sorted.length-1; i++) {
@@ -380,7 +415,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (count === 0) return { avgDuration: 0, errorRate: 0 };
       
       return {
-          avgDuration: Math.round(totalDuration / count / 1000 / 60), // in minutes
+          avgDuration: Math.round(totalDuration / count / 1000 / 60), 
           errorRate: Math.round((errorCount / count) * 100)
       };
   };
@@ -925,6 +960,23 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
   };
 
+  // --- Saved Views Methods ---
+  const saveView = async (view: SavedView) => {
+      const newView = { ...view, id: view.id || `view-${Date.now()}` };
+      await dbService.add('savedViews', newView);
+      setState(produce(draft => {
+          const idx = draft.savedViews.findIndex(v => v.id === newView.id);
+          if (idx >= 0) draft.savedViews[idx] = newView;
+          else draft.savedViews.push(newView);
+      }));
+      addNotification('success', 'View saved successfully.');
+  };
+
+  const deleteView = async (id: string) => {
+      await dbService.delete('savedViews', id);
+      setState(produce(draft => { draft.savedViews = draft.savedViews.filter(v => v.id !== id); }));
+  };
+
   // --- System Configuration ---
   const updateSystemSettings = async (updates: Partial<SystemSettings>) => {
       const merged = { ...state.settings, ...updates };
@@ -957,8 +1009,10 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     saveForm, deleteForm,
     installIntegration, uninstallIntegration,
     toggleApiClient,
+    saveView, deleteView,
     updateSystemSettings,
     hasPermission,
+    getActiveUsersOnRecord,
     reseedSystem: async () => { await dbService.reseed(); loadData(); },
     resetSystem: async () => { await dbService.resetDB(); window.location.reload(); },
     exportData: async () => { /* Logic in dbService */ },

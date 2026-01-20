@@ -1,11 +1,11 @@
 
 import { 
   ProcessDefinition, ProcessInstance, Task, TaskStatus, TaskPriority, 
-  User, UserRole, UserGroup, Permission, BusinessRule, DecisionTable, Case, FormDefinition, Integration, ApiClient, SystemSettings
+  User, UserRole, UserGroup, Permission, BusinessRule, DecisionTable, Case, FormDefinition, Integration, ApiClient, SystemSettings, SavedView
 } from '../types';
 
 const DB_NAME = 'NexFlowEnterpriseDB';
-const DB_VERSION = 8; // Bumped version for systemSettings
+const DB_VERSION = 9; // Bumped version for savedViews
 
 export const MOCK_ROLES: UserRole[] = [
   { id: 'admin', name: 'Principal Administrator', permissions: Object.values(Permission) },
@@ -145,9 +145,13 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   calendar: { workDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], workHours: { start: '09:00', end: '17:00' }, timezone: 'UTC' }
 };
 
+export const MOCK_VIEWS: SavedView[] = [
+    { id: 'v1', name: 'High Priority My Tasks', type: 'Task', filters: { priority: 'High', assignee: 'u-1' } }
+];
+
 class DBService {
   private db: IDBDatabase | null = null;
-  private stores = ['processes', 'instances', 'tasks', 'auditLogs', 'users', 'roles', 'groups', 'delegations', 'rules', 'decisionTables', 'cases', 'forms', 'integrations', 'apiClients', 'systemSettings'];
+  private stores = ['processes', 'instances', 'tasks', 'auditLogs', 'users', 'roles', 'groups', 'delegations', 'rules', 'decisionTables', 'cases', 'forms', 'integrations', 'apiClients', 'systemSettings', 'savedViews'];
 
   private notify(action: string, detail: any, type: 'read' | 'write' | 'delete' | 'error' = 'read') {
     const event = new CustomEvent('nexflow-db-log', {
@@ -272,6 +276,7 @@ class DBService {
     for (const c of MOCK_API_CLIENTS) await this.add('apiClients', c);
     
     await this.add('systemSettings', DEFAULT_SETTINGS);
+    for (const v of MOCK_VIEWS) await this.add('savedViews', v);
     
     this.notify('RESEED', 'System reseeded with baseline mocks', 'write');
   }

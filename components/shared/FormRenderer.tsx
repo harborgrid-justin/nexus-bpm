@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { FormDefinition, FormField } from '../../types';
 import { NexFormGroup, NexButton } from './NexUI';
 import { Check, X, PenTool, Info, Star, Upload, ArrowRight, ArrowLeft } from 'lucide-react';
+import { useBPM } from '../../contexts/BPMContext';
 
 interface FormRendererProps {
   form: FormDefinition;
@@ -258,6 +260,7 @@ const FieldInput: React.FC<{ field: FormField; value: FieldValue; onChange: (k: 
 };
 
 export const FormRenderer: React.FC<FormRendererProps> = ({ form, data, onChange, readOnly, errors = {} }) => {
+  const { currentUser } = useBPM();
   const [currentStep, setCurrentStep] = useState(0);
 
   const steps = useMemo(() => {
@@ -280,6 +283,13 @@ export const FormRenderer: React.FC<FormRendererProps> = ({ form, data, onChange
   }, [form.fields, form.layoutMode]);
 
   const isFieldVisible = (field: FormField): boolean => {
+      // 1. FLS Check - Security Layer
+      if (field.permissions && currentUser) {
+          const rolePerm = field.permissions.find(p => currentUser.roleIds.includes(p.roleId));
+          if (rolePerm && rolePerm.access === 'hidden') return false;
+      }
+
+      // 2. Logic Check
       if (!field.visibility) return true;
       const { targetFieldKey, operator, value } = field.visibility;
       const targetValue = data[targetFieldKey];
@@ -293,6 +303,16 @@ export const FormRenderer: React.FC<FormRendererProps> = ({ form, data, onChange
           default: return true;
       }
   };
+
+  const getEffectiveReadOnly = (field: FormField) => {
+      if (readOnly) return true;
+      // FLS Check
+      if (field.permissions && currentUser) {
+          const rolePerm = field.permissions.find(p => currentUser.roleIds.includes(p.roleId));
+          if (rolePerm && rolePerm.access === 'read_only') return true;
+      }
+      return field.behavior?.readOnly || field.behavior?.disabled;
+  }
 
   useEffect(() => {
       form.fields.forEach(field => {
@@ -340,7 +360,7 @@ export const FormRenderer: React.FC<FormRendererProps> = ({ form, data, onChange
             if (!isFieldVisible(field)) return null;
             
             const width = field.layout?.width || '100%';
-            const isDisabled = readOnly || field.behavior?.disabled || field.behavior?.readOnly;
+            const isDisabled = getEffectiveReadOnly(field);
 
             if (field.type === 'divider') {
                 return (

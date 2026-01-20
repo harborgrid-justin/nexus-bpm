@@ -1,16 +1,58 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Task, TaskStatus, TaskPriority, ChecklistItem } from '../types';
+import { Task, TaskStatus, TaskPriority, ChecklistItem, SavedView } from '../types';
 import { useBPM } from '../contexts/BPMContext';
 import { 
   Search, CheckSquare, Layers, Clock, AlertCircle, UserPlus, Settings,
   CheckCircle, XCircle, Paperclip, LayoutGrid, List as ListIcon, 
   User, Calendar, Star, PauseCircle, ArrowDown, ArrowUp, X,
-  Table as TableIcon, Download, Plus, Send, ChevronLeft, FormInput, Sparkles, BrainCircuit, ListChecks, Award, Trash2, Printer
+  Table as TableIcon, Download, Plus, Send, ChevronLeft, FormInput, Sparkles, BrainCircuit, ListChecks, Award, Trash2, Printer,
+  Filter, Save, Eye
 } from 'lucide-react';
 import { NexBadge, NexButton, NexHistoryFeed } from './shared/NexUI';
 import { FormRenderer, validateForm } from './shared/FormRenderer';
 import { summarizeTaskContext } from '../services/geminiService';
+
+// --- SLA Visual Component ---
+const SLACountdown = ({ dueDate }: { dueDate: string }) => {
+    const [timeLeft, setTimeLeft] = useState('');
+    const [status, setStatus] = useState<'safe' | 'warn' | 'breach'>('safe');
+
+    useEffect(() => {
+        const calculate = () => {
+            const now = new Date();
+            const due = new Date(dueDate);
+            const diff = due.getTime() - now.getTime();
+            
+            if (diff < 0) {
+                setStatus('breach');
+                setTimeLeft(`${Math.abs(Math.ceil(diff / (1000 * 60 * 60)))}h overdue`);
+            } else {
+                const hours = Math.ceil(diff / (1000 * 60 * 60));
+                if (hours < 24) setStatus('warn');
+                else setStatus('safe');
+                
+                if (hours > 24) setTimeLeft(`${Math.ceil(hours / 24)}d left`);
+                else setTimeLeft(`${hours}h left`);
+            }
+        };
+        calculate();
+        const interval = setInterval(calculate, 60000); // Update every minute
+        return () => clearInterval(interval);
+    }, [dueDate]);
+
+    const colors = {
+        safe: 'bg-emerald-100 text-emerald-700',
+        warn: 'bg-amber-100 text-amber-700',
+        breach: 'bg-rose-100 text-rose-700 animate-pulse'
+    };
+
+    return (
+        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm uppercase ${colors[status]}`}>
+            {timeLeft}
+        </span>
+    );
+};
 
 // --- Utility Functions ---
 const getRelativeTime = (isoString: string) => {
@@ -26,61 +68,6 @@ const getRelativeTime = (isoString: string) => {
     return `${days}d left`;
 };
 
-interface TaskRowProps {
-    task: Task;
-    isSelected: boolean;
-    onToggle: (id: string) => void;
-    onClick: (task: Task) => void;
-    onStar: (id: string) => void;
-    onSnooze: (id: string) => void;
-}
-
-// --- Task Row Component (Table View) ---
-const TaskTableRow: React.FC<TaskRowProps> = ({ task, isSelected, onToggle, onClick, onStar, onSnooze }) => {
-    const isOverdue = new Date(task.dueDate) < new Date();
-    return (
-        <tr onClick={() => onClick(task)} className={`group border-b border-subtle hover:bg-subtle transition-colors cursor-pointer text-base ${isSelected ? 'bg-active' : ''}`}>
-            <td className="p-3 w-10 text-center" onClick={e => e.stopPropagation()}>
-                <input type="checkbox" checked={isSelected} onChange={() => onToggle(task.id)} className="rounded-base border-default text-blue-600 focus:ring-blue-500" />
-            </td>
-            <td className="p-3 w-8 text-center" onClick={e => { e.stopPropagation(); onStar(task.id); }}>
-                <Star size={14} className={task.isStarred ? "fill-amber-400 text-amber-400" : "text-tertiary group-hover:text-secondary"} />
-            </td>
-            <td className="p-3 font-medium text-primary">
-                <div className="flex flex-col">
-                    <span>{task.title}</span>
-                    {task.isAdHoc && <span className="text-xs text-amber-600 italic">Ad-Hoc</span>}
-                </div>
-            </td>
-            <td className="p-3">
-                <span className={`px-2 py-0.5 rounded-base text-xs font-bold uppercase ${
-                    task.priority === 'Critical' ? 'bg-rose-100 text-rose-700' : 
-                    task.priority === 'High' ? 'bg-orange-100 text-orange-700' : 'bg-subtle text-secondary'
-                }`}>
-                    {task.priority}
-                </span>
-            </td>
-            <td className="p-3 text-secondary truncate max-w-[120px]">{task.processName}</td>
-            <td className="p-3">
-                <div className={`flex items-center gap-1 ${isOverdue ? 'text-rose-600 font-bold' : 'text-secondary'}`}>
-                    <Clock size={12}/> {getRelativeTime(task.dueDate)}
-                </div>
-            </td>
-            <td className="p-3">
-               <div className="flex items-center gap-2">
-                   <div className="w-5 h-5 rounded-full bg-subtle flex items-center justify-center text-xs font-bold text-secondary border border-default">
-                       {task.assignee === 'Unassigned' ? '?' : task.assignee.charAt(0)}
-                   </div>
-                   <span className="truncate max-w-[80px] text-secondary">{task.assignee}</span>
-               </div>
-            </td>
-            <td className="p-3 w-10 text-right opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
-                <button onClick={() => onSnooze(task.id)} className="p-1 hover:bg-subtle rounded-base text-tertiary hover:text-primary"><PauseCircle size={14}/></button>
-            </td>
-        </tr>
-    );
-};
-
 interface TaskListProps {
     task: Task;
     isSelected: boolean;
@@ -93,8 +80,6 @@ interface TaskListProps {
 
 // --- Task List Item Component ---
 const TaskListItem: React.FC<TaskListProps> = ({ task, isSelected, isChecked, isCompact, onCheck, onClick, onStar }) => {
-  const isOverdue = new Date(task.dueDate) < new Date();
-  
   return (
     <div 
       onClick={() => onClick(task)}
@@ -118,15 +103,15 @@ const TaskListItem: React.FC<TaskListProps> = ({ task, isSelected, isChecked, is
                 {task.tags?.map((t: string) => <span key={t} className="bg-subtle text-secondary text-xs px-1 rounded-base border border-default">{t}</span>)}
             </div>
             <div className="flex items-center gap-1">
+               <SLACountdown dueDate={task.dueDate} />
                {(task.attachments?.length ?? 0) > 0 && <Paperclip size={12} className="text-tertiary"/>}
-               {task.priority === TaskPriority.CRITICAL && <AlertCircle size={14} className="text-rose-600 shrink-0 animate-pulse"/>}
+               {task.priority === TaskPriority.CRITICAL && <AlertCircle size={14} className="text-rose-600 shrink-0"/>}
             </div>
         </div>
         
         <div className="flex justify-between items-center text-xs text-secondary">
             <span className="truncate max-w-[150px] flex items-center gap-1"><Layers size={10}/> {task.processName}</span>
             <div className="flex items-center gap-2">
-                <span className={`${isOverdue ? 'text-rose-600 font-bold' : ''}`}>{getRelativeTime(task.dueDate)}</span>
                 <span className="bg-subtle px-1.5 py-0.5 rounded-base text-secondary font-medium border border-default">{task.status}</span>
             </div>
         </div>
@@ -160,7 +145,7 @@ const KanbanCard: React.FC<KanbanProps> = ({ task, onClick, onStar }) => {
                 <NexBadge variant={task.priority === 'Critical' ? 'rose' : 'slate'}>{task.priority}</NexBadge>
             </div>
             <div className="pt-2 border-t border-subtle flex items-center justify-between text-xs text-tertiary">
-                <span>{getRelativeTime(task.dueDate)}</span>
+                <SLACountdown dueDate={task.dueDate} />
                 <div className="flex items-center gap-1">
                     <div className="w-4 h-4 rounded-full bg-subtle flex items-center justify-center font-bold text-[8px] border border-default">
                         {task.assignee === 'Unassigned' ? '?' : task.assignee.charAt(0)}
@@ -175,7 +160,8 @@ export const TaskInbox: React.FC = () => {
   const { 
       tasks, completeTask, claimTask, releaseTask, addTaskComment, bulkCompleteTasks, updateTaskChecklist,
       currentUser, delegations, navigateTo, openInstanceViewer, nav, 
-      toggleTaskStar, snoozeTask, createAdHocTask, forms, addNotification
+      toggleTaskStar, snoozeTask, createAdHocTask, forms, addNotification,
+      savedViews, saveView, deleteView
   } = useBPM();
   
   // -- Selection State --
@@ -183,11 +169,18 @@ export const TaskInbox: React.FC = () => {
   const setSelectedTask = (t: Task | null) => navigateTo('inbox', t?.id);
 
   // -- View State --
-  const [viewMode, setViewMode] = useState<'list' | 'table' | 'kanban'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const [activeTab, setActiveTab] = useState<'my' | 'team' | 'starred' | 'snoozed'>('my');
   const [density, setDensity] = useState<'compact' | 'comfy'>('comfy');
   const [sortConfig, setSortConfig] = useState<{ key: keyof Task, dir: 'asc' | 'desc' }>({ key: 'dueDate', dir: 'asc' });
   const [localSearch, setLocalSearch] = useState('');
+  
+  // -- Saved View State --
+  const [activeSavedView, setActiveSavedView] = useState<string | null>(null);
+  const [showSaveViewInput, setShowSaveViewInput] = useState(false);
+  const [newViewName, setNewViewName] = useState('');
+
+  // -- Filters --
   const [quickFilter, setQuickFilter] = useState<string | null>(null); // 'Critical', 'Overdue'
   
   // -- Bulk State --
@@ -198,9 +191,6 @@ export const TaskInbox: React.FC = () => {
 
   // -- Comment Input --
   const [commentText, setCommentText] = useState('');
-
-  // -- Checklist Input --
-  const [checklistText, setChecklistText] = useState('');
 
   // -- Form Data & Validation --
   const [formData, setFormData] = useState<Record<string, any>>({});
@@ -218,6 +208,25 @@ export const TaskInbox: React.FC = () => {
           handleAiSummary(selectedTask);
       }
   }, [selectedTask]);
+
+  const handleApplySavedView = (view: SavedView) => {
+      setActiveSavedView(view.id);
+      if (view.filters.status) setQuickFilter(view.filters.status); // Simplified mapping
+      if (view.filters.search) setLocalSearch(view.filters.search);
+      // More filter logic would go here
+  };
+
+  const handleSaveCurrentView = async () => {
+      if (!newViewName) return;
+      await saveView({
+          id: '',
+          name: newViewName,
+          type: 'Task',
+          filters: { search: localSearch, priority: quickFilter || undefined }
+      });
+      setNewViewName('');
+      setShowSaveViewInput(false);
+  };
 
   // --- Derived Data & Filtering ---
   const delegateRules = delegations.filter(d => d.toUserId === currentUser?.id && d.isActive);
@@ -258,16 +267,12 @@ export const TaskInbox: React.FC = () => {
       return selectedTask.requiredSkills.every(s => currentUser.skills.includes(s));
   }, [selectedTask, currentUser]);
 
-  const handleSort = (key: keyof Task) => setSortConfig(curr => ({ key, dir: curr.key === key && curr.dir === 'asc' ? 'desc' : 'asc' }));
   const toggleSelection = (id: string) => {
       const newSet = new Set(selectedIds);
       if (newSet.has(id)) newSet.delete(id); else newSet.add(id);
       setSelectedIds(newSet);
   };
-  const toggleSelectAll = () => {
-      if (selectedIds.size === filteredTasks.length) setSelectedIds(new Set());
-      else setSelectedIds(new Set(filteredTasks.map(t => t.id)));
-  };
+  
   const handleBulkAction = async (action: 'complete' | 'claim' | 'release' | 'priority') => {
       const ids = Array.from(selectedIds);
       if (action === 'complete') await bulkCompleteTasks(ids, 'approve');
@@ -275,7 +280,6 @@ export const TaskInbox: React.FC = () => {
       if (action === 'release') for (const id of ids) await releaseTask(id);
       setSelectedIds(new Set());
   };
-  const handleExport = () => { /* ... export logic ... */ };
   const handleQuickCreate = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!quickTaskTitle.trim()) return;
@@ -295,22 +299,48 @@ export const TaskInbox: React.FC = () => {
           setAiInsight(result);
       } catch (e) { console.error(e); } finally { setLoadingAi(false); }
   };
-  const handleAddChecklist = async () => { /* ... */ };
-  const toggleChecklistItem = async (itemId: string) => { /* ... */ };
-  const deleteChecklistItem = async (itemId: string) => { /* ... */ };
   
   const activeForm = selectedTask?.formId ? forms.find(f => f.id === selectedTask.formId) : null;
   const handleSubmit = async () => { /* ... */ };
-  const handlePrint = () => window.print();
 
   return (
     <div 
         className="flex h-content-area bg-canvas border border-default shadow-sm overflow-hidden animate-fade-in"
         style={{ borderRadius: 'var(--radius-base)' }}
     >
+      {/* ENTERPRISE SIDEBAR: Saved Views */}
+      <div className="w-48 border-r border-default bg-subtle hidden lg:flex flex-col">
+          <div className="p-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-default bg-panel">Smart Views</div>
+          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {savedViews.filter(v => v.type === 'Task').map(view => (
+                  <button 
+                    key={view.id}
+                    onClick={() => handleApplySavedView(view)}
+                    className={`w-full text-left px-3 py-2 text-xs rounded-sm flex items-center justify-between group ${activeSavedView === view.id ? 'bg-blue-100 text-blue-800 font-bold' : 'hover:bg-slate-200 text-slate-700'}`}
+                  >
+                      <span className="truncate">{view.name}</span>
+                      <X size={12} className="opacity-0 group-hover:opacity-100 hover:text-rose-600" onClick={(e) => { e.stopPropagation(); deleteView(view.id); }}/>
+                  </button>
+              ))}
+              {savedViews.length === 0 && <div className="text-center text-slate-400 text-xs italic py-4">No saved views</div>}
+          </div>
+          
+          <div className="p-2 border-t border-default">
+              {showSaveViewInput ? (
+                  <div className="flex gap-1">
+                      <input className="prop-input py-1 h-7 text-xs" value={newViewName} onChange={e => setNewViewName(e.target.value)} placeholder="View Name" autoFocus onKeyDown={e => e.key === 'Enter' && handleSaveCurrentView()} />
+                      <button onClick={handleSaveCurrentView} className="bg-blue-600 text-white p-1 rounded-sm"><CheckCircle size={14}/></button>
+                  </div>
+              ) : (
+                  <button onClick={() => setShowSaveViewInput(true)} className="w-full flex items-center gap-2 justify-center py-1 text-xs text-blue-600 font-bold hover:bg-blue-50 rounded-sm">
+                      <Save size={12}/> Save Current Filter
+                  </button>
+              )}
+          </div>
+      </div>
       
       {/* LEFT PANE: TASK LIST */}
-      <div className={`flex flex-col border-r border-default bg-panel transition-all duration-300 ${selectedTask ? 'w-inbox-list shrink-0 hidden xl:flex' : 'w-full'}`}>
+      <div className={`flex flex-col border-r border-default bg-panel transition-all duration-300 ${selectedTask ? 'w-inbox-list shrink-0 hidden xl:flex' : 'flex-1'}`}>
         
         {/* Header */}
         <div className="pt-3 px-3 bg-panel border-b border-subtle">
@@ -318,7 +348,6 @@ export const TaskInbox: React.FC = () => {
                 <h2 className="text-lg font-bold text-primary flex items-center gap-2"><CheckSquare size={18} className="text-blue-600"/> Task Inbox</h2>
                 <div className="flex gap-1">
                     <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-base ${viewMode === 'list' ? 'bg-active text-blue-600' : 'text-tertiary hover:text-secondary'}`}><ListIcon size={16}/></button>
-                    <button onClick={() => setViewMode('table')} className={`p-1.5 rounded-base ${viewMode === 'table' ? 'bg-active text-blue-600' : 'text-tertiary hover:text-secondary'}`}><TableIcon size={16}/></button>
                     <button onClick={() => setViewMode('kanban')} className={`p-1.5 rounded-base ${viewMode === 'kanban' ? 'bg-active text-blue-600' : 'text-tertiary hover:text-secondary'}`}><LayoutGrid size={16}/></button>
                 </div>
             </div>

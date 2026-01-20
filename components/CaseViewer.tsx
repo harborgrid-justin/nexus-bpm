@@ -11,13 +11,16 @@ import { TaskStatus } from '../types';
 const MOCK_STAGES = ['Open', 'In Progress', 'Pending Review', 'Resolved', 'Closed'];
 
 export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
-  const { cases, tasks, processes, users, navigateTo, addCaseEvent, removeCaseEvent, addCasePolicy, removeCasePolicy, addCaseStakeholder, removeCaseStakeholder, updateCase, startProcess, currentUser, openInstanceViewer } = useBPM();
+  const { cases, tasks, processes, users, navigateTo, addCaseEvent, removeCaseEvent, addCasePolicy, removeCasePolicy, addCaseStakeholder, removeCaseStakeholder, updateCase, startProcess, currentUser, openInstanceViewer, getActiveUsersOnRecord } = useBPM();
   const [activeTab, setActiveTab] = useState<'timeline' | 'tasks' | 'data' | 'content'>('timeline');
   const [note, setNote] = useState('');
   const [caseData, setCaseData] = useState<string>('');
 
   const currentCase = cases.find(c => c.id === caseId);
   const relatedTasks = useMemo(() => tasks.filter(t => t.caseId === caseId), [tasks, caseId]);
+  
+  // Real-time Presence
+  const activeViewers = getActiveUsersOnRecord(caseId);
 
   // Sync internal state when case changes
   React.useEffect(() => {
@@ -84,7 +87,21 @@ export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
             <p className="text-[10px] text-slate-400 font-mono">{currentCase.id}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
+           {/* Presence Indicator */}
+           {activeViewers.length > 0 && (
+               <div className="flex items-center -space-x-2">
+                   {activeViewers.map(u => (
+                       <div key={u.id} className="w-8 h-8 rounded-full border-2 border-white bg-blue-100 flex items-center justify-center text-xs font-bold text-blue-700 shadow-sm relative group" title={u.name}>
+                           {u.name[0]}
+                           <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></div>
+                       </div>
+                   ))}
+               </div>
+           )}
+           
+           <div className="h-6 w-px bg-slate-300 mx-1"></div>
+           
            <button onClick={() => navigateTo('edit-case', currentCase.id)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-sm"><Edit size={16}/></button>
            {currentCase.status !== 'Closed' ? (
                 <NexButton variant="danger" icon={Lock} onClick={handleCloseCase}>Close Case</NexButton>

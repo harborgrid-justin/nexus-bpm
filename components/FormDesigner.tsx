@@ -1,14 +1,14 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useBPM } from '../contexts/BPMContext';
-import { FormDefinition, FormField, FormFieldType, FormValidation, FormFieldLayout, FormFieldAppearance, FormDataSource, FormBehavior } from '../types';
+import { FormDefinition, FormField, FormFieldType, FormValidation, FormFieldLayout, FormFieldAppearance, FormDataSource, FormBehavior, FieldPermission } from '../types';
 import { FormPageLayout } from './shared/PageTemplates';
 import { NexFormGroup } from './shared/NexUI';
 import { 
   Type, Hash, Calendar, CheckSquare, List, AlignLeft, FileText, 
   Trash2, GripVertical, Settings, Info, Upload, PenTool, EyeOff, AlertTriangle,
   PanelLeft, PanelRight, Smartphone, Monitor, Star, Sliders, Tag, Palette, Lock, Clock, Minus, LayoutGrid, Globe, Calculator,
-  Columns, Forward, Copy, MousePointerClick
+  Columns, Forward, Copy, MousePointerClick, Shield
 } from 'lucide-react';
 import { produce } from 'immer';
 
@@ -33,10 +33,10 @@ const FIELD_TYPES: { type: FormFieldType; icon: React.ElementType; label: string
 ];
 
 export const FormDesigner: React.FC = () => {
-  const { navigateTo, saveForm, forms, nav, addNotification } = useBPM();
+  const { navigateTo, saveForm, forms, nav, addNotification, roles } = useBPM();
   const [formDef, setFormDef] = useState<FormDefinition>({ id: `form-${Date.now()}`, name: 'New Form', description: '', fields: [], version: 1, lastModified: new Date().toISOString(), layoutMode: 'single' });
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'general' | 'appearance' | 'data' | 'validation' | 'logic'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'appearance' | 'data' | 'validation' | 'logic' | 'permissions'>('general');
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
@@ -74,6 +74,21 @@ export const FormDesigner: React.FC = () => {
   const selectedField = formDef.fields.find(f => f.id === selectedFieldId);
   const updateField = (id: string, updates: Partial<FormField>) => { setFormDef(produce(draft => { const field = draft.fields.find(f => f.id === id); if (field) Object.assign(field, updates); })); };
   
+  const updatePermission = (roleId: string, access: FieldPermission['access']) => {
+      if (!selectedField) return;
+      const currentPerms = selectedField.permissions || [];
+      const exists = currentPerms.find(p => p.roleId === roleId);
+      let newPerms;
+      
+      if (exists) {
+          newPerms = currentPerms.map(p => p.roleId === roleId ? { ...p, access } : p);
+      } else {
+          newPerms = [...currentPerms, { roleId, access }];
+      }
+      
+      updateField(selectedField.id, { permissions: newPerms });
+  };
+
   const handleDragStartLibrary = (e: React.DragEvent, type: FormFieldType) => { setDragInfo({ type: 'library', fieldType: type }); e.dataTransfer.effectAllowed = 'copy'; if (rightOpen) setRightOpen(false); };
   const handleDragStartField = (e: React.DragEvent, id: string) => { e.stopPropagation(); setDragInfo({ type: 'field', id }); e.dataTransfer.effectAllowed = e.ctrlKey ? 'copy' : 'move'; setSelectedFieldId(id); };
   const handleDragOver = useCallback((e: React.DragEvent, index: number) => { e.preventDefault(); e.stopPropagation(); if (!dragInfo) return; if (dropIndex !== index) setDropIndex(index); if (e.ctrlKey !== isCopyMode) setIsCopyMode(e.ctrlKey); }, [dropIndex, dragInfo, isCopyMode]);
@@ -162,7 +177,7 @@ export const FormDesigner: React.FC = () => {
            {selectedField ? (
              <div className="flex flex-col h-full overflow-hidden">
                 <div className="flex border-b border-slate-200 overflow-x-auto no-scrollbar">
-                    {['general', 'appearance', 'data', 'validation', 'logic'].map(t => (
+                    {['general', 'appearance', 'data', 'validation', 'permissions'].map(t => (
                         <button key={t} onClick={() => setActiveTab(t as any)} className={`px-3 py-3 text-[10px] font-bold uppercase transition-all whitespace-nowrap ${activeTab === t ? 'text-blue-600 border-b-2 border-blue-600 bg-white' : 'text-slate-500 bg-slate-50 hover:text-slate-800'}`}>{t}</button>
                     ))}
                 </div>
@@ -172,6 +187,32 @@ export const FormDesigner: React.FC = () => {
                             <NexFormGroup label="Field Label"><input className="prop-input font-bold" value={selectedField.label} onChange={e => updateField(selectedField.id, { label: e.target.value })} /></NexFormGroup>
                             <NexFormGroup label="Variable Key"><input className="prop-input font-mono text-xs" value={selectedField.key} onChange={e => updateField(selectedField.id, { key: e.target.value })} /></NexFormGroup>
                         </>
+                    )}
+                    
+                    {activeTab === 'permissions' && (
+                        <div className="space-y-4">
+                            <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-sm text-xs text-indigo-800 flex gap-2">
+                                <Shield size={16} className="shrink-0"/>
+                                Field-Level Security (FLS) overrides visibility rules.
+                            </div>
+                            {roles.map(role => {
+                                const current = selectedField.permissions?.find(p => p.roleId === role.id)?.access || 'read_write';
+                                return (
+                                    <div key={role.id} className="flex items-center justify-between border-b border-slate-100 pb-2">
+                                        <span className="text-xs font-bold text-slate-700">{role.name}</span>
+                                        <select 
+                                            className="text-xs border border-slate-300 rounded-sm p-1 bg-white"
+                                            value={current}
+                                            onChange={e => updatePermission(role.id, e.target.value as any)}
+                                        >
+                                            <option value="read_write">Read/Write</option>
+                                            <option value="read_only">Read Only</option>
+                                            <option value="hidden">Hidden</option>
+                                        </select>
+                                    </div>
+                                )
+                            })}
+                        </div>
                     )}
                 </div>
              </div>
