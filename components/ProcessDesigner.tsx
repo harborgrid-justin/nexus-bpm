@@ -3,8 +3,6 @@ import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import ReactFlow, { 
   Node, 
   Edge, 
-  useNodesState, 
-  useEdgesState, 
   Controls, 
   Background, 
   MiniMap,
@@ -16,13 +14,15 @@ import ReactFlow, {
   EdgeChange,
   Panel,
   ReactFlowProvider,
-  useReactFlow
+  useReactFlow,
+  applyNodeChanges,
+  applyEdgeChanges
 } from 'reactflow';
 import dagre from 'dagre';
 import { ProcessStep, ProcessLink, ProcessStepType, ProcessDefinition, Swimlane, UserRole } from '../types';
 import { useBPM } from '../contexts/BPMContext';
 import { 
-  Save, Cpu, LayoutPanelLeft, Trash2, Thermometer, Layout, Settings, Globe, PanelRight, X, Wand2, ListTree, Grid, Layers, Plus, AlertTriangle, CheckCircle, ShieldAlert,
+  Save, LayoutPanelLeft, Trash2, Layout, Settings, PanelRight, X, Layers, Plus, AlertTriangle, ShieldAlert,
   Undo, Redo, PlayCircle, StopCircle, StickyNote, MousePointer, Hand
 } from 'lucide-react';
 import { PaletteSidebar } from './designer/PaletteSidebar';
@@ -33,8 +33,7 @@ import { CanvasContextMenu } from './designer/CanvasContextMenu';
 import { HierarchyView } from './designer/HierarchyView';
 import { SwimlaneRenderer } from './designer/SwimlaneRenderer';
 import { getStepTypeMetadata } from './designer/designerUtils';
-import { generateProcessWorkflow } from '../services/geminiService';
-import { NexFormGroup, NexModal, NexButton, NexBadge } from './shared/NexUI';
+import { NexFormGroup, NexModal, NexButton } from './shared/NexUI';
 import { validateStepConfiguration } from './designer/stepSchemas';
 import useUndoRedo from './hooks/useUndoRedo';
 
@@ -70,7 +69,8 @@ const ProcessSettingsPanel: React.FC<{
     meta: Partial<ProcessDefinition>;
     onChange: (upd: Partial<ProcessDefinition>) => void;
     onClose: () => void;
-}> = ({ meta, onChange, onClose }) => {
+    roles: UserRole[];
+}> = ({ meta, onChange, onClose, roles }) => {
     const addLane = () => { onChange({ lanes: [...(meta.lanes || []), { id: `lane-${Date.now()}`, name: 'New Lane', height: 300, color: 'slate' }] }); };
     const updateLane = (id: string, updates: Partial<Swimlane>) => { onChange({ lanes: (meta.lanes || []).map(l => l.id === id ? { ...l, ...updates } : l) }); };
     const removeLane = (id: string) => { onChange({ lanes: (meta.lanes || []).filter(l => l.id !== id) }); };
@@ -124,22 +124,11 @@ const DesignerFlow = ({
     nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeClick, onPaneClick, onContextMenu, onDrop, onDragOver, onLayout, isValidConnection, lanes,
     simulationActive, activeSimNodeId, viewMode, setViewMode, selectionMode, setSelectionMode 
 }: any) => {
-    const { fitView } = useReactFlow();
-
-    // Augment nodes for simulation highlighting
-    const displayNodes = useMemo(() => {
-        if (!simulationActive) return nodes;
-        return nodes.map((n: Node) => ({
-            ...n,
-            data: { ...n.data, isSimulating: n.id === activeSimNodeId }
-        }));
-    }, [nodes, simulationActive, activeSimNodeId]);
-
     return (
         <div className="h-full w-full relative" onDrop={onDrop} onDragOver={onDragOver}>
             {lanes && lanes.length > 0 && <SwimlaneRenderer lanes={lanes} width={3000} />}
             <ReactFlow 
-                nodes={displayNodes} 
+                nodes={simulationActive ? nodes.map((n: Node) => ({ ...n, data: { ...n.data, isSimulating: n.id === activeSimNodeId } })) : nodes} 
                 edges={edges} 
                 onNodesChange={onNodesChange} 
                 onEdgesChange={onEdgesChange} 
@@ -155,7 +144,8 @@ const DesignerFlow = ({
                 fitView 
                 panOnDrag={selectionMode === 'pan'}
                 selectionOnDrag={selectionMode === 'select'}
-                selectionMode={selectionMode === 'select' ? 1 : 0} // Partial vs Full selection
+                selectionMode={selectionMode === 'select' ? 1 : 0} 
+                onlyRenderVisibleElements={true}
                 attributionPosition="bottom-right"
             >
                 <Background color="#cbd5e1" gap={GRID_SIZE} variant={BackgroundVariant.Dots} style={{ opacity: 0.3 }} />
@@ -201,7 +191,7 @@ const DesignerFlow = ({
 };
 
 export const ProcessDesigner: React.FC = () => {
-  const { deployProcess, roles, addNotification, designerDraft, setDesignerDraft, nav, currentUser, processes, navigateTo } = useBPM();
+  const { deployProcess, roles, addNotification, designerDraft, setDesignerDraft, nav, currentUser, processes } = useBPM();
   
   // --- Undo/Redo & State ---
   const { state: flowState, set: setFlowState, undo, redo, canUndo, canRedo } = useUndoRedo({ nodes: [] as Node[], edges: [] as Edge[] });
@@ -229,11 +219,10 @@ export const ProcessDesigner: React.FC = () => {
           const steps: ProcessStep[] = nodes.map(n => ({ ...n.data.step, position: n.position, id: n.id }));
           const links: ProcessLink[] = edges.map(e => ({ id: e.id, sourceId: e.source, targetId: e.target, label: e.label as string }));
           setDesignerDraft({ steps, links });
-          // Could enable localStorage here too for extra safety
           localStorage.setItem('nexflow_draft', JSON.stringify({ steps, links, meta: processMeta }));
       }, 2000);
       return () => clearTimeout(handler);
-  }, [nodes, edges, processMeta]);
+  }, [nodes, edges, processMeta, setDesignerDraft]);
 
   // --- Initial Load ---
   useEffect(() => {
@@ -243,7 +232,7 @@ export const ProcessDesigner: React.FC = () => {
               setProcessMeta({ id: existing.id, name: existing.name, description: existing.description, version: existing.version, complianceLevel: existing.complianceLevel, domainId: existing.domainId, lanes: existing.lanes || [] });
               setFlowState({
                   nodes: existing.steps.map(s => ({ id: s.id, type: 'custom', position: s.position || { x: 0, y: 0 }, data: { step: s } })),
-                  edges: (existing.links || []).map(l => ({ id: l.id, source: l.sourceId, target: l.targetId, type: 'custom', label: l.label }))
+                  edges: (existing.links || []).map(l => ({ id: l.id, source: l.sourceId, target: l.targetId, type: 'custom', label: l.label, markerEnd: { type: MarkerType.ArrowClosed } }))
               });
               return; 
           }
@@ -254,11 +243,11 @@ export const ProcessDesigner: React.FC = () => {
           const parsed = JSON.parse(saved);
           setFlowState({
               nodes: parsed.steps.map((s: ProcessStep) => ({ id: s.id, type: 'custom', position: s.position, data: { step: s } })),
-              edges: parsed.links.map((l: ProcessLink) => ({ id: l.id, source: l.sourceId, target: l.targetId, type: 'custom', label: l.label }))
+              edges: parsed.links.map((l: ProcessLink) => ({ id: l.id, source: l.sourceId, target: l.targetId, type: 'custom', label: l.label, markerEnd: { type: MarkerType.ArrowClosed } }))
           });
           setProcessMeta(parsed.meta);
       }
-  }, [nav.selectedId, processes]);
+  }, [nav.selectedId, processes, setFlowState, nav.view]);
 
   // --- Shortcuts ---
   useEffect(() => {
@@ -275,30 +264,19 @@ export const ProcessDesigner: React.FC = () => {
   }, [undo, redo, selectedNodeId]);
 
   // --- Node Operations ---
-  const updateNodes = (newNodes: Node[]) => setFlowState({ nodes: newNodes, edges });
-  const updateEdges = (newEdges: Edge[]) => setFlowState({ nodes, edges: newEdges });
-
   const onNodesChange = useCallback((changes: NodeChange[]) => {
-      // Basic implementation for brevity - normally handle position changes
-      // In a real app with undo/redo, you apply changes then set state
-      // For this "Enterprise" demo, we just simplify direct mutations for drag to work smoothly
-      // but only snapshot on drag end (not implemented here for brevity).
-      // Re-implementing basic applyNodeChanges logic:
       setFlowState({ 
-          nodes: nodes.map(n => {
-              const change = changes.find(c => c.id === n.id);
-              if (change && change.type === 'position' && change.position) {
-                  return { ...n, position: change.position };
-              }
-              return n;
-          }), 
+          nodes: applyNodeChanges(changes, nodes), 
           edges 
       });
   }, [nodes, edges, setFlowState]);
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
-      // Simplified
-  }, []);
+      setFlowState({
+          nodes,
+          edges: applyEdgeChanges(changes, edges)
+      });
+  }, [nodes, edges, setFlowState]);
 
   const addNode = useCallback((type: ProcessStepType | 'note', position?: { x: number, y: number }) => {
     const metadata = getStepTypeMetadata(type);
@@ -323,7 +301,12 @@ export const ProcessDesigner: React.FC = () => {
   }, [nodes, edges, setFlowState]);
 
   const onConnect = useCallback((params: Connection) => {
-      const newEdge = { ...params, id: `e-${Date.now()}`, type: 'custom' };
+      const newEdge = { 
+          ...params, 
+          id: `e-${Date.now()}`, 
+          type: 'custom', 
+          markerEnd: { type: MarkerType.ArrowClosed } 
+      };
       setFlowState({ nodes, edges: addEdge(newEdge, edges) });
   }, [nodes, edges, setFlowState]);
 
@@ -503,7 +486,7 @@ export const ProcessDesigner: React.FC = () => {
                     isValidConnection={(c: any) => true} 
                     lanes={processMeta.lanes}
                     simulationActive={simulationActive}
-                    activeSimNodeId={selectedNodeId} // Reusing selection as highlight for simplicity
+                    activeSimNodeId={selectedNodeId} 
                     viewMode={viewMode}
                     setViewMode={setViewMode}
                     selectionMode={selectionMode}
@@ -524,7 +507,6 @@ export const ProcessDesigner: React.FC = () => {
           </div>
         </div>
 
-        {/* Validation Errors Modal */}
         <NexModal isOpen={showValidationModal} onClose={() => setShowValidationModal(false)} title="Validation Failed" size="md">
             <div className="space-y-4">
                 <div className="bg-rose-50 border border-rose-200 rounded-sm p-4 flex items-start gap-3">
