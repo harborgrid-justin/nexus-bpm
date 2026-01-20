@@ -27,14 +27,17 @@ const MetricPanel = ({ label, value, sub, icon: Icon, color, onClick }: MetricPa
     <NexCard 
       onClick={onClick} 
       className={`flex items-center justify-between border-l-4 border-l-transparent hover:border-l-blue-600 transition-all cursor-pointer`}
-      style={{ padding: 'var(--card-padding)' }} // Dynamic Padding
+      style={{ padding: 'var(--card-padding)' }}
     >
       <div>
         <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">{label}</p>
         <div className="text-2xl font-bold text-slate-900 leading-none mb-1">{value}</div>
         <p className="text-[11px] text-slate-400">{sub}</p>
       </div>
-      <div className={`p-2 rounded-sm border ${colors[color].replace('text-', 'border-').split(' ')[2]} ${colors[color].split(' ')[1]} ${colors[color].split(' ')[0]}`}>
+      <div 
+        className={`rounded-sm border ${colors[color].replace('text-', 'border-').split(' ')[2]} ${colors[color].split(' ')[1]} ${colors[color].split(' ')[0]}`}
+        style={{ padding: 'var(--space-base)' }}
+      >
         <Icon size={18} />
       </div>
     </NexCard>
@@ -88,9 +91,7 @@ export const Dashboard: React.FC = () => {
         return logDate.toDateString() === d.toDateString() && l.action.includes('TASK');
       }).length;
       
-      // Jitter for demo if empty to show the chart isn't broken
       const displayCount = count;
-      
       data.push({ name: dateStr, tasks: displayCount });
     }
     return data;
@@ -120,7 +121,10 @@ export const Dashboard: React.FC = () => {
       style={{ gap: 'var(--layout-gap)' }}
     >
       {/* Dense Top Bar */}
-      <div className="flex items-center justify-between bg-white border border-slate-300 p-2 rounded-sm shadow-sm">
+      <div 
+        className="flex items-center justify-between bg-white border border-slate-300 shadow-sm"
+        style={{ padding: 'var(--space-base)', borderRadius: 'var(--radius-base)' }}
+      >
         <div className="flex gap-1">
           {['Overview', 'Planning', 'Execution', 'Control'].map(tab => (
             <button 
@@ -155,13 +159,16 @@ export const Dashboard: React.FC = () => {
       >
         {/* Main Chart Area */}
         <NexCard className="lg:col-span-2 p-0 overflow-hidden min-h-[300px]">
-          <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+          <div 
+            className="border-b border-slate-200 bg-slate-50 flex justify-between items-center"
+            style={{ padding: 'var(--space-base) var(--card-padding)' }}
+          >
             <h3 className="text-xs font-bold text-slate-700 uppercase flex items-center gap-2">
               <Activity size={14} className="text-slate-400"/> Operational Velocity
             </h3>
             <button onClick={() => navigateTo('analytics')} className="text-blue-600 text-xs font-medium hover:underline">View Report</button>
           </div>
-          <div className="p-4 h-64 bg-white cursor-pointer" onClick={handleChartClick}>
+          <div className="h-64 bg-white cursor-pointer" onClick={handleChartClick} style={{ padding: 'var(--card-padding)' }}>
              <ResponsiveContainer width="100%" height="100%">
                <AreaChart data={velocityData}>
                  <defs>
@@ -185,12 +192,18 @@ export const Dashboard: React.FC = () => {
 
         {/* Actionable Insights */}
         <NexCard className="flex flex-col p-0">
-           <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
+           <div 
+             className="border-b border-slate-200 bg-slate-50"
+             style={{ padding: 'var(--space-base) var(--card-padding)' }}
+           >
              <h3 className="text-xs font-bold text-slate-700 uppercase flex items-center gap-2">
                <Sparkles size={14} className="text-amber-500"/> AI Advisor
              </h3>
            </div>
-           <div className="p-4 flex-1 bg-slate-50/30 flex flex-col">
+           <div 
+             className="flex-1 bg-slate-50/30 flex flex-col"
+             style={{ padding: 'var(--card-padding)' }}
+           >
              <div className="bg-white border-l-4 border-l-amber-500 border border-slate-200 p-4 shadow-sm mb-4 flex-1">
                 <p className="text-xs font-medium text-slate-800 leading-relaxed">
                   {aiInsight}

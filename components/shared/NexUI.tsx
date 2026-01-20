@@ -17,14 +17,20 @@ export const NexBadge: React.FC<NexBadgeProps> = ({ children, variant = 'slate',
     amber: 'bg-amber-50 text-amber-700 border-amber-100'
   };
   return (
-    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${styles[variant]} ${className}`}>
+    <span 
+      className={`px-2.5 py-0.5 text-[11px] font-bold border ${styles[variant]} ${className}`}
+      style={{ borderRadius: 'var(--radius-base)' }}
+    >
       {children}
     </span>
   );
 };
 
 export const NexSwitch: React.FC<{ checked: boolean; onChange: (v: boolean) => void; label: string; icon?: LucideIcon }> = ({ checked, onChange, label, icon: Icon }) => (
-  <label className="flex items-center justify-between p-3 border border-slate-100 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer group">
+  <label 
+    className="flex items-center justify-between border border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer group"
+    style={{ padding: 'var(--space-base)', borderRadius: 'var(--radius-base)' }}
+  >
     <div className="flex items-center gap-3">
       {Icon && <Icon size={16} className={checked ? 'text-blue-600' : 'text-slate-400'} />}
       <span className={`text-[13px] font-semibold transition-colors ${checked ? 'text-slate-900' : 'text-slate-500'}`}>{label}</span>
@@ -41,7 +47,8 @@ export const NexSwitch: React.FC<{ checked: boolean; onChange: (v: boolean) => v
 export const NexCard: React.FC<{ children?: React.ReactNode; onClick?: () => void; className?: string; hover?: boolean }> = ({ children, onClick, className = '', hover = true }) => (
   <div 
     onClick={onClick}
-    className={`bg-white border border-slate-200 rounded-lg shadow-sm ${onClick ? 'cursor-pointer' : ''} ${hover && onClick ? 'hover:border-blue-400' : ''} ${className}`}
+    className={`bg-white border border-slate-200 shadow-sm ${onClick ? 'cursor-pointer' : ''} ${hover && onClick ? 'hover:border-blue-400' : ''} ${className}`}
+    style={{ borderRadius: 'var(--radius-base)' }}
   >
     {children}
   </div>
@@ -77,7 +84,8 @@ export const NexButton: React.FC<NexButtonProps> = ({ children, variant = 'prima
       type={type}
       disabled={disabled}
       onClick={onClick}
-      className={`${sizes[size]} rounded-[var(--radius-base)] font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none border ${styles[variant]} ${className}`}
+      className={`${sizes[size]} font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none border ${styles[variant]} ${className}`}
+      style={{ borderRadius: 'var(--radius-base)' }}
     >
       {Icon && <Icon size={size === 'sm' ? 14 : 16} />}
       {children}
@@ -138,7 +146,11 @@ export const NexModal: React.FC<{ isOpen: boolean; onClose: () => void; title: s
 
   return (
     <div className="fixed inset-0 z-modal bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center p-4 animate-fade-in">
-      <div ref={modalRef} className={`bg-white w-full ${maxWidths[size]} rounded-xl border border-slate-200 shadow-2xl animate-slide-up flex flex-col max-h-[90vh]`}>
+      <div 
+        ref={modalRef} 
+        className={`bg-white w-full ${maxWidths[size]} border border-slate-200 shadow-2xl animate-slide-up flex flex-col max-h-[90vh]`}
+        style={{ borderRadius: 'calc(var(--radius-base) * 2)' }}
+      >
         <div className="flex items-center justify-between p-5 border-b border-slate-100 shrink-0">
           <h3 className="text-[16px] font-bold text-slate-900">{title}</h3>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 transition-colors">
