@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { 
   ArrowLeft, Users, Send, Settings, Activity, 
-  CheckSquare, ChevronRight, Briefcase, ShieldCheck, Play, X, Layers, Plus, Shield, Edit, Trash2, RotateCcw, Lock, Database, Paperclip, FileText, Upload, Save, User as UserIcon, CheckCircle
+  CheckSquare, ChevronRight, Briefcase, ShieldCheck, Play, X, Layers, Plus, Shield, Edit, Trash2, RotateCcw, Lock, Database, Paperclip, FileText, Upload, Save, User as UserIcon, CheckCircle, Eye
 } from 'lucide-react';
 import { NexBadge, NexButton, NexHistoryFeed, NexCard, NexModal, NexFormGroup } from './shared/NexUI';
 import { TaskStatus } from '../types';
@@ -15,6 +15,9 @@ export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
   const [activeTab, setActiveTab] = useState<'timeline' | 'tasks' | 'data' | 'content'>('timeline');
   const [note, setNote] = useState('');
   const [caseData, setCaseData] = useState<string>('');
+  
+  // Document Preview State
+  const [previewFile, setPreviewFile] = useState<{name: string, url?: string} | null>(null);
 
   const currentCase = cases.find(c => c.id === caseId);
   const relatedTasks = useMemo(() => tasks.filter(t => t.caseId === caseId), [tasks, caseId]);
@@ -294,7 +297,12 @@ export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
                                           </div>
                                       </div>
                                       <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                          <button className="text-blue-600 hover:underline text-xs font-medium px-2 py-1 bg-white border border-slate-200 rounded-sm hover:bg-blue-50">Download</button>
+                                          <button 
+                                            onClick={() => setPreviewFile({ name: file.name, url: file.url })} 
+                                            className="text-slate-600 hover:text-blue-600 text-xs font-bold px-2 py-1 bg-white border border-slate-200 rounded-sm hover:bg-blue-50 flex items-center gap-1"
+                                          >
+                                              <Eye size={12}/> Preview
+                                          </button>
                                       </div>
                                   </div>
                               ))
@@ -305,6 +313,18 @@ export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
            </div>
         </main>
       </div>
+
+      {previewFile && (
+          <NexModal isOpen={!!previewFile} onClose={() => setPreviewFile(null)} title={previewFile.name} size="xl">
+              <div className="h-[600px] bg-slate-100 flex items-center justify-center border border-slate-200 rounded-sm">
+                  <div className="text-center">
+                      <FileText size={64} className="mx-auto text-slate-300 mb-4"/>
+                      <p className="text-slate-500 font-bold mb-2">Preview Unavailable in Demo</p>
+                      <p className="text-xs text-slate-400">This is a mock artifact. In production, this would render PDF/Images.</p>
+                  </div>
+              </div>
+          </NexModal>
+      )}
     </div>
   );
 };

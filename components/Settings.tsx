@@ -2,12 +2,12 @@
 import React, { useRef, useState } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Database, RefreshCw, Trash2, Download, Upload, AlertTriangle, CheckCircle, Server, Monitor, Palette, Maximize, Move, Calendar } from 'lucide-react';
+import { Database, RefreshCw, Trash2, Download, Upload, AlertTriangle, CheckCircle, Server, Monitor, Palette, Maximize, Move, Calendar, Moon, Sun } from 'lucide-react';
 import { NexButton } from './shared/NexUI';
 
 export const Settings: React.FC = () => {
   const { resetSystem, reseedSystem, exportData, importData, loading, settings, updateSystemSettings } = useBPM();
-  const { scale, setScale, sidebarWidth, setSidebarWidth, headerHeight, setHeaderHeight, radius, setRadius, density, setDensity, resetTheme } = useTheme();
+  const { scale, setScale, sidebarWidth, setSidebarWidth, headerHeight, setHeaderHeight, radius, setRadius, density, setDensity, themeMode, setThemeMode, resetTheme } = useTheme();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [statusMsg, setStatusMsg] = useState('');
@@ -47,6 +47,10 @@ export const Settings: React.FC = () => {
                         <h4 className="font-bold text-slate-800 text-sm mb-1">Export Database</h4>
                         <NexButton variant="secondary" onClick={handleExport} icon={Download}>Download Backup</NexButton>
                     </div>
+                    <div className="border border-slate-200 bg-white" style={{ padding: 'var(--space-base)', borderRadius: 'var(--radius-base)' }}>
+                        <h4 className="font-bold text-slate-800 text-sm mb-1">System Reset</h4>
+                        <NexButton variant="danger" onClick={() => { if(confirm('Reset all data?')) resetSystem(); }} icon={Trash2}>Factory Reset</NexButton>
+                    </div>
                 </div>
             </section>
           </div>
@@ -56,10 +60,21 @@ export const Settings: React.FC = () => {
           <div className="flex flex-col" style={{ gap: 'var(--layout-gap)' }}>
               <section className="bg-white shadow-sm border border-slate-300 overflow-hidden" style={{ borderRadius: 'var(--radius-base)' }}>
                   <div className="border-b border-slate-200 bg-slate-50 flex justify-between items-center" style={{ padding: 'var(--card-padding)' }}>
-                      <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2"><Monitor size={16} className="text-slate-500" /> Display Density & Scale</h3>
+                      <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2"><Monitor size={16} className="text-slate-500" /> Interface Preferences</h3>
                       <button onClick={resetTheme} className="text-xs text-blue-600 hover:underline">Reset to Defaults</button>
                   </div>
                   <div className="flex flex-col" style={{ padding: 'var(--card-padding)', gap: 'var(--layout-gap)' }}>
+                      
+                      <div className="space-y-3">
+                          <label className="text-sm font-bold text-slate-700 flex items-center gap-2"><Sun size={16} className="text-slate-400"/> Color Mode</label>
+                          <div className="flex gap-4">
+                              <button onClick={() => setThemeMode('light')} className={`flex-1 py-3 border rounded-sm text-xs font-bold uppercase transition-all ${themeMode === 'light' ? 'bg-blue-600 text-white border-blue-700 shadow-md' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}`}>Light</button>
+                              <button onClick={() => setThemeMode('dark')} className={`flex-1 py-3 border rounded-sm text-xs font-bold uppercase transition-all ${themeMode === 'dark' ? 'bg-slate-800 text-white border-slate-900 shadow-md' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}`}>Dark</button>
+                          </div>
+                      </div>
+
+                      <div className="h-px bg-slate-100"></div>
+
                       <div className="space-y-3">
                           <label className="text-sm font-bold text-slate-700 flex items-center gap-2"><Palette size={16} className="text-slate-400"/> Content Density</label>
                           <div className="flex gap-4">

@@ -329,7 +329,10 @@ export const FormRenderer: React.FC<FormRendererProps> = ({ form, data, onChange
                   try {
                       // eslint-disable-next-line no-eval
                       const result = eval(calc); 
-                      if (data[field.key] !== result) onChange(field.key, result);
+                      // Use String comparison to avoid infinite loops due to type mismatches (e.g. "10" vs 10)
+                      if (String(data[field.key]) !== String(result)) {
+                          onChange(field.key, result);
+                      }
                   } catch(e) {}
               }
           }

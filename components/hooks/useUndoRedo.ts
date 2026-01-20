@@ -1,46 +1,70 @@
 
 import { useState, useCallback } from 'react';
 
+interface HistoryState<T> {
+  past: T[];
+  present: T;
+  future: T[];
+}
+
 export default function useUndoRedo<T>(initialState: T, limit: number = 20) {
-  const [past, setPast] = useState<T[]>([]);
-  const [present, setPresent] = useState<T>(initialState);
-  const [future, setFuture] = useState<T[]>([]);
+  const [history, setHistory] = useState<HistoryState<T>>({
+    past: [],
+    present: initialState,
+    future: []
+  });
+
+  const { past, present, future } = history;
 
   const set = useCallback((newPresent: T) => {
-    setPast((prev) => {
-      const newPast = [...prev, present];
+    setHistory((curr) => {
+      const newPast = [...curr.past, curr.present];
       if (newPast.length > limit) newPast.shift();
-      return newPast;
+      return {
+        past: newPast,
+        present: newPresent,
+        future: []
+      };
     });
-    setPresent(newPresent);
-    setFuture([]);
-  }, [present, limit]);
+  }, [limit]);
 
   const undo = useCallback(() => {
-    setPast((prev) => {
-      if (prev.length === 0) return prev;
-      const newPresent = prev[prev.length - 1];
-      const newPast = prev.slice(0, prev.length - 1);
+    setHistory((curr) => {
+      if (curr.past.length === 0) return curr;
       
-      setFuture((f) => [present, ...f]);
-      setPresent(newPresent);
+      const previous = curr.past[curr.past.length - 1];
+      const newPast = curr.past.slice(0, curr.past.length - 1);
       
-      return newPast;
+      return {
+        past: newPast,
+        present: previous,
+        future: [curr.present, ...curr.future]
+      };
     });
-  }, [present]);
+  }, []);
 
   const redo = useCallback(() => {
-    setFuture((prev) => {
-      if (prev.length === 0) return prev;
-      const newPresent = prev[0];
-      const newFuture = prev.slice(1);
+    setHistory((curr) => {
+      if (curr.future.length === 0) return curr;
       
-      setPast((p) => [...p, present]);
-      setPresent(newPresent);
+      const next = curr.future[0];
+      const newFuture = curr.future.slice(1);
       
-      return newFuture;
+      return {
+        past: [...curr.past, curr.present],
+        present: next,
+        future: newFuture
+      };
     });
-  }, [present]);
+  }, []);
 
-  return { state: present, set, undo, redo, canUndo: past.length > 0, canRedo: future.length > 0, history: past };
+  return { 
+    state: present, 
+    set, 
+    undo, 
+    redo, 
+    canUndo: past.length > 0, 
+    canRedo: future.length > 0, 
+    history: past 
+  };
 }

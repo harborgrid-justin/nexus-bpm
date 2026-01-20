@@ -1,6 +1,8 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 type Density = 'compact' | 'comfortable' | 'spacious';
+type ThemeMode = 'light' | 'dark' | 'system';
 
 interface ThemeContextType {
   scale: number;
@@ -13,6 +15,8 @@ interface ThemeContextType {
   setRadius: (n: number) => void;
   density: Density;
   setDensity: (d: Density) => void;
+  themeMode: ThemeMode;
+  setThemeMode: (m: ThemeMode) => void;
   resetTheme: () => void;
 }
 
@@ -21,7 +25,8 @@ const defaultTheme = {
   sidebarWidth: 256,
   headerHeight: 56,
   radius: 6,
-  density: 'comfortable' as Density
+  density: 'comfortable' as Density,
+  themeMode: 'light' as ThemeMode
 };
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -32,67 +37,42 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [headerHeight, setHeaderHeight] = useState(defaultTheme.headerHeight);
   const [radius, setRadius] = useState(defaultTheme.radius);
   const [density, setDensity] = useState<Density>(defaultTheme.density);
+  const [themeMode, setThemeMode] = useState<ThemeMode>(defaultTheme.themeMode);
 
   useEffect(() => {
     const root = document.documentElement;
+    const body = document.body;
     
-    // 1. Global Scale (Affects rem units: padding, margin, font-size)
-    // We adjust the base font-size percentage (standard is 100% = 16px)
-    // Note: Tailwind uses rems, so changing root font-size scales everything.
-    // However, we want to scale specific UI elements without breaking browser zoom.
-    // We will use CSS variables for specific scalers.
-    
-    // 2. Layout Dimensions
+    // Layout Dimensions
     root.style.setProperty('--sidebar-width', `${sidebarWidth}px`);
     root.style.setProperty('--header-height', `${headerHeight}px`);
     
-    // 3. Component Styling
+    // Component Styling
     root.style.setProperty('--radius-base', `${radius}px`);
     
-    // 4. Density & Spacing
-    // We update the mapping variables used by the CSS
+    // Density
     const densityMap = {
-      compact: { 
-        space: '0.5rem', 
-        text: '12px',
-        padding: '16px',
-        gap: '12px',
-        cardPadding: '12px',
-        sectionGap: '16px'
-      },
-      comfortable: { 
-        space: '0.75rem', 
-        text: '14px', 
-        padding: '32px', 
-        gap: '24px',
-        cardPadding: '24px',
-        sectionGap: '32px'
-      },
-      spacious: { 
-        space: '1.25rem', 
-        text: '15px', 
-        padding: '48px', 
-        gap: '40px',
-        cardPadding: '32px',
-        sectionGap: '48px'
-      }
+      compact: { space: '0.5rem', padding: '16px', gap: '12px', cardPadding: '12px', sectionGap: '16px' },
+      comfortable: { space: '0.75rem', padding: '32px', gap: '24px', cardPadding: '24px', sectionGap: '32px' },
+      spacious: { space: '1.25rem', padding: '48px', gap: '40px', cardPadding: '32px', sectionGap: '48px' }
     };
-    
     const d = densityMap[density];
     root.style.setProperty('--space-base', d.space);
-    // root.style.setProperty('--text-base', d.text); // Optional: if we want to override base font size
     root.style.setProperty('--layout-padding', d.padding);
     root.style.setProperty('--layout-gap', d.gap);
     root.style.setProperty('--card-padding', d.cardPadding);
     root.style.setProperty('--section-gap', d.sectionGap);
 
-    // Scale transform for the whole app container if needed, or specific font scaling
-    if (scale !== 1) {
-       // Advanced: Could transform body, but usually messing with font-size is safer
-       // root.style.fontSize = `${scale * 100}%`; 
+    // Theme Mode
+    if (themeMode === 'dark') {
+        body.classList.add('dark');
+        root.setAttribute('data-theme', 'dark');
+    } else {
+        body.classList.remove('dark');
+        root.setAttribute('data-theme', 'light');
     }
 
-  }, [scale, sidebarWidth, headerHeight, radius, density]);
+  }, [scale, sidebarWidth, headerHeight, radius, density, themeMode]);
 
   const resetTheme = () => {
     setScale(defaultTheme.scale);
@@ -100,6 +80,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setHeaderHeight(defaultTheme.headerHeight);
     setRadius(defaultTheme.radius);
     setDensity(defaultTheme.density);
+    setThemeMode(defaultTheme.themeMode);
   };
 
   return (
@@ -109,6 +90,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       headerHeight, setHeaderHeight,
       radius, setRadius,
       density, setDensity,
+      themeMode, setThemeMode,
       resetTheme
     }}>
       {children}

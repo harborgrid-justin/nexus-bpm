@@ -213,16 +213,29 @@ export const ProcessDesigner: React.FC = () => {
   const [simulationActive, setSimulationActive] = useState(false);
   const [simStepIndex, setSimStepIndex] = useState(0);
 
+  // --- Auto-Save Effect Ref ---
+  const flowStateRef = useRef(flowState);
+  const processMetaRef = useRef(processMeta);
+  
+  useEffect(() => {
+      flowStateRef.current = flowState;
+      processMetaRef.current = processMeta;
+  }, [flowState, processMeta]);
+
   // --- Auto-Save Effect ---
   useEffect(() => {
       const handler = setTimeout(() => {
-          const steps: ProcessStep[] = nodes.map(n => ({ ...n.data.step, position: n.position, id: n.id }));
-          const links: ProcessLink[] = edges.map(e => ({ id: e.id, sourceId: e.source, targetId: e.target, label: e.label as string }));
+          const { nodes: curNodes, edges: curEdges } = flowStateRef.current;
+          const meta = processMetaRef.current;
+          
+          const steps: ProcessStep[] = curNodes.map(n => ({ ...n.data.step, position: n.position, id: n.id }));
+          const links: ProcessLink[] = curEdges.map(e => ({ id: e.id, sourceId: e.source, targetId: e.target, label: e.label as string }));
+          
           setDesignerDraft({ steps, links });
-          localStorage.setItem('nexflow_draft', JSON.stringify({ steps, links, meta: processMeta }));
+          localStorage.setItem('nexflow_draft', JSON.stringify({ steps, links, meta }));
       }, 2000);
       return () => clearTimeout(handler);
-  }, [nodes, edges, processMeta, setDesignerDraft]);
+  }, [setDesignerDraft]); // Reduced dependencies to avoid loops
 
   // --- Initial Load ---
   useEffect(() => {
