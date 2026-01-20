@@ -116,6 +116,7 @@ export interface Task {
   isStarred?: boolean;
   snoozeUntil?: string;
   formId?: string; // Phase 2: Link to Form Definition
+  location?: { lat: number; lng: number; address?: string }; // Phase 8: Field Ops
 }
 
 export type ProcessStepType = 
@@ -248,7 +249,7 @@ export interface AuditLog {
   timestamp: string;
   userId: string;
   action: string;
-  entityType: 'Process' | 'Task' | 'Instance' | 'System' | 'User' | 'Case' | 'Rule' | 'Form';
+  entityType: 'Process' | 'Task' | 'Instance' | 'System' | 'User' | 'Case' | 'Rule' | 'Form' | 'Integration';
   entityId: string;
   details: string;
   severity: 'Info' | 'Warning' | 'Alert';
@@ -435,6 +436,29 @@ export interface FormDefinition {
   layoutMode?: 'single' | 'wizard'; // Added for Wizard Support
 }
 
+// ---- MARKETPLACE & INTEGRATIONS (Phase 9) ----
+export interface Integration {
+  id: string;
+  name: string;
+  description: string;
+  category: 'CRM' | 'ERP' | 'Productivity' | 'AI' | 'Cloud' | 'Communication';
+  iconName: string; // Lucide icon name
+  provider: string;
+  isInstalled: boolean;
+  config?: Record<string, string>; // API Keys, URLs
+  version: string;
+}
+
+// ---- API GATEWAY (Phase 10) ----
+export interface ApiClient {
+  id: string;
+  name: string;
+  clientId: string;
+  status: 'Active' | 'Revoked';
+  lastUsed: string;
+  reqCount: number;
+}
+
 // ---- ANALYTICS & GOVERNANCE ----
 export interface AlertRule {
   id: string;
@@ -461,8 +485,10 @@ export type ViewState =
   | 'rules'
   | 'api-gateway' 
   | 'resource-planner'
-  | 'forms'         // Phase 2
-  | 'form-designer' // Phase 2
+  | 'forms'         
+  | 'form-designer' 
+  | 'marketplace'   // Phase 9
+  | 'field-ops'     // Phase 8
   // --- Form Pages (Replaces Modals) ---
   | 'create-user' | 'edit-user'
   | 'create-role' | 'edit-role'

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { 
@@ -6,29 +7,6 @@ import {
 } from 'lucide-react';
 import { NexCard, NexButton, NexBadge, NexSwitch } from './shared/NexUI';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-
-interface ApiClient {
-  id: string;
-  name: string;
-  clientId: string;
-  status: 'Active' | 'Revoked';
-  lastUsed: string;
-  reqCount: number;
-}
-
-const MOCK_CLIENTS: ApiClient[] = [
-  { id: 'c1', name: 'CRM Integration', clientId: 'client_94a...x82', status: 'Active', lastUsed: '2 mins ago', reqCount: 14502 },
-  { id: 'c2', name: 'Legacy ERP', clientId: 'client_b21...99a', status: 'Active', lastUsed: '1 hour ago', reqCount: 890 },
-  { id: 'c3', name: 'Mobile App v2', clientId: 'client_77c...11b', status: 'Active', lastUsed: 'Just now', reqCount: 45200 },
-  { id: 'c4', name: 'Dev Portal', clientId: 'client_test...001', status: 'Revoked', lastUsed: '2 days ago', reqCount: 120 }
-];
-
-const TRAFFIC_DATA = [
-  { time: '00:00', reqs: 400 }, { time: '04:00', reqs: 300 },
-  { time: '08:00', reqs: 2400 }, { time: '12:00', reqs: 3800 },
-  { time: '16:00', reqs: 3200 }, { time: '20:00', reqs: 1800 },
-  { time: '23:59', reqs: 900 },
-];
 
 interface LiveLog {
     id: string;
@@ -40,7 +18,7 @@ interface LiveLog {
 }
 
 export const ApiGatewayView: React.FC = () => {
-  const { rules, decisionTables, executeRules, addNotification } = useBPM();
+  const { rules, decisionTables, executeRules, addNotification, apiClients, toggleApiClient, auditLogs } = useBPM();
   const [activeTab, setActiveTab] = useState<'endpoints' | 'clients' | 'logs'>('endpoints');
   const [selectedEndpoint, setSelectedEndpoint] = useState<{type: 'Rule' | 'Table', id: string, name: string, endpoint: string, status: string, circuitOpen: boolean} | null>(null);
   const [testPayload, setTestPayload] = useState('{\n  "amount": 5000,\n  "category": "Software"\n}');
@@ -57,10 +35,37 @@ export const ApiGatewayView: React.FC = () => {
     return [...rItems, ...tItems];
   }, [rules, decisionTables]);
 
-  // Log Simulation Effect
+  // Aggregate Traffic Data from Audit Logs
+  const trafficData = useMemo(() => {
+      const hours = 24;
+      const data = [];
+      const now = new Date();
+      
+      // Bucket logs by hour
+      for (let i = hours - 1; i >= 0; i--) {
+          const startTime = new Date(now.getTime() - (i * 60 * 60 * 1000));
+          const endTime = new Date(startTime.getTime() + (60 * 60 * 1000));
+          
+          const count = auditLogs.filter(l => {
+              const t = new Date(l.timestamp);
+              return t >= startTime && t < endTime;
+          }).length;
+
+          // Add a small baseline to visualize the chart even if empty
+          const base = 10; 
+          
+          data.push({
+              time: startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+              reqs: count + base
+          });
+      }
+      return data;
+  }, [auditLogs]);
+
+  // Log Simulation Effect (Mixed with real actions)
   useEffect(() => {
       const interval = setInterval(() => {
-          if (Math.random() > 0.3) { // 70% chance to generate a log
+          if (Math.random() > 0.6) { 
               const methods = ['POST', 'GET'];
               const statuses = [200, 200, 200, 201, 400, 401, 500];
               const paths = ['/v1/rules/exec', '/v1/auth/token', '/v1/hooks/stripe', '/health'];
@@ -76,7 +81,7 @@ export const ApiGatewayView: React.FC = () => {
               
               setLiveLogs(prev => [newLog, ...prev].slice(0, 50));
           }
-      }, 800);
+      }, 1500);
       return () => clearInterval(interval);
   }, []);
 
@@ -183,7 +188,7 @@ export const ApiGatewayView: React.FC = () => {
               </div>
               <div className="h-48 p-4">
                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={TRAFFIC_DATA}>
+                    <AreaChart data={trafficData}>
                        <defs>
                           <linearGradient id="colorReqs" x1="0" y1="0" x2="0" y2="1">
                              <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2}/>
@@ -322,13 +327,15 @@ export const ApiGatewayView: React.FC = () => {
 
            {activeTab === 'clients' && (
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                   {MOCK_CLIENTS.map(client => (
+                   {apiClients.map(client => (
                        <NexCard key={client.id} className="p-4 flex flex-col justify-between h-40 group hover:border-blue-300 transition-all">
                            <div className="flex justify-between items-start">
                                <div className="p-2 bg-blue-50 text-blue-600 rounded-sm border border-blue-100">
                                    <Terminal size={20}/>
                                </div>
-                               <NexBadge variant={client.status === 'Active' ? 'emerald' : 'rose'}>{client.status}</NexBadge>
+                               <button onClick={() => toggleApiClient(client.id)} title="Toggle Access">
+                                   <NexBadge variant={client.status === 'Active' ? 'emerald' : 'rose'}>{client.status}</NexBadge>
+                               </button>
                            </div>
                            <div>
                                <h4 className="font-bold text-slate-900 text-sm">{client.name}</h4>

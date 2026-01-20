@@ -25,7 +25,8 @@ export const Settings: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      await importData(file);
+      const text = await file.text();
+      await importData(text);
       setStatusMsg('Data imported successfully.');
       setTimeout(() => setStatusMsg(''), 3000);
     } catch (err) {
@@ -33,6 +34,16 @@ export const Settings: React.FC = () => {
       setStatusMsg('Error importing data. Check file format.');
     }
     e.target.value = '';
+  };
+
+  const handleExport = async () => {
+      const data = await exportData();
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `nexflow_backup_${new Date().toISOString()}.json`;
+      a.click();
   };
 
   const handleReset = async () => {
@@ -128,7 +139,7 @@ export const Settings: React.FC = () => {
                 >
                     <h4 className="font-bold text-slate-800 text-sm mb-1">Export Database</h4>
                     <p className="text-xs text-slate-500 mb-4">Download full system snapshot (JSON).</p>
-                    <NexButton variant="secondary" onClick={exportData} disabled={loading} icon={Download}>Download Backup</NexButton>
+                    <NexButton variant="secondary" onClick={handleExport} disabled={loading} icon={Download}>Download Backup</NexButton>
                 </div>
 
                 <div 

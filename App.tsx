@@ -1,10 +1,11 @@
+
 import React, { useState, useMemo } from 'react';
 import { 
   LayoutDashboard, CheckSquare, PenTool, BarChart3, Menu, X, Bell, 
   Search, Layers, Settings as SettingsIcon, ShieldCheck, 
   Fingerprint, Briefcase, FunctionSquare, Info, CheckCircle, AlertCircle, ChevronRight, Loader2,
   Plus, Zap, MoreHorizontal, UserCircle, Sparkles, ChevronDown, Database, LogIn, Command, Home, Calendar, Globe, FormInput,
-  PanelLeftClose, PanelLeftOpen, LogOut
+  PanelLeftClose, PanelLeftOpen, LogOut, ShoppingBag, Smartphone
 } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { TaskInbox } from './components/TaskInbox';
@@ -32,6 +33,8 @@ import { TaskReassignView, TaskMetadataView } from './components/pages/TaskPages
 import { SimulationPage } from './components/pages/SimulationPage';
 import { RuleGenPage } from './components/pages/RuleGenPage';
 import { ResourcePlanner } from './components/pages/ResourcePlanner';
+import { MarketplaceView } from './components/MarketplaceView';
+import { MobileFieldView } from './components/MobileFieldView';
 
 import { ViewState } from './types';
 import { BPMProvider, useBPM } from './contexts/BPMContext';
@@ -164,6 +167,8 @@ const AppContent: React.FC = () => {
       case 'resource-planner': return <ResourcePlanner />;
       case 'forms': return <FormRepository />;
       case 'form-designer': return <FormDesigner />;
+      case 'marketplace': return <MarketplaceView />;
+      case 'field-ops': return <MobileFieldView />;
       
       // Full Page Forms
       case 'create-user':
@@ -216,6 +221,22 @@ const AppContent: React.FC = () => {
     );
   }
 
+  // --- FIELD OPS SPECIAL VIEW ---
+  if (nav.view === 'field-ops') {
+      return (
+          <>
+            <MobileFieldView />
+            <button 
+                onClick={() => navigateTo('dashboard')} 
+                className="fixed top-2 right-2 z-[250] bg-black/30 hover:bg-black/50 text-white rounded-full p-2 backdrop-blur-sm transition-all"
+                title="Exit Field Mode"
+            >
+                <X size={20}/>
+            </button>
+          </>
+      );
+  }
+
   return (
     <div className="flex h-screen bg-app overflow-hidden">
       {/* Sidebar - Enterprise Style */}
@@ -246,6 +267,7 @@ const AppContent: React.FC = () => {
             <NavItem view="dashboard" icon={LayoutDashboard} label="Overview" active={nav.view === 'dashboard'} collapsed={sidebarCollapsed} />
             <NavItem view="inbox" icon={CheckSquare} label="Task List" active={nav.view === 'inbox'} collapsed={sidebarCollapsed} />
             <NavItem view="cases" icon={Briefcase} label="Case Management" active={nav.view === 'cases'} collapsed={sidebarCollapsed} />
+            <NavItem view="field-ops" icon={Smartphone} label="Field Ops Mode" active={nav.view === 'field-ops'} collapsed={sidebarCollapsed} />
           </NavGroup>
           
           <NavGroup title="Configuration" collapsed={sidebarCollapsed}>
@@ -255,6 +277,7 @@ const AppContent: React.FC = () => {
             <NavItem view="resource-planner" icon={Calendar} label="Resource Planner" active={nav.view === 'resource-planner'} collapsed={sidebarCollapsed} />
             <NavItem view="rules" icon={FunctionSquare} label="Business Rules" active={nav.view === 'rules'} collapsed={sidebarCollapsed} />
             <NavItem view="api-gateway" icon={Globe} label="API Gateway" active={nav.view === 'api-gateway'} collapsed={sidebarCollapsed} />
+            <NavItem view="marketplace" icon={ShoppingBag} label="Marketplace" active={nav.view === 'marketplace'} collapsed={sidebarCollapsed} />
           </NavGroup>
           
           <NavGroup title="Administration" collapsed={sidebarCollapsed}>

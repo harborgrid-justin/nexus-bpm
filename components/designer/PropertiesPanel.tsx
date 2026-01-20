@@ -92,7 +92,16 @@ export const PropertiesPanel = ({
     };
 
     const renderDynamicField = (field: ConfigField) => {
-        const value = step?.data?.[field.key] ?? field.defaultValue ?? '';
+        let value = step?.data?.[field.key] ?? field.defaultValue ?? '';
+        
+        // Prevent [object Object] rendering
+        if (typeof value === 'object' && value !== null) {
+            try {
+                value = JSON.stringify(value, null, 2);
+            } catch (e) {
+                value = '{}';
+            }
+        }
         
         switch(field.type) {
             case 'select':
@@ -120,7 +129,7 @@ export const PropertiesPanel = ({
                 return (
                     <div key={field.key} className="mb-4 flex items-center justify-between">
                         <label className="prop-label mb-0">{field.label}</label>
-                        <input type="checkbox" checked={!!value} onChange={e => updateDataField(field.key, e.target.checked)} className="rounded-sm text-blue-600 focus:ring-blue-500" />
+                        <input type="checkbox" checked={value === 'true' || value === true} onChange={e => updateDataField(field.key, e.target.checked)} className="rounded-sm text-blue-600 focus:ring-blue-500" />
                     </div>
                 );
             default:

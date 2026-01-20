@@ -5,7 +5,8 @@ import {
   ProcessDefinition, ProcessInstance, Task, TaskStatus, TaskPriority, 
   ViewState, AuditLog, Comment, User, UserRole, UserGroup, Permission, 
   Delegation, BusinessRule, DecisionTable, Case, CaseEvent, CasePolicy, CaseStakeholder,
-  Condition, RuleAction, ProcessStep, ProcessLink, FormDefinition, ProcessVersionSnapshot, ChecklistItem
+  Condition, RuleAction, ProcessStep, ProcessLink, FormDefinition, ProcessVersionSnapshot, ChecklistItem,
+  Integration, ApiClient
 } from '../types';
 import { dbService } from '../services/dbService';
 
@@ -37,7 +38,9 @@ interface BPMContextType {
   delegations: Delegation[];
   rules: BusinessRule[];
   decisionTables: DecisionTable[];
-  forms: FormDefinition[]; // Added
+  forms: FormDefinition[];
+  integrations: Integration[]; // Phase 9
+  apiClients: ApiClient[]; // Phase 10
   viewingInstanceId: string | null;
   
   // Designer Persistence
@@ -78,6 +81,7 @@ interface BPMContextType {
   toggleTaskStar: (taskId: string) => Promise<void>;
   snoozeTask: (taskId: string, until: string) => Promise<void>;
   createAdHocTask: (title: string, priority?: TaskPriority) => Promise<void>;
+  updateTaskLocation: (taskId: string, lat: number, lng: number) => Promise<void>; // Phase 8
   
   // Case Management
   createCase: (title: string, description: string, options?: { priority?: TaskPriority, data?: any, ownerId?: string }) => Promise<string>;
@@ -114,7 +118,14 @@ interface BPMContextType {
   
   createDelegation: (toUserId: string, scope: 'All' | 'Critical Only') => Promise<void>;
   revokeDelegation: (id: string) => Promise<void>;
+
+  // Integrations Management (Phase 9)
+  installIntegration: (id: string, config: Record<string, string>) => Promise<void>;
+  uninstallIntegration: (id: string) => Promise<void>;
   
+  // Api Client Management
+  toggleApiClient: (id: string) => Promise<void>;
+
   // System
   hasPermission: (perm: Permission) => boolean;
   reseedSystem: () => Promise<void>;
@@ -139,6 +150,8 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     rules: [] as BusinessRule[],
     decisionTables: [] as DecisionTable[],
     forms: [] as FormDefinition[],
+    integrations: [] as Integration[],
+    apiClients: [] as ApiClient[],
     notifications: [] as Notification[],
     globalSearch: '',
     nav: { view: 'dashboard' } as { view: ViewState; selectedId?: string; filter?: string; data?: any },
@@ -150,7 +163,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const loadData = useCallback(async () => {
     try {
-      const [p, inst, t, c, logs, u, r, g, d, bRules, tables, f] = await Promise.all([
+      const [p, inst, t, c, logs, u, r, g, d, bRules, tables, f, ints, apis] = await Promise.all([
         dbService.getAll<ProcessDefinition>('processes'),
         dbService.getAll<ProcessInstance>('instances'),
         dbService.getAll<Task>('tasks'),
@@ -163,6 +176,8 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         dbService.getAll<BusinessRule>('rules'),
         dbService.getAll<DecisionTable>('decisionTables'),
         dbService.getAll<FormDefinition>('forms'),
+        dbService.getAll<Integration>('integrations'),
+        dbService.getAll<ApiClient>('apiClients'),
       ]);
 
       setState(prev => ({
@@ -179,6 +194,8 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         rules: bRules,
         decisionTables: tables,
         forms: f,
+        integrations: ints,
+        apiClients: apis,
         currentUser: prev.currentUser || u[0] || null,
         loading: false
       }));
@@ -409,7 +426,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   isAdHoc: false,
                   caseId: instance.variables.caseId,
                   triggerSource: 'System',
-                  formId: nextStep.formId // CARRY OVER FORM ID
+                  formId: nextStep.formId
               };
               newTasks.push(nt);
               await dbService.add('tasks', nt);
@@ -483,7 +500,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const updatedInstance = {
       ...instance,
       activeStepIds: nextStepIds,
-      variables: { ...instance.variables, ...formData }, // MERGE FORM DATA INTO VARIABLES
+      variables: { ...instance.variables, ...formData }, 
       status: (nextStepIds.length > 0 ? 'Active' : 'Completed') as any,
       history: [...instance.history, { 
         id: `h-${Date.now()}`, stepName: task.title, action: action, performer: state.currentUser?.name || 'Unknown', timestamp: new Date().toISOString(), comments
@@ -617,6 +634,16 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       await dbService.add('tasks', newTask);
       setState(produce(draft => { draft.tasks.unshift(newTask); }));
       addNotification('success', 'Task created');
+  };
+
+  const updateTaskLocation = async (taskId: string, lat: number, lng: number) => {
+      const t = state.tasks.find(x => x.id === taskId);
+      if(t) {
+          const ut = { ...t, location: { lat, lng } };
+          await dbService.add('tasks', ut);
+          setState(produce(draft => { draft.tasks = draft.tasks.map(x => x.id === taskId ? ut : x); }));
+          addAudit('TASK_LOCATE', 'Task', taskId, `Location logged: ${lat}, ${lng}`);
+      }
   };
 
   // --- Case Methods ---
@@ -829,6 +856,38 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
   const deleteForm = async (id: string) => { await dbService.delete('forms', id); loadData(); };
 
+  // --- Integration Methods ---
+  const installIntegration = async (id: string, config: Record<string, string>) => {
+      const ints = state.integrations.find(i => i.id === id);
+      if(ints) {
+          const updated = { ...ints, isInstalled: true, config };
+          await dbService.add('integrations', updated);
+          setState(produce(draft => { draft.integrations = draft.integrations.map(x => x.id === id ? updated : x); }));
+          addAudit('INTEGRATION_INSTALL', 'Integration', id, `Installed connector: ${ints.name}`);
+          addNotification('success', `${ints.name} Connected`);
+      }
+  };
+
+  const uninstallIntegration = async (id: string) => {
+      const ints = state.integrations.find(i => i.id === id);
+      if(ints) {
+          const updated = { ...ints, isInstalled: false, config: undefined };
+          await dbService.add('integrations', updated);
+          setState(produce(draft => { draft.integrations = draft.integrations.map(x => x.id === id ? updated : x); }));
+          addNotification('info', `${ints.name} Disconnected`);
+      }
+  };
+
+  const toggleApiClient = async (id: string) => {
+      const c = state.apiClients.find(client => client.id === id);
+      if (c) {
+          const updated = { ...c, status: c.status === 'Active' ? 'Revoked' : 'Active' } as ApiClient;
+          await dbService.add('apiClients', updated);
+          setState(produce(draft => { draft.apiClients = draft.apiClients.map(x => x.id === id ? updated : x); }));
+          addAudit('API_CLIENT_UPDATE', 'System', id, `Changed client status to ${updated.status}`);
+      }
+  };
+
   const contextValue: BPMContextType = {
     ...state,
     setGlobalSearch: (s) => setState(prev => ({ ...prev, globalSearch: s })),
@@ -844,12 +903,14 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     executeRules, 
     deployProcess, updateProcess, deleteProcess, toggleProcessState,
     startProcess, suspendInstance, terminateInstance, addInstanceComment,
-    completeTask, claimTask, releaseTask, reassignTask, updateTaskMetadata, addTaskComment, updateTaskChecklist, bulkCompleteTasks, toggleTaskStar, snoozeTask, createAdHocTask,
+    completeTask, claimTask, releaseTask, reassignTask, updateTaskMetadata, addTaskComment, updateTaskChecklist, bulkCompleteTasks, toggleTaskStar, snoozeTask, createAdHocTask, updateTaskLocation,
     createCase, updateCase, deleteCase, addCaseEvent, removeCaseEvent, addCasePolicy, removeCasePolicy, addCaseStakeholder, removeCaseStakeholder,
     createUser, updateUser, deleteUser, createRole, updateRole, deleteRole, createGroup, updateGroup, deleteGroup,
     createDelegation, revokeDelegation,
     saveRule, deleteRule, cloneRule, saveDecisionTable, deleteDecisionTable,
     saveForm, deleteForm,
+    installIntegration, uninstallIntegration,
+    toggleApiClient,
     hasPermission,
     reseedSystem: async () => { await dbService.reseed(); loadData(); },
     resetSystem: async () => { await dbService.resetDB(); window.location.reload(); },

@@ -20,7 +20,7 @@ const defaultTheme = {
   scale: 1,
   sidebarWidth: 256,
   headerHeight: 56,
-  radius: 2,
+  radius: 6,
   density: 'comfortable' as Density
 };
 
@@ -37,17 +37,20 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const root = document.documentElement;
     
     // 1. Global Scale (Affects rem units: padding, margin, font-size)
-    root.style.fontSize = `${scale * 100}%`; 
-
+    // We adjust the base font-size percentage (standard is 100% = 16px)
+    // Note: Tailwind uses rems, so changing root font-size scales everything.
+    // However, we want to scale specific UI elements without breaking browser zoom.
+    // We will use CSS variables for specific scalers.
+    
     // 2. Layout Dimensions
     root.style.setProperty('--sidebar-width', `${sidebarWidth}px`);
     root.style.setProperty('--header-height', `${headerHeight}px`);
     
     // 3. Component Styling
     root.style.setProperty('--radius-base', `${radius}px`);
-    root.style.setProperty('--component-bg', '#ffffff');
-
+    
     // 4. Density & Spacing
+    // We update the mapping variables used by the CSS
     const densityMap = {
       compact: { 
         space: '0.5rem', 
@@ -59,15 +62,15 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       },
       comfortable: { 
         space: '0.75rem', 
-        text: '13px', 
+        text: '14px', 
         padding: '32px', 
         gap: '24px',
-        cardPadding: '20px',
+        cardPadding: '24px',
         sectionGap: '32px'
       },
       spacious: { 
         space: '1.25rem', 
-        text: '14px', 
+        text: '15px', 
         padding: '48px', 
         gap: '40px',
         cardPadding: '32px',
@@ -77,11 +80,17 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     
     const d = densityMap[density];
     root.style.setProperty('--space-base', d.space);
-    root.style.setProperty('--text-base', d.text);
+    // root.style.setProperty('--text-base', d.text); // Optional: if we want to override base font size
     root.style.setProperty('--layout-padding', d.padding);
     root.style.setProperty('--layout-gap', d.gap);
     root.style.setProperty('--card-padding', d.cardPadding);
     root.style.setProperty('--section-gap', d.sectionGap);
+
+    // Scale transform for the whole app container if needed, or specific font scaling
+    if (scale !== 1) {
+       // Advanced: Could transform body, but usually messing with font-size is safer
+       // root.style.fontSize = `${scale * 100}%`; 
+    }
 
   }, [scale, sidebarWidth, headerHeight, radius, density]);
 

@@ -22,7 +22,7 @@ const SUGGESTED_FACTS = [
 ];
 
 interface SmartInputProps {
-    value: string;
+    value: any; // Allow any type to prevent crash, cast to string internally
     onChange: (val: string) => void;
     placeholder?: string;
     options?: string[];
@@ -33,6 +33,8 @@ const SmartInput: React.FC<SmartInputProps> = ({ value, onChange, placeholder, o
     const [isOpen, setIsOpen] = useState(false);
     const [filtered, setFiltered] = useState<string[]>([]);
     const containerRef = useRef<HTMLDivElement>(null);
+
+    const safeValue = typeof value === 'object' ? JSON.stringify(value) : String(value || '');
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
@@ -61,7 +63,7 @@ const SmartInput: React.FC<SmartInputProps> = ({ value, onChange, placeholder, o
     return (
         <div className="relative w-full" ref={containerRef}>
             <input 
-                value={value} 
+                value={safeValue} 
                 onChange={handleChange} 
                 onFocus={() => { if(options.length > 0) { setFiltered(options); setIsOpen(true); } }}
                 className={`prop-input text-xs ${className}`}

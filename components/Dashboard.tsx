@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Activity, Clock, AlertCircle, ShieldCheck, Briefcase, Sparkles, ListChecks, DollarSign, Gauge, LucideIcon, TrendingUp } from 'lucide-react';
 import { useBPM } from '../contexts/BPMContext';
@@ -41,7 +42,7 @@ const MetricPanel = ({ label, value, sub, icon: Icon, color, onClick }: MetricPa
 };
 
 export const Dashboard: React.FC = () => {
-  const { tasks, instances, auditLogs, navigateTo } = useBPM();
+  const { tasks, cases, auditLogs, navigateTo } = useBPM();
   const [activeTab, setActiveTab] = useState('Overview');
   const [aiInsight, setAiInsight] = useState("Analyzing operational telemetry...");
   
@@ -51,12 +52,17 @@ export const Dashboard: React.FC = () => {
   const totalTasks = tasks.length || 1;
   const progress = Math.round((completedTasks / totalTasks) * 100);
 
-  // Synthesized Financial Variance
+  // Real Financial Variance from Active Cases
   const varianceValue = useMemo(() => {
-    const baseValue = 1.2; 
-    const riskFactor = criticalCount * 0.15;
-    return (baseValue + riskFactor).toFixed(2);
-  }, [criticalCount]);
+    const totalImpact = cases
+        .filter(c => c.status !== 'Closed')
+        .reduce((sum, c) => sum + (c.data?.impactAmount || 0), 0);
+    
+    // Convert to Millions for display if > 1M, else K
+    if (totalImpact > 1000000) return `$${(totalImpact / 1000000).toFixed(2)}M`;
+    if (totalImpact > 1000) return `$${(totalImpact / 1000).toFixed(0)}K`;
+    return `$${totalImpact}`;
+  }, [cases]);
 
   // Quality Metric (Approval Rate)
   const qualityRate = useMemo(() => {
@@ -82,8 +88,8 @@ export const Dashboard: React.FC = () => {
         return logDate.toDateString() === d.toDateString() && l.action.includes('TASK');
       }).length;
       
-      // Jitter for demo if empty
-      const displayCount = count === 0 && i < 3 ? Math.floor(Math.random() * 5) + 2 : count;
+      // Jitter for demo if empty to show the chart isn't broken
+      const displayCount = count;
       
       data.push({ name: dateStr, tasks: displayCount });
     }
@@ -138,7 +144,7 @@ export const Dashboard: React.FC = () => {
         style={{ gap: 'var(--layout-gap)' }}
       >
         <MetricPanel onClick={() => navigateTo('inbox')} label="Progress" value={`${progress}%`} sub={`${completedTasks}/${totalTasks} Tasks`} icon={ListChecks} color="blue" />
-        <MetricPanel onClick={() => navigateTo('analytics')} label="Variance" value={`$${varianceValue}M`} sub="Projected Spend" icon={DollarSign} color="green" />
+        <MetricPanel onClick={() => navigateTo('cases')} label="Exposure" value={varianceValue} sub="Active Case Impact" icon={DollarSign} color="green" />
         <MetricPanel onClick={() => navigateTo('inbox', undefined, 'Critical')} label="Risks" value={criticalCount} sub="Critical Items" icon={AlertCircle} color="red" />
         <MetricPanel onClick={() => navigateTo('governance')} label="Quality" value={`${qualityRate}%`} sub="Approval Rate" icon={ShieldCheck} color="green" />
       </div>

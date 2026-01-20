@@ -116,10 +116,19 @@ const FieldInput: React.FC<{ field: FormField; value: FieldValue; onChange: (k: 
       onChange(field.key, e.target.value);
   };
 
+  // Safe value handling to avoid [object Object]
+  const safeValue = (val: any) => {
+      if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+          try { return JSON.stringify(val); } catch(e) { return ''; }
+      }
+      if (typeof val === 'boolean') return '';
+      return val as string | number | string[];
+  };
+
   const commonProps = {
     className: `prop-input w-full ${readOnly ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-dashed' : ''} ${field.appearance?.prefix ? 'pl-8' : ''} ${field.appearance?.suffix ? 'pr-12' : ''}`,
     disabled: readOnly,
-    value: typeof value === 'boolean' ? '' : (value as string | number | string[]), // Safe casting for standard inputs
+    value: safeValue(value),
     onChange: handleChange,
     placeholder: field.placeholder,
     readOnly: readOnly

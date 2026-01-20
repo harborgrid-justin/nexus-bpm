@@ -1,11 +1,11 @@
 
 import { 
   ProcessDefinition, ProcessInstance, Task, TaskStatus, TaskPriority, 
-  User, UserRole, UserGroup, Permission, BusinessRule, DecisionTable, Case, FormDefinition
+  User, UserRole, UserGroup, Permission, BusinessRule, DecisionTable, Case, FormDefinition, Integration, ApiClient
 } from '../types';
 
 const DB_NAME = 'NexFlowEnterpriseDB';
-const DB_VERSION = 5; // Bumped version for new store
+const DB_VERSION = 7; // Bumped version for new store
 
 export const MOCK_ROLES: UserRole[] = [
   { id: 'admin', name: 'Principal Administrator', permissions: Object.values(Permission) },
@@ -120,10 +120,26 @@ export const MOCK_TABLES: DecisionTable[] = [
   t({ id: 'dt-001', name: 'Credit Score Rating', inputs: ['CreditScore'], outputs: ['Rating', 'Limit'], rules: [['< 600', 'Poor', 0], ['600-700', 'Fair', 5000], ['700-800', 'Good', 15000], ['> 800', 'Excellent', 50000]] }, ['Finance']),
 ];
 
+export const MOCK_INTEGRATIONS: Integration[] = [
+  { id: 'int-salesforce', name: 'Salesforce CRM', description: 'Sync leads, contacts, and opportunities with Salesforce Sales Cloud.', category: 'CRM', iconName: 'Cloud', provider: 'Salesforce', isInstalled: true, version: '2.4.0', config: { instanceUrl: 'https://na1.salesforce.com' } },
+  { id: 'int-slack', name: 'Slack', description: 'Send channel notifications and handle interactive approval requests.', category: 'Communication', iconName: 'MessageSquare', provider: 'Slack Technologies', isInstalled: true, version: '1.2.1' },
+  { id: 'int-sap', name: 'SAP S/4HANA', description: 'Enterprise resource planning connection for financial posting.', category: 'ERP', iconName: 'Database', provider: 'SAP SE', isInstalled: false, version: '3.0.0' },
+  { id: 'int-openai', name: 'OpenAI GPT-4', description: 'Enable AI-driven text summarization, sentiment analysis, and generation.', category: 'AI', iconName: 'Sparkles', provider: 'OpenAI', isInstalled: true, version: '1.0.0', config: { model: 'gpt-4' } },
+  { id: 'int-aws', name: 'AWS Lambda', description: 'Invoke serverless functions as process steps.', category: 'Cloud', iconName: 'Server', provider: 'Amazon Web Services', isInstalled: false, version: '1.5.0' },
+  { id: 'int-jira', name: 'Atlassian Jira', description: 'Create and update issues based on process events.', category: 'Productivity', iconName: 'CheckSquare', provider: 'Atlassian', isInstalled: false, version: '2.1.0' },
+  { id: 'int-stripe', name: 'Stripe Payments', description: 'Process charges and handle subscription events.', category: 'ERP', iconName: 'CreditCard', provider: 'Stripe', isInstalled: false, version: '1.1.0' },
+];
+
+export const MOCK_API_CLIENTS: ApiClient[] = [
+  { id: 'c1', name: 'CRM Integration', clientId: 'client_94a...x82', status: 'Active', lastUsed: '2 mins ago', reqCount: 14502 },
+  { id: 'c2', name: 'Legacy ERP', clientId: 'client_b21...99a', status: 'Active', lastUsed: '1 hour ago', reqCount: 890 },
+  { id: 'c3', name: 'Mobile App v2', clientId: 'client_77c...11b', status: 'Active', lastUsed: 'Just now', reqCount: 45200 },
+  { id: 'c4', name: 'Dev Portal', clientId: 'client_test...001', status: 'Revoked', lastUsed: '2 days ago', reqCount: 120 }
+];
+
 class DBService {
   private db: IDBDatabase | null = null;
-  // Added 'forms' to stores
-  private stores = ['processes', 'instances', 'tasks', 'auditLogs', 'users', 'roles', 'groups', 'delegations', 'rules', 'decisionTables', 'cases', 'forms'];
+  private stores = ['processes', 'instances', 'tasks', 'auditLogs', 'users', 'roles', 'groups', 'delegations', 'rules', 'decisionTables', 'cases', 'forms', 'integrations', 'apiClients'];
 
   private notify(action: string, detail: any, type: 'read' | 'write' | 'delete' | 'error' = 'read') {
     const event = new CustomEvent('nexflow-db-log', {
@@ -240,10 +256,12 @@ class DBService {
     for (const u of MOCK_USERS) await this.add('users', u);
     for (const p of MOCK_PROCESSES) await this.add('processes', p);
     
-    // Seed Rules & Tables & Forms
+    // Seed Rules & Tables & Forms & Integrations
     for (const r of MOCK_RULES) await this.add('rules', r);
     for (const t of MOCK_TABLES) await this.add('decisionTables', t);
     for (const f of MOCK_FORMS) await this.add('forms', f);
+    for (const i of MOCK_INTEGRATIONS) await this.add('integrations', i);
+    for (const c of MOCK_API_CLIENTS) await this.add('apiClients', c);
     
     this.notify('RESEED', 'System reseeded with baseline mocks', 'write');
   }
