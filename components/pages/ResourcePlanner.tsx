@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo } from 'react';
 import { useBPM } from '../../contexts/BPMContext';
 import { FormPageLayout } from '../shared/PageTemplates';
-import { Calendar, User, ChevronLeft, ChevronRight, Filter, Search, Briefcase, AlertCircle, Clock, Zap } from 'lucide-react';
+import { Calendar, User, ChevronLeft, ChevronRight, Filter, Search, Briefcase, AlertCircle, Clock, Zap, Grid, List } from 'lucide-react';
 import { NexBadge, NexButton } from '../shared/NexUI';
 import { TaskPriority } from '../../types';
 
@@ -10,6 +11,7 @@ export const ResourcePlanner = () => {
   const [startDate, setStartDate] = useState(new Date());
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGroup, setSelectedGroup] = useState<string>('All');
+  const [viewMode, setViewMode] = useState<'list' | 'heatmap'>('list');
 
   // --- 1. Date Logic (Time Travel) ---
   const days = useMemo(() => {
@@ -88,12 +90,18 @@ export const ResourcePlanner = () => {
         onBack={() => navigateTo('dashboard')} 
         fullWidth={true}
         actions={
-            <div className="flex items-center" style={{ gap: 'var(--space-base)', padding: 'calc(var(--space-base) * 0.5)', background: '#f1f5f9', borderRadius: 'var(--radius-base)', border: '1px solid #e2e8f0' }}>
-                <button onClick={handlePrevWeek} className="p-1 hover:bg-white rounded-sm text-slate-500 hover:text-slate-800 transition-all"><ChevronLeft size={16}/></button>
-                <span className="text-xs font-mono font-bold text-slate-700 px-2 w-24 text-center">
-                    {startDate.toLocaleDateString(undefined, {month:'short', day:'numeric'})}
-                </span>
-                <button onClick={handleNextWeek} className="p-1 hover:bg-white rounded-sm text-slate-500 hover:text-slate-800 transition-all"><ChevronRight size={16}/></button>
+            <div className="flex gap-4">
+                <div className="flex bg-slate-100 p-1 rounded-sm border border-slate-200">
+                    <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-sm transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`} title="List View"><List size={16}/></button>
+                    <button onClick={() => setViewMode('heatmap')} className={`p-1.5 rounded-sm transition-all ${viewMode === 'heatmap' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`} title="Heatmap View"><Grid size={16}/></button>
+                </div>
+                <div className="flex items-center" style={{ gap: 'var(--space-base)', padding: 'calc(var(--space-base) * 0.5)', background: '#f1f5f9', borderRadius: 'var(--radius-base)', border: '1px solid #e2e8f0' }}>
+                    <button onClick={handlePrevWeek} className="p-1 hover:bg-white rounded-sm text-slate-500 hover:text-slate-800 transition-all"><ChevronLeft size={16}/></button>
+                    <span className="text-xs font-mono font-bold text-slate-700 px-2 w-24 text-center">
+                        {startDate.toLocaleDateString(undefined, {month:'short', day:'numeric'})}
+                    </span>
+                    <button onClick={handleNextWeek} className="p-1 hover:bg-white rounded-sm text-slate-500 hover:text-slate-800 transition-all"><ChevronRight size={16}/></button>
+                </div>
             </div>
         }
     >
@@ -220,6 +228,27 @@ export const ResourcePlanner = () => {
                                             );
                                         }
 
+                                        // HEATMAP MODE
+                                        if (viewMode === 'heatmap') {
+                                            const loadLevel = dayData.count;
+                                            let bgClass = 'bg-white';
+                                            if (loadLevel > 0) bgClass = 'bg-emerald-100';
+                                            if (loadLevel > 3) bgClass = 'bg-amber-200';
+                                            if (loadLevel > 5) bgClass = 'bg-rose-300';
+                                            
+                                            return (
+                                                <div 
+                                                    key={i} 
+                                                    className={`flex-1 border-r border-slate-100 last:border-0 relative cursor-pointer hover:brightness-95 transition-all ${bgClass}`}
+                                                    title={`${dayData.count} Tasks`}
+                                                    onClick={() => navigateTo('inbox', undefined, undefined, { assignee: row.user.id })}
+                                                >
+                                                    {dayData.count > 0 && <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-slate-700/50">{dayData.count}</span>}
+                                                </div>
+                                            );
+                                        }
+
+                                        // LIST MODE (Standard)
                                         return (
                                             <div key={i} className={`flex-1 border-r border-slate-100 last:border-0 relative ${isToday ? 'bg-blue-50/30' : ''}`} style={{ padding: '4px' }}>
                                                 {dayData.count > 0 ? (

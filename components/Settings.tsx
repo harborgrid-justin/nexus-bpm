@@ -1,3 +1,4 @@
+
 import React, { useRef, useState } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -5,17 +6,12 @@ import { Database, RefreshCw, Trash2, Download, Upload, AlertTriangle, CheckCirc
 import { NexButton } from './shared/NexUI';
 
 export const Settings: React.FC = () => {
-  const { resetSystem, reseedSystem, exportData, importData, loading } = useBPM();
+  const { resetSystem, reseedSystem, exportData, importData, loading, settings, updateSystemSettings } = useBPM();
   const { scale, setScale, sidebarWidth, setSidebarWidth, headerHeight, setHeaderHeight, radius, setRadius, density, setDensity, resetTheme } = useTheme();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [statusMsg, setStatusMsg] = useState('');
   const [activeTab, setActiveTab] = useState<'system' | 'appearance' | 'calendar'>('system');
-
-  // Calendar State
-  const [workDays, setWorkDays] = useState(['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
-  const [workHours, setWorkHours] = useState({ start: '09:00', end: '17:00' });
-  const [timezone, setTimezone] = useState('UTC');
 
   const handleImportClick = () => {
     fileInputRef.current?.click();
@@ -61,7 +57,20 @@ export const Settings: React.FC = () => {
   };
 
   const toggleWorkDay = (day: string) => {
-      setWorkDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
+      const currentDays = settings.calendar.workDays;
+      const newDays = currentDays.includes(day) 
+        ? currentDays.filter(d => d !== day) 
+        : [...currentDays, day];
+      
+      updateSystemSettings({ 
+          calendar: { ...settings.calendar, workDays: newDays } 
+      });
+  };
+
+  const updateWorkHours = (key: 'start' | 'end', val: string) => {
+      updateSystemSettings({
+          calendar: { ...settings.calendar, workHours: { ...settings.calendar.workHours, [key]: val } }
+      });
   };
 
   return (
@@ -118,7 +127,7 @@ export const Settings: React.FC = () => {
             <section 
                 className="bg-white shadow-sm border border-slate-300 overflow-hidden"
                 style={{ borderRadius: 'var(--radius-base)' }}
-            >
+              >
                 <div 
                     className="border-b border-slate-200 bg-slate-50"
                     style={{ padding: 'var(--card-padding)' }}
@@ -344,7 +353,7 @@ export const Settings: React.FC = () => {
                                   <button 
                                     key={day}
                                     onClick={() => toggleWorkDay(day)}
-                                    className={`w-10 h-10 rounded-sm text-xs font-bold transition-all border ${workDays.includes(day) ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
+                                    className={`w-10 h-10 rounded-sm text-xs font-bold transition-all border ${settings.calendar.workDays.includes(day) ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
                                   >
                                       {day}
                                   </button>
@@ -358,17 +367,17 @@ export const Settings: React.FC = () => {
                       >
                           <div className="space-y-2">
                               <label className="prop-label">Business Hours Start</label>
-                              <input type="time" className="prop-input" value={workHours.start} onChange={e => setWorkHours({...workHours, start: e.target.value})} />
+                              <input type="time" className="prop-input" value={settings.calendar.workHours.start} onChange={e => updateWorkHours('start', e.target.value)} />
                           </div>
                           <div className="space-y-2">
                               <label className="prop-label">Business Hours End</label>
-                              <input type="time" className="prop-input" value={workHours.end} onChange={e => setWorkHours({...workHours, end: e.target.value})} />
+                              <input type="time" className="prop-input" value={settings.calendar.workHours.end} onChange={e => updateWorkHours('end', e.target.value)} />
                           </div>
                       </div>
 
                       <div className="space-y-2">
                           <label className="prop-label">Timezone</label>
-                          <select className="prop-input" value={timezone} onChange={e => setTimezone(e.target.value)}>
+                          <select className="prop-input" value={settings.calendar.timezone} onChange={e => updateSystemSettings({ calendar: { ...settings.calendar, timezone: e.target.value } })}>
                               <option value="UTC">UTC (Coordinated Universal Time)</option>
                               <option value="EST">EST (Eastern Standard Time)</option>
                               <option value="CST">CST (Central Standard Time)</option>

@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { 
@@ -12,7 +13,7 @@ interface Props {
 }
 
 export const ProcessInstanceViewer: React.FC<Props> = ({ instanceId, onClose }) => {
-  const { instances, processes, addInstanceComment } = useBPM();
+  const { instances, processes, addInstanceComment, getStepStatistics } = useBPM();
   
   const [viewport, setViewport] = useState({ x: 0, y: 0, zoom: 1 });
   const [rightPanelTab, setRightPanelTab] = useState<'info' | 'variables' | 'comments'>('info');
@@ -186,8 +187,7 @@ export const ProcessInstanceViewer: React.FC<Props> = ({ instanceId, onClose }) 
              {process.steps.map(step => {
                const isActive = displayActiveStepIds.includes(step.id);
                const isVisited = instance.history.slice(0, playbackIndex + 1).some(h => h.stepName === step.name);
-               const avgDuration = step.metrics?.avgDuration || (Math.floor(Math.random() * 120) + 10);
-               const errorRate = step.metrics?.errorRate || Math.floor(Math.random() * 5);
+               const stats = getStepStatistics(process.id, step.name);
 
                return (
                <div key={step.id} className={`absolute w-[200px] h-[80px] rounded-sm border flex flex-col p-3 transition-all ${isActive ? 'bg-white border-emerald-500 ring-4 ring-emerald-500/20 z-10 shadow-lg scale-105' : (isVisited ? 'bg-white border-emerald-200' : 'bg-white border-slate-300 opacity-60')}`} style={{ left: step.position?.x, top: step.position?.y }}>
@@ -199,8 +199,8 @@ export const ProcessInstanceViewer: React.FC<Props> = ({ instanceId, onClose }) 
                   
                   {showMetrics && (
                       <div className="mt-auto pt-2 border-t border-slate-100 flex justify-between text-[9px] font-mono text-slate-500">
-                          <span className="flex items-center gap-1" title="Avg Duration"><Clock size={10}/> {avgDuration}m</span>
-                          <span className={`flex items-center gap-1 ${errorRate > 2 ? 'text-rose-600' : 'text-slate-500'}`} title="Error Rate"><AlertTriangle size={10}/> {errorRate}%</span>
+                          <span className="flex items-center gap-1" title="Avg Duration"><Clock size={10}/> {stats.avgDuration}m</span>
+                          <span className={`flex items-center gap-1 ${stats.errorRate > 0 ? 'text-rose-600' : 'text-slate-500'}`} title="Error Rate"><AlertTriangle size={10}/> {stats.errorRate}%</span>
                       </div>
                   )}
                </div>

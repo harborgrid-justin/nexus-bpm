@@ -1,11 +1,11 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { Search, ChevronRight, LayoutDashboard, CheckSquare, Layers, FileText, Database, Settings, Briefcase, FunctionSquare, Command } from 'lucide-react';
+import { Search, ChevronRight, LayoutDashboard, CheckSquare, Layers, FileText, Database, Settings, Briefcase, FunctionSquare, Command, FormInput, Plug, Sparkles } from 'lucide-react';
 import { useBPM } from '../contexts/BPMContext';
 import { ViewState } from '../types';
 
 export const CommandPalette: React.FC = () => {
-  const { navigateTo, tasks, processes, createCase } = useBPM();
+  const { navigateTo, tasks, processes, createCase, rules, forms, integrations } = useBPM();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -37,6 +37,8 @@ export const CommandPalette: React.FC = () => {
     { label: 'Go to Registry', icon: Layers, action: () => navigateTo('processes') },
     { label: 'Go to Rules Engine', icon: FunctionSquare, action: () => navigateTo('rules') },
     { label: 'Go to Case Manager', icon: Briefcase, action: () => navigateTo('cases') },
+    { label: 'Go to Form Builder', icon: FormInput, action: () => navigateTo('forms') },
+    { label: 'Go to Marketplace', icon: Plug, action: () => navigateTo('marketplace') },
     { label: 'Go to Settings', icon: Settings, action: () => navigateTo('settings') },
   ];
 
@@ -49,15 +51,28 @@ export const CommandPalette: React.FC = () => {
   const filteredProcesses = processes.slice(0, 3).map(p => ({
       label: `Process: ${p.name}`,
       icon: Layers,
-      action: () => navigateTo('processes') // deep linking to process logic ideally
+      action: () => navigateTo('processes', p.id)
+  }));
+
+  const filteredRules = rules.slice(0, 3).map(r => ({
+      label: `Rule: ${r.name}`,
+      icon: FunctionSquare,
+      action: () => navigateTo('rules', r.id)
+  }));
+
+  const filteredForms = forms.slice(0, 3).map(f => ({
+      label: `Form: ${f.name}`,
+      icon: FormInput,
+      action: () => navigateTo('form-designer', f.id)
   }));
 
   const actionItems = [
       { label: 'Create New Case', icon: Briefcase, action: () => { createCase('Untitled Case', ''); navigateTo('cases'); } },
+      { label: 'Generate AI Rule', icon: Sparkles, action: () => navigateTo('ai-rule-gen') },
   ];
 
   const allItems = query 
-    ? [...navigationItems, ...actionItems, ...filteredTasks, ...filteredProcesses].filter(i => i.label.toLowerCase().includes(query.toLowerCase()))
+    ? [...navigationItems, ...actionItems, ...filteredTasks, ...filteredProcesses, ...filteredRules, ...filteredForms].filter(i => i.label.toLowerCase().includes(query.toLowerCase()))
     : [...navigationItems, ...actionItems];
 
   const handleSelect = (idx: number) => {
@@ -87,7 +102,7 @@ export const CommandPalette: React.FC = () => {
            <input 
              ref={inputRef}
              className="flex-1 text-sm bg-transparent outline-none placeholder:text-slate-400 text-slate-800"
-             placeholder="Type a command or search..."
+             placeholder="Type a command or search assets..."
              value={query}
              onChange={e => setQuery(e.target.value)}
              onKeyDown={handleKeyDown}

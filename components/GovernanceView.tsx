@@ -1,10 +1,11 @@
+
 import React, { useState, useMemo } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { ShieldCheck, History, AlertTriangle, FileText, User, Search, Filter, CheckCircle, Fingerprint, ShieldAlert, Globe, ExternalLink, Eye } from 'lucide-react';
 import { NexCard, NexBadge } from './shared/NexUI';
 
 export const GovernanceView: React.FC = () => {
-  const { auditLogs, processes, rules, openInstanceViewer, navigateTo } = useBPM();
+  const { auditLogs, processes, rules, openInstanceViewer, navigateTo, settings } = useBPM();
   const [searchTerm, setSearchTerm] = useState('');
 
   // Dynamic Trust Calculation
@@ -128,12 +129,15 @@ export const GovernanceView: React.FC = () => {
           <div className="bg-brand-slate p-5 rounded-base shadow-sm text-white">
             <h3 className="text-xs font-bold uppercase tracking-wider text-blue-400 mb-4 flex items-center gap-2"><ShieldCheck size={14}/> Compliance</h3>
             <div className="space-y-2">
-              {['SOC2 Type II', 'GDPR / CCPA', 'HIPAA compliant'].map(reg => (
+              {settings.compliance.standards.map(reg => (
                 <div key={reg} className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-base">
                   <span className="text-xs font-medium text-slate-300">{reg}</span>
                   <CheckCircle size={12} className="text-emerald-500"/>
                 </div>
               ))}
+            </div>
+            <div className="mt-4 pt-4 border-t border-white/10 text-[10px] text-slate-400">
+                Last Audit: {new Date(settings.compliance.lastAudit).toLocaleDateString()}
             </div>
             <button className="w-full mt-4 py-2 bg-panel text-primary rounded-base text-xs font-bold uppercase hover:bg-subtle border border-transparent">Download Report</button>
           </div>

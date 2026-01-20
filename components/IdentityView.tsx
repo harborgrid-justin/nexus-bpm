@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { 
@@ -12,13 +13,10 @@ import { PolicyItem } from './identity/PolicyItem';
 import { NexButton, NexBadge, NexCard } from './shared/NexUI';
 
 export const IdentityView: React.FC = () => {
-  const { users, roles, groups, delegations, hasPermission, currentUser, revokeDelegation, deleteUser, deleteRole, deleteGroup, addNotification, navigateTo } = useBPM();
+  const { users, roles, groups, delegations, hasPermission, currentUser, revokeDelegation, deleteUser, deleteRole, deleteGroup, addNotification, navigateTo, settings, updateSystemSettings } = useBPM();
   const [activeTab, setActiveTab] = useState<'profile' | 'users' | 'roles' | 'groups' | 'sso'>('profile');
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Mock State for SSO Toggles (In prod this would be in Context)
-  const [ssoState, setSsoState] = useState({ ldap: true, okta: false, workspace: true });
-
   const canManageUsers = hasPermission(Permission.USER_MANAGE);
 
   const filteredUsers = users.filter(u => 
@@ -28,11 +26,10 @@ export const IdentityView: React.FC = () => {
 
   const myDelegations = delegations.filter(d => d.fromUserId === currentUser?.id);
 
-  const toggleSSO = (key: keyof typeof ssoState) => {
-      setSsoState(prev => {
-          const newState = !prev[key];
-          addNotification('info', `${(key as string).toUpperCase()} Integration ${newState ? 'Enabled' : 'Disabled'}`);
-          return { ...prev, [key]: newState };
+  const toggleSSO = (key: keyof typeof settings.sso) => {
+      const newState = !settings.sso[key];
+      updateSystemSettings({ 
+          sso: { ...settings.sso, [key]: newState } 
       });
   };
 
@@ -258,13 +255,13 @@ export const IdentityView: React.FC = () => {
                   <IntegrationCard isHeader name="Identity Providers" />
                   <div className="space-y-3">
                       <div onClick={() => toggleSSO('ldap')} className="cursor-pointer">
-                        <IntegrationCard name="LDAP / Active Directory" status={ssoState.ldap ? "Connected" : "Inactive"} sync="Auto-Sync: 1hr" active={ssoState.ldap} />
+                        <IntegrationCard name="LDAP / Active Directory" status={settings.sso.ldap ? "Connected" : "Inactive"} sync="Auto-Sync: 1hr" active={settings.sso.ldap} />
                       </div>
                       <div onClick={() => toggleSSO('okta')} className="cursor-pointer">
-                        <IntegrationCard name="Okta OIDC" status={ssoState.okta ? "Connected" : "Inactive"} sync="Just-in-Time" active={ssoState.okta} />
+                        <IntegrationCard name="Okta OIDC" status={settings.sso.okta ? "Connected" : "Inactive"} sync="Just-in-Time" active={settings.sso.okta} />
                       </div>
                       <div onClick={() => toggleSSO('workspace')} className="cursor-pointer">
-                        <IntegrationCard name="Google Workspace" status={ssoState.workspace ? "Connected" : "Inactive"} sync="OAuth 2.0" active={ssoState.workspace} />
+                        <IntegrationCard name="Google Workspace" status={settings.sso.workspace ? "Connected" : "Inactive"} sync="OAuth 2.0" active={settings.sso.workspace} />
                       </div>
                   </div>
               </NexCard>
@@ -277,10 +274,9 @@ export const IdentityView: React.FC = () => {
                         <ShieldAlert size={16} className="text-amber-500"/> Password Policy
                      </h3>
                      <div className="space-y-2">
-                         <PolicyItem text="Minimum Length: 12 chars" active />
-                         <PolicyItem text="Requires MFA for Admins" active />
-                         <PolicyItem text="Expiration: 90 days" active />
-                         <PolicyItem text="History: Last 5 passwords" active />
+                         <PolicyItem text={`Minimum Length: ${settings.security.minPasswordLength} chars`} active />
+                         <PolicyItem text="Requires MFA for Admins" active={settings.security.mfaEnabled} />
+                         <PolicyItem text="Session Timeout: 60m" active />
                      </div>
                  </NexCard>
                  <NexCard className="p-6">
@@ -289,6 +285,9 @@ export const IdentityView: React.FC = () => {
                      </h3>
                      <div className="p-3 bg-slate-50 border border-slate-200 rounded-sm text-xs text-slate-600">
                          Access restricted to <span className="font-bold text-slate-900">US, EU, UK</span> regions. Login attempts from high-risk zones trigger auto-lockout.
+                         <div className="mt-2 font-bold text-emerald-600">
+                             Status: {settings.security.geoFencing ? 'Active' : 'Disabled'}
+                         </div>
                      </div>
                  </NexCard>
               </div>

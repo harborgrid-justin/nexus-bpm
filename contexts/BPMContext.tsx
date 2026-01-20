@@ -6,9 +6,9 @@ import {
   ViewState, AuditLog, Comment, User, UserRole, UserGroup, Permission, 
   Delegation, BusinessRule, DecisionTable, Case, CaseEvent, CasePolicy, CaseStakeholder,
   Condition, RuleAction, ProcessStep, ProcessLink, FormDefinition, ProcessVersionSnapshot, ChecklistItem,
-  Integration, ApiClient
+  Integration, ApiClient, SystemSettings
 } from '../types';
-import { dbService } from '../services/dbService';
+import { dbService, DEFAULT_SETTINGS } from '../services/dbService';
 
 interface Notification {
   id: string;
@@ -39,8 +39,9 @@ interface BPMContextType {
   rules: BusinessRule[];
   decisionTables: DecisionTable[];
   forms: FormDefinition[];
-  integrations: Integration[]; // Phase 9
-  apiClients: ApiClient[]; // Phase 10
+  integrations: Integration[]; 
+  apiClients: ApiClient[]; 
+  settings: SystemSettings;
   viewingInstanceId: string | null;
   
   // Designer Persistence
@@ -62,6 +63,7 @@ interface BPMContextType {
   updateProcess: (id: string, updates: Partial<ProcessDefinition>) => Promise<void>;
   deleteProcess: (id: string) => Promise<void>;
   toggleProcessState: (id: string) => Promise<void>;
+  getStepStatistics: (defId: string, stepName: string) => { avgDuration: number, errorRate: number };
   
   // Instance Management
   startProcess: (definitionId: string, inputData: any, caseId?: string) => Promise<string>;
@@ -81,7 +83,7 @@ interface BPMContextType {
   toggleTaskStar: (taskId: string) => Promise<void>;
   snoozeTask: (taskId: string, until: string) => Promise<void>;
   createAdHocTask: (title: string, priority?: TaskPriority) => Promise<void>;
-  updateTaskLocation: (taskId: string, lat: number, lng: number) => Promise<void>; // Phase 8
+  updateTaskLocation: (taskId: string, lat: number, lng: number) => Promise<void>; 
   
   // Case Management
   createCase: (title: string, description: string, options?: { priority?: TaskPriority, data?: any, ownerId?: string }) => Promise<string>;
@@ -119,7 +121,7 @@ interface BPMContextType {
   createDelegation: (toUserId: string, scope: 'All' | 'Critical Only') => Promise<void>;
   revokeDelegation: (id: string) => Promise<void>;
 
-  // Integrations Management (Phase 9)
+  // Integrations Management
   installIntegration: (id: string, config: Record<string, string>) => Promise<void>;
   uninstallIntegration: (id: string) => Promise<void>;
   
@@ -127,6 +129,7 @@ interface BPMContextType {
   toggleApiClient: (id: string) => Promise<void>;
 
   // System
+  updateSystemSettings: (updates: Partial<SystemSettings>) => Promise<void>;
   hasPermission: (perm: Permission) => boolean;
   reseedSystem: () => Promise<void>;
   resetSystem: () => Promise<void>;
@@ -152,6 +155,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     forms: [] as FormDefinition[],
     integrations: [] as Integration[],
     apiClients: [] as ApiClient[],
+    settings: DEFAULT_SETTINGS,
     notifications: [] as Notification[],
     globalSearch: '',
     nav: { view: 'dashboard' } as { view: ViewState; selectedId?: string; filter?: string; data?: any },
@@ -163,7 +167,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const loadData = useCallback(async () => {
     try {
-      const [p, inst, t, c, logs, u, r, g, d, bRules, tables, f, ints, apis] = await Promise.all([
+      const [p, inst, t, c, logs, u, r, g, d, bRules, tables, f, ints, apis, setts] = await Promise.all([
         dbService.getAll<ProcessDefinition>('processes'),
         dbService.getAll<ProcessInstance>('instances'),
         dbService.getAll<Task>('tasks'),
@@ -178,6 +182,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         dbService.getAll<FormDefinition>('forms'),
         dbService.getAll<Integration>('integrations'),
         dbService.getAll<ApiClient>('apiClients'),
+        dbService.getAll<SystemSettings>('systemSettings')
       ]);
 
       setState(prev => ({
@@ -196,6 +201,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         forms: f,
         integrations: ints,
         apiClients: apis,
+        settings: setts[0] || DEFAULT_SETTINGS,
         currentUser: prev.currentUser || u[0] || null,
         loading: false
       }));
@@ -346,6 +352,37 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           setState(produce(draft => { draft.processes = draft.processes.map(x => x.id === id ? up : x); }));
           addNotification('info', `Process ${up.isActive ? 'Activated' : 'Suspended'}`);
       }
+  };
+
+  // Aggregates real metrics from execution history
+  const getStepStatistics = (defId: string, stepName: string): { avgDuration: number, errorRate: number } => {
+      const relatedInstances = state.instances.filter(i => i.definitionId === defId && i.history.length > 0);
+      let totalDuration = 0;
+      let count = 0;
+      let errorCount = 0;
+
+      relatedInstances.forEach(inst => {
+          // Sort history by timestamp
+          const sorted = [...inst.history].sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+          
+          for(let i=0; i<sorted.length-1; i++) {
+              if (sorted[i].stepName === stepName) {
+                  const duration = new Date(sorted[i+1].timestamp).getTime() - new Date(sorted[i].timestamp).getTime();
+                  totalDuration += duration;
+                  count++;
+                  if (sorted[i].action.toLowerCase().includes('error') || sorted[i].action.toLowerCase().includes('fail')) {
+                      errorCount++;
+                  }
+              }
+          }
+      });
+
+      if (count === 0) return { avgDuration: 0, errorRate: 0 };
+      
+      return {
+          avgDuration: Math.round(totalDuration / count / 1000 / 60), // in minutes
+          errorRate: Math.round((errorCount / count) * 100)
+      };
   };
 
   // --- Instance Methods ---
@@ -888,6 +925,15 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
   };
 
+  // --- System Configuration ---
+  const updateSystemSettings = async (updates: Partial<SystemSettings>) => {
+      const merged = { ...state.settings, ...updates };
+      await dbService.add('systemSettings', merged);
+      setState(produce(draft => { draft.settings = merged; }));
+      addAudit('SYSTEM_CONFIG', 'System', 'global-settings', 'Updated system configuration', 'Warning');
+      addNotification('success', 'Configuration updated.');
+  };
+
   const contextValue: BPMContextType = {
     ...state,
     setGlobalSearch: (s) => setState(prev => ({ ...prev, globalSearch: s })),
@@ -901,7 +947,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     },
     addNotification, removeNotification,
     executeRules, 
-    deployProcess, updateProcess, deleteProcess, toggleProcessState,
+    deployProcess, updateProcess, deleteProcess, toggleProcessState, getStepStatistics,
     startProcess, suspendInstance, terminateInstance, addInstanceComment,
     completeTask, claimTask, releaseTask, reassignTask, updateTaskMetadata, addTaskComment, updateTaskChecklist, bulkCompleteTasks, toggleTaskStar, snoozeTask, createAdHocTask, updateTaskLocation,
     createCase, updateCase, deleteCase, addCaseEvent, removeCaseEvent, addCasePolicy, removeCasePolicy, addCaseStakeholder, removeCaseStakeholder,
@@ -911,6 +957,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     saveForm, deleteForm,
     installIntegration, uninstallIntegration,
     toggleApiClient,
+    updateSystemSettings,
     hasPermission,
     reseedSystem: async () => { await dbService.reseed(); loadData(); },
     resetSystem: async () => { await dbService.resetDB(); window.location.reload(); },

@@ -459,6 +459,31 @@ export interface ApiClient {
   reqCount: number;
 }
 
+// ---- GLOBAL CONFIGURATION (Phase 2) ----
+export interface SystemSettings {
+  id: string; // 'global-settings'
+  sso: {
+    ldap: boolean;
+    okta: boolean;
+    workspace: boolean;
+  };
+  security: {
+    minPasswordLength: number;
+    mfaEnabled: boolean;
+    sessionTimeout: number; // minutes
+    geoFencing: boolean;
+  };
+  compliance: {
+    standards: string[]; // ['SOC2', 'GDPR']
+    lastAudit: string;
+  };
+  calendar: {
+    workDays: string[];
+    workHours: { start: string; end: string };
+    timezone: string;
+  };
+}
+
 // ---- ANALYTICS & GOVERNANCE ----
 export interface AlertRule {
   id: string;

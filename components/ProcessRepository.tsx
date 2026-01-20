@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import { useBPM } from '../contexts/BPMContext';
-import { Play, FileText, Layers, Plus, Edit, MoreVertical, Copy, Trash2, PauseCircle, StopCircle, Search, History, BookOpen, Globe } from 'lucide-react';
-import { NexBadge, NexModal } from './shared/NexUI';
+import { Play, FileText, Layers, Plus, Edit, MoreVertical, Copy, Trash2, PauseCircle, StopCircle, Search, History, BookOpen, Globe, CheckSquare, XCircle } from 'lucide-react';
+import { NexBadge, NexModal, NexButton } from './shared/NexUI';
 import { ProcessDiffViewer } from './governance/ProcessDiffViewer';
 import { ProcessDefinition } from '../types';
 import { generateProcessDocumentation } from '../services/geminiService';
@@ -12,6 +13,9 @@ export const ProcessRepository: React.FC = () => {
   const [filterQuery, setFilterQuery] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   
+  // Instance Bulk Selection
+  const [selectedInstanceIds, setSelectedInstanceIds] = useState<Set<string>>(new Set());
+
   // History Modal State
   const [selectedHistoryProc, setSelectedHistoryProc] = useState<ProcessDefinition | null>(null);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
@@ -59,6 +63,28 @@ export const ProcessRepository: React.FC = () => {
       i.id.includes(filterQuery)
   );
 
+  const toggleInstanceSelection = (id: string) => {
+      const newSet = new Set(selectedInstanceIds);
+      if (newSet.has(id)) newSet.delete(id); else newSet.add(id);
+      setSelectedInstanceIds(newSet);
+  };
+
+  const toggleSelectAllInstances = () => {
+      if (selectedInstanceIds.size === filteredInstances.length) setSelectedInstanceIds(new Set());
+      else setSelectedInstanceIds(new Set(filteredInstances.map(i => i.id)));
+  };
+
+  const handleBulkInstanceAction = async (action: 'suspend' | 'terminate') => {
+      const ids = Array.from(selectedInstanceIds);
+      if (!window.confirm(`${action === 'suspend' ? 'Suspend' : 'Terminate'} ${ids.length} instances?`)) return;
+      
+      for (const id of ids) {
+          if (action === 'suspend') await suspendInstance(id);
+          else await terminateInstance(id);
+      }
+      setSelectedInstanceIds(new Set());
+  };
+
   return (
     <div 
       className="animate-fade-in pb-20 flex flex-col"
@@ -101,6 +127,13 @@ export const ProcessRepository: React.FC = () => {
                   <input type="checkbox" checked={showArchived} onChange={e => setShowArchived(e.target.checked)} className="rounded-sm border-slate-300 text-blue-600 focus:ring-blue-500"/>
                   Show Archived
               </label>
+          )}
+          {activeTab === 'instances' && selectedInstanceIds.size > 0 && (
+              <div className="flex items-center gap-2 animate-fade-in">
+                  <span className="text-xs font-bold text-slate-600">{selectedInstanceIds.size} Selected</span>
+                  <NexButton size="sm" variant="secondary" onClick={() => handleBulkInstanceAction('suspend')} icon={PauseCircle}>Suspend</NexButton>
+                  <NexButton size="sm" variant="danger" onClick={() => handleBulkInstanceAction('terminate')} icon={StopCircle}>Terminate</NexButton>
+              </div>
           )}
       </div>
 
@@ -177,6 +210,7 @@ export const ProcessRepository: React.FC = () => {
           <table className="w-full text-left border-collapse">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr className="text-[11px] font-bold text-slate-500 uppercase">
+                  <th className="px-3 py-3 border-r border-slate-200 w-10 text-center"><input type="checkbox" onChange={toggleSelectAllInstances} checked={selectedInstanceIds.size === filteredInstances.length && filteredInstances.length > 0} className="rounded-sm text-blue-600"/></th>
                   <th className="px-6 py-3 border-r border-slate-200">Instance ID</th>
                   <th className="px-6 py-3 border-r border-slate-200">Definition</th>
                   <th className="px-6 py-3 border-r border-slate-200">Status</th>
@@ -186,9 +220,12 @@ export const ProcessRepository: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredInstances.length === 0 ? (
-                    <tr><td colSpan={5} className="p-8 text-center text-xs text-slate-500 italic">No active runtimes matching criteria.</td></tr>
+                    <tr><td colSpan={6} className="p-8 text-center text-xs text-slate-500 italic">No active runtimes matching criteria.</td></tr>
                 ) : filteredInstances.map(inst => (
-                    <tr key={inst.id} className="hover:bg-slate-50 transition-colors text-xs group">
+                    <tr key={inst.id} className={`hover:bg-slate-50 transition-colors text-xs group ${selectedInstanceIds.has(inst.id) ? 'bg-blue-50' : ''}`}>
+                      <td className="px-3 py-3 text-center border-r border-slate-100">
+                          <input type="checkbox" checked={selectedInstanceIds.has(inst.id)} onChange={() => toggleInstanceSelection(inst.id)} className="rounded-sm text-blue-600"/>
+                      </td>
                       <td className="px-6 py-3 font-mono text-slate-700 font-medium cursor-pointer hover:text-blue-600 underline" onClick={() => openInstanceViewer(inst.id)}>{inst.id}</td>
                       <td className="px-6 py-3 font-bold text-slate-800">{inst.definitionName}</td>
                       <td className="px-6 py-3">
