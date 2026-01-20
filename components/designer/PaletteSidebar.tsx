@@ -1,14 +1,17 @@
+
 import React, { useState } from 'react';
 import { ProcessStepType } from '../../types';
 import { getStepTypeMetadata, STEP_CATEGORIES } from './designerUtils';
-import { Plus, ChevronDown, ChevronRight, Search } from 'lucide-react';
+import { Plus, ChevronDown, ChevronRight, Search, Star, StickyNote } from 'lucide-react';
 
 interface PaletteItemProps {
-  type: ProcessStepType;
-  onAdd: (type: ProcessStepType) => void;
+  type: ProcessStepType | 'note';
+  onAdd: (type: ProcessStepType | 'note') => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
 }
 
-const PaletteItem: React.FC<PaletteItemProps> = ({ type, onAdd }) => {
+const PaletteItem: React.FC<PaletteItemProps> = ({ type, onAdd, isFavorite, onToggleFavorite }) => {
   const { icon: Icon, color, defaultName: label } = getStepTypeMetadata(type);
   
   const onDragStart = (event: React.DragEvent<HTMLDivElement>, nodeType: string) => {
@@ -32,23 +35,37 @@ const PaletteItem: React.FC<PaletteItemProps> = ({ type, onAdd }) => {
         <div className="flex-1 min-w-0">
             <span className="block text-xs font-bold text-slate-700 truncate">{label}</span>
         </div>
-        <Plus size={14} className="text-slate-300 group-hover:text-blue-50 opacity-0 group-hover:opacity-100" />
         </button>
+        {onToggleFavorite && (
+            <button 
+                onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-300 hover:text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+                <Star size={12} fill={isFavorite ? "currentColor" : "none"} className={isFavorite ? "text-amber-400 opacity-100" : ""} />
+            </button>
+        )}
     </div>
   );
 };
 
-export const PaletteSidebar = ({ onAddNode }: { onAddNode: (type: ProcessStepType) => void }) => {
-  const [openCategories, setOpenCategories] = useState<string[]>(['Core', 'Communication', 'AI & ML']);
+export const PaletteSidebar = ({ onAddNode }: { onAddNode: (type: ProcessStepType | 'note') => void }) => {
+  const [openCategories, setOpenCategories] = useState<string[]>(['Favorites', 'Annotations', 'Core']);
   const [search, setSearch] = useState('');
+  const [favorites, setFavorites] = useState<string[]>(['start', 'end', 'user-task', 'exclusive-gateway']);
 
   const toggleCategory = (cat: string) => {
     setOpenCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
   };
 
-  const groupedSteps: Record<string, ProcessStepType[]> = {};
+  const toggleFavorite = (type: string) => {
+      setFavorites(prev => prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]);
+  };
+
+  const groupedSteps: Record<string, string[]> = {};
   
-  const allTypes: ProcessStepType[] = [
+  // Explicitly add 'note'
+  const allTypes: string[] = [
+    'note',
     'start', 'end', 'user-task', 'service-task', 'sub-process', 'script-task',
     'exclusive-gateway', 'parallel-gateway', 'inclusive-gateway', 'complex-gateway', 'event-gateway',
     'timer-event', 'message-event', 'signal-event', 'error-event', 'escalation-event', 'compensation-event',
@@ -64,12 +81,14 @@ export const PaletteSidebar = ({ onAddNode }: { onAddNode: (type: ProcessStepTyp
   ];
 
   allTypes.forEach(type => {
-    const meta = getStepTypeMetadata(type);
+    const meta = getStepTypeMetadata(type as ProcessStepType);
     if (!groupedSteps[meta.category]) groupedSteps[meta.category] = [];
     if (meta.defaultName.toLowerCase().includes(search.toLowerCase()) || meta.category.toLowerCase().includes(search.toLowerCase())) {
         groupedSteps[meta.category].push(type);
     }
   });
+
+  const displayCategories = ['Favorites', ...STEP_CATEGORIES];
 
   return (
     <aside className="w-full h-full bg-slate-50 border-r border-slate-300 flex flex-col shrink-0">
@@ -87,8 +106,17 @@ export const PaletteSidebar = ({ onAddNode }: { onAddNode: (type: ProcessStepTyp
       </div>
       
       <div className="flex-1 overflow-y-auto no-scrollbar" style={{ padding: 'var(--space-base)', gap: 'var(--space-base)', display: 'flex', flexDirection: 'column' }}>
-        {STEP_CATEGORIES.map(category => {
-            const steps = groupedSteps[category] || [];
+        {displayCategories.map(category => {
+            let steps: string[] = [];
+            
+            if (category === 'Favorites') {
+                steps = favorites.filter(t => 
+                    getStepTypeMetadata(t as any).defaultName.toLowerCase().includes(search.toLowerCase())
+                );
+            } else {
+                steps = groupedSteps[category] || [];
+            }
+
             if (steps.length === 0) return null;
 
             const isOpen = openCategories.includes(category) || search.length > 0;
@@ -99,14 +127,23 @@ export const PaletteSidebar = ({ onAddNode }: { onAddNode: (type: ProcessStepTyp
                         onClick={() => toggleCategory(category)}
                         className="w-full flex items-center justify-between px-2 py-1.5 text-[10px] font-bold text-slate-500 uppercase hover:bg-slate-100 rounded-sm transition-colors"
                     >
-                        <span>{category}</span>
+                        <span className="flex items-center gap-2">
+                            {category === 'Favorites' && <Star size={12} className="text-amber-400 fill-amber-400"/>}
+                            {category}
+                        </span>
                         {isOpen ? <ChevronDown size={12}/> : <ChevronRight size={12}/>}
                     </button>
                     
                     {isOpen && (
                         <div className="mt-1 space-y-0.5 pl-1 animate-slide-up">
                             {steps.map(type => (
-                                <PaletteItem key={type} type={type} onAdd={onAddNode} />
+                                <PaletteItem 
+                                    key={type} 
+                                    type={type as ProcessStepType} 
+                                    onAdd={onAddNode} 
+                                    isFavorite={favorites.includes(type)}
+                                    onToggleFavorite={() => toggleFavorite(type)}
+                                />
                             ))}
                         </div>
                     )}

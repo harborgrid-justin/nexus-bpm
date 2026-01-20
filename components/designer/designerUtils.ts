@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { ProcessStepType } from '../../types';
 import { 
@@ -8,7 +9,7 @@ import {
   Share2, Key, Lock, Globe, HardDrive, FileSpreadsheet,
   AlertTriangle, StopCircle, RotateCw, GitMerge, MoreHorizontal,
   Layout, Briefcase, ShoppingCart, Activity,
-  CheckSquare, Plus, Upload, Table
+  CheckSquare, Plus, Upload, Table, StickyNote, ArrowRightCircle
 } from 'lucide-react';
 
 export interface StepMetadata {
@@ -23,10 +24,13 @@ export interface StepMetadata {
 export const STEP_CATEGORIES = [
   'Core', 'Gateways', 'Events', 'Communication', 'Documents', 
   'CRM & Sales', 'Dev Tools', 'Cloud Infra', 'Data & Integration', 
-  'AI & ML', 'Finance', 'Logic & Rules'
+  'AI & ML', 'Finance', 'Logic & Rules', 'Annotations'
 ];
 
-const METADATA: { [key in ProcessStepType]?: StepMetadata } = {
+const METADATA: { [key in ProcessStepType | 'note']?: StepMetadata } = {
+  // --- ANNOTATIONS ---
+  'note': { icon: StickyNote, color: 'text-yellow-600', defaultName: 'Note', category: 'Annotations' },
+
   // --- CORE ---
   'start': { icon: Play, color: 'text-emerald-600', defaultName: 'Start', category: 'Core' },
   'end': { icon: Flag, color: 'text-rose-600', defaultName: 'End', category: 'Core' },
@@ -139,7 +143,7 @@ const METADATA: { [key in ProcessStepType]?: StepMetadata } = {
   'loop-container': { icon: RotateCw, color: 'text-amber-600', defaultName: 'Loop', category: 'Logic & Rules' },
 };
 
-export const getStepTypeMetadata = (type: ProcessStepType): StepMetadata => {
+export const getStepTypeMetadata = (type: ProcessStepType | 'note'): StepMetadata => {
   return METADATA[type] || { 
     icon: Cog, 
     color: 'text-slate-400', 

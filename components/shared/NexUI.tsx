@@ -1,6 +1,6 @@
 
-import React, { useEffect, useRef } from 'react';
-import { LucideIcon, ChevronRight, X } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { LucideIcon, ChevronRight, X, ChevronDown, Search, Check } from 'lucide-react';
 
 interface NexBadgeProps {
   children?: React.ReactNode;
@@ -163,4 +163,77 @@ export const NexModal: React.FC<{ isOpen: boolean; onClose: () => void; title: s
       </div>
     </div>
   );
+};
+
+// --- NEW COMPONENT: Searchable Select ---
+interface NexSearchSelectProps {
+    value: string;
+    onChange: (val: string) => void;
+    options: { label: string; value: string }[];
+    placeholder?: string;
+    className?: string;
+}
+
+export const NexSearchSelect: React.FC<NexSearchSelectProps> = ({ value, onChange, options, placeholder = "Select...", className }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [search, setSearch] = useState('');
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    const selectedLabel = options.find(o => o.value === value)?.label || value;
+    const filteredOptions = options.filter(o => o.label.toLowerCase().includes(search.toLowerCase()));
+
+    useEffect(() => {
+        const handleClick = (e: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(e.target as Node)) setIsOpen(false);
+        };
+        document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
+    }, []);
+
+    return (
+        <div ref={containerRef} className={`relative w-full ${className}`}>
+            <div 
+                className="prop-input flex items-center justify-between cursor-pointer"
+                onClick={() => setIsOpen(!isOpen)}
+            >
+                <span className={`text-xs truncate ${!value ? 'text-slate-400' : 'text-slate-800'}`}>
+                    {value ? selectedLabel : placeholder}
+                </span>
+                <ChevronDown size={14} className="text-slate-400"/>
+            </div>
+            
+            {isOpen && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-sm shadow-xl z-50 animate-slide-up max-h-60 flex flex-col">
+                    <div className="p-2 border-b border-slate-100 sticky top-0 bg-white">
+                        <div className="relative">
+                            <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400"/>
+                            <input 
+                                className="w-full pl-7 pr-2 py-1.5 bg-slate-50 border border-slate-200 rounded-sm text-xs outline-none focus:border-blue-500"
+                                placeholder="Filter..."
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                autoFocus
+                            />
+                        </div>
+                    </div>
+                    <div className="overflow-y-auto flex-1 p-1">
+                        {filteredOptions.length === 0 ? (
+                            <div className="p-2 text-center text-[10px] text-slate-400 italic">No matches found.</div>
+                        ) : (
+                            filteredOptions.map(opt => (
+                                <button 
+                                    key={opt.value} 
+                                    onClick={() => { onChange(opt.value); setIsOpen(false); setSearch(''); }}
+                                    className={`w-full text-left px-3 py-2 text-xs rounded-sm flex items-center justify-between ${value === opt.value ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-700 hover:bg-slate-50'}`}
+                                >
+                                    {opt.label}
+                                    {value === opt.value && <Check size={12}/>}
+                                </button>
+                            ))
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 };
