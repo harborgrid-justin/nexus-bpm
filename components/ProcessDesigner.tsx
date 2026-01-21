@@ -206,6 +206,7 @@ export const ProcessDesigner: React.FC = () => {
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectionMode, setSelectionMode] = useState<'pan' | 'select'>('pan');
+  const [clipboard, setClipboard] = useState<ProcessStep | null>(null);
   
   // Validation & Simulation
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -235,7 +236,7 @@ export const ProcessDesigner: React.FC = () => {
           localStorage.setItem('nexflow_draft', JSON.stringify({ steps, links, meta }));
       }, 2000);
       return () => clearTimeout(handler);
-  }, [setDesignerDraft]); // Reduced dependencies to avoid loops
+  }, [setDesignerDraft]);
 
   // --- Initial Load ---
   useEffect(() => {
@@ -409,15 +410,55 @@ export const ProcessDesigner: React.FC = () => {
     if (!contextMenu) return;
     const { targetId } = contextMenu;
     switch (action) {
-      case 'delete': if (targetId) deleteNode(targetId); break;
+      case 'delete':
+        if (targetId) deleteNode(targetId);
+        break;
       case 'duplicate': 
         if (targetId) {
             const original = nodes.find(n => n.id === targetId);
-            if (original) addNode(original.data.step.type, { x: original.position.x + 20, y: original.position.y + 20 });
+            if (original) {
+                const newStep = { ...original.data.step, id: `node-${Date.now()}`, name: `${original.data.step.name} (Copy)` };
+                const newNode = { ...original, id: newStep.id, position: { x: original.position.x + 20, y: original.position.y + 20 }, data: { ...original.data, step: newStep } };
+                setFlowState({ nodes: [...nodes, newNode], edges });
+            }
         }
         break;
-      case 'add-node': addNode(payload as ProcessStepType, { x: contextMenu.position.x, y: contextMenu.position.y }); break;
-      case 'clear-canvas': if(window.confirm('Clear canvas?')) { setFlowState({ nodes: [], edges: [] }); } break;
+      case 'copy':
+        if (targetId) {
+            const node = nodes.find(n => n.id === targetId);
+            if (node) {
+                setClipboard(node.data.step);
+                addNotification('info', 'Copied to clipboard');
+            }
+        }
+        break;
+      case 'paste':
+        if (clipboard) {
+             const id = `node-${Date.now()}`;
+             const newStep = { ...clipboard, id, name: `${clipboard.name} (Copy)` };
+             const newNode = {
+                 id,
+                 type: 'custom',
+                 position: { x: contextMenu.position.x, y: contextMenu.position.y },
+                 data: { step: newStep }
+             };
+             setFlowState({ nodes: [...nodes, newNode], edges });
+        }
+        break;
+      case 'disconnect':
+        if (targetId) {
+            setFlowState({
+                nodes,
+                edges: edges.filter(e => e.source !== targetId && e.target !== targetId)
+            });
+        }
+        break;
+      case 'add-node': 
+        addNode(payload as ProcessStepType, { x: contextMenu.position.x, y: contextMenu.position.y }); 
+        break;
+      case 'clear-canvas': 
+        if(window.confirm('Clear canvas?')) { setFlowState({ nodes: [], edges: [] }); } 
+        break;
     }
     setContextMenu(null);
   };
