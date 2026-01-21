@@ -1,11 +1,12 @@
 
 import React, { useState, useRef } from 'react';
 import { useBPM } from '../contexts/BPMContext';
-import { Play, FileText, Layers, Plus, Edit, MoreVertical, Copy, Trash2, PauseCircle, StopCircle, Search, History, BookOpen, Globe, Upload } from 'lucide-react';
+import { Play, FileText, Layers, Plus, Edit, MoreVertical, Copy, Trash2, PauseCircle, StopCircle, Search, History, BookOpen, Globe, Upload, BarChart3, AlertCircle } from 'lucide-react';
 import { NexBadge, NexModal, NexButton } from './shared/NexUI';
 import { ProcessDiffViewer } from './governance/ProcessDiffViewer';
 import { ProcessDefinition } from '../types';
 import { generateProcessDocumentation } from '../services/geminiService';
+import { ProcessHeatmap } from './process/ProcessHeatmap';
 
 export const ProcessRepository: React.FC = () => {
   const { processes, instances, startProcess, openInstanceViewer, deployProcess, deleteProcess, toggleProcessState, suspendInstance, terminateInstance, navigateTo, addNotification } = useBPM();
@@ -25,6 +26,10 @@ export const ProcessRepository: React.FC = () => {
   const [docContent, setDocContent] = useState('');
   const [docModalOpen, setDocModalOpen] = useState(false);
   const [, setGeneratingDocs] = useState(false);
+
+  // Heatmap Modal State
+  const [heatmapProc, setHeatmapProc] = useState<ProcessDefinition | null>(null);
+  const [heatmapMode, setHeatmapMode] = useState<'traffic' | 'errors'>('traffic');
 
   const handleStart = (id: string) => {
     startProcess(id, { summary: `Automated initiation via Registry` });
@@ -151,7 +156,7 @@ export const ProcessRepository: React.FC = () => {
           {activeTab === 'definitions' && (
               <>
                 <label className="flex items-center gap-2 text-xs text-slate-600 font-medium cursor-pointer select-none">
-                    <input type="checkbox" checked={showArchived} onChange={e => setShowArchived(e.target.checked)} className="rounded-sm border-slate-300 text-blue-600 focus:ring-blue-500"/>
+                    <input type="checkbox" checked={showArchived} onChange={e => setShowArchived(e.target.value)} className="rounded-sm border-slate-300 text-blue-600 focus:ring-blue-500"/>
                     Show Archived
                 </label>
                 <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleImportFile} />
@@ -202,6 +207,7 @@ export const ProcessRepository: React.FC = () => {
                     <button className="p-1 hover:bg-slate-100 rounded-sm text-slate-400"><MoreVertical size={16}/></button>
                     <div className="absolute right-0 top-6 w-40 bg-white border border-slate-200 shadow-xl rounded-sm z-20 hidden group-hover/menu:block py-1">
                         <button onClick={() => navigateTo('designer', process.id)} className="w-full text-left px-3 py-2 text-[10px] hover:bg-slate-50 flex items-center gap-2 text-slate-700 font-bold"><Edit size={12} className="text-blue-600"/> Edit Model</button>
+                        <button onClick={() => setHeatmapProc(process)} className="w-full text-left px-3 py-2 text-[10px] hover:bg-slate-50 flex items-center gap-2 text-slate-700"><BarChart3 size={12}/> Analytics</button>
                         <button onClick={() => handleGenerateDocs(process)} className="w-full text-left px-3 py-2 text-[10px] hover:bg-slate-50 flex items-center gap-2 text-slate-700"><BookOpen size={12}/> Generate Docs</button>
                         <button onClick={() => handleViewHistory(process)} className="w-full text-left px-3 py-2 text-[10px] hover:bg-slate-50 flex items-center gap-2 text-slate-700"><History size={12}/> Version History</button>
                         <div className="h-px bg-slate-100 my-1"></div>
@@ -315,6 +321,29 @@ export const ProcessRepository: React.FC = () => {
       {/* Documentation Modal */}
       <NexModal isOpen={docModalOpen} onClose={() => setDocModalOpen(false)} title="Process Documentation" size="xl">
           <div className="prose prose-sm max-w-none p-4" dangerouslySetInnerHTML={{ __html: docContent }} />
+      </NexModal>
+
+      {/* Analytics Heatmap Modal */}
+      <NexModal isOpen={!!heatmapProc} onClose={() => setHeatmapProc(null)} title={`Operational Heatmap: ${heatmapProc?.name}`} size="xl">
+          <div className="h-[600px] flex flex-col">
+              <div className="flex gap-4 mb-4 border-b border-slate-100 pb-2">
+                  <button 
+                    onClick={() => setHeatmapMode('traffic')} 
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${heatmapMode === 'traffic' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}
+                  >
+                      <Layers size={14}/> Traffic Volume
+                  </button>
+                  <button 
+                    onClick={() => setHeatmapMode('errors')} 
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${heatmapMode === 'errors' ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-600'}`}
+                  >
+                      <AlertCircle size={14}/> Error Hotspots
+                  </button>
+              </div>
+              <div className="flex-1 bg-slate-50 border border-slate-200 rounded-sm relative overflow-hidden">
+                  {heatmapProc && <ProcessHeatmap process={heatmapProc} mode={heatmapMode} />}
+              </div>
+          </div>
       </NexModal>
     </div>
   );

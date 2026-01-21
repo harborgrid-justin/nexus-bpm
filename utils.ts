@@ -202,3 +202,12 @@ export const createFilterPredicate = <T>(config: FilterConfig<T>, searchTerm: st
         return true;
     };
 };
+
+// --- Phase 7: Visualization Utils ---
+export const interpolateColor = (value: number, min: number, max: number, startColor: [number, number, number], endColor: [number, number, number]): string => {
+    const ratio = Math.max(0, Math.min(1, (value - min) / (max - min || 1)));
+    const r = Math.round(startColor[0] + ratio * (endColor[0] - startColor[0]));
+    const g = Math.round(startColor[1] + ratio * (endColor[1] - startColor[1]));
+    const b = Math.round(startColor[2] + ratio * (endColor[2] - startColor[2]));
+    return `rgb(${r}, ${g}, ${b})`;
+};
