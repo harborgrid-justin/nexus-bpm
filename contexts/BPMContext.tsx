@@ -6,7 +6,7 @@ import {
   ViewState, AuditLog, Comment, User, UserRole, UserGroup, Permission, 
   Delegation, BusinessRule, DecisionTable, Case, CaseEvent, CasePolicy, CaseStakeholder,
   Condition, RuleAction, ProcessStep, ProcessLink, FormDefinition, ProcessVersionSnapshot, ChecklistItem,
-  Integration, ApiClient, SystemSettings, SavedView
+  Integration, ApiClient, SystemSettings, SavedView, ToolbarConfig
 } from '../types';
 import { dbService, DEFAULT_SETTINGS } from '../services/dbService';
 
@@ -46,6 +46,10 @@ interface BPMContextType {
   
   viewingInstanceId: string | null;
   
+  // Toolbar State (Global)
+  toolbarConfig: ToolbarConfig;
+  setToolbarConfig: (config: ToolbarConfig) => void;
+
   // Designer Persistence
   designerDraft: { steps: ProcessStep[], links: ProcessLink[] } | null;
   setDesignerDraft: (draft: { steps: ProcessStep[], links: ProcessLink[] } | null) => void;
@@ -175,6 +179,9 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     designerDraft: null as { steps: ProcessStep[], links: ProcessLink[] } | null
   });
 
+  // Toolbar Config State
+  const [toolbarConfig, setToolbarConfig] = useState<ToolbarConfig>({});
+
   // Simulated Presence State
   const [activePresence, setActivePresence] = useState<Record<string, string[]>>({}); // recordId -> [userIds]
 
@@ -282,6 +289,8 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       draft.nav = { view, selectedId: id, filter, data };
       draft.globalSearch = '';
     }));
+    // Reset toolbar when navigating to prevent stale actions
+    setToolbarConfig({});
   }, []);
 
   // --- Logic Engine (Simplified) ---
@@ -423,6 +432,8 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     ...state,
     setGlobalSearch: (s) => setState(prev => ({ ...prev, globalSearch: s })),
     setDesignerDraft: (draft) => setState(prev => ({ ...prev, designerDraft: draft })),
+    setToolbarConfig: (config) => setToolbarConfig(config),
+    toolbarConfig,
     navigateTo,
     openInstanceViewer: (id) => setState(prev => ({ ...prev, viewingInstanceId: id })),
     closeInstanceViewer: () => setState(prev => ({ ...prev, viewingInstanceId: null })),
@@ -492,7 +503,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     resetSystem: async () => { await dbService.resetDB(); window.location.reload(); },
     exportData: async () => { return ""; },
     importData: async (f) => {},
-  }), [state, navigateTo, addNotification, removeNotification, executeRules, deployProcess, updateProcess, deleteProcess, hasPermission, getActiveUsersOnRecord, loadData, getStepStatistics]);
+  }), [state, navigateTo, addNotification, removeNotification, executeRules, deployProcess, updateProcess, deleteProcess, hasPermission, getActiveUsersOnRecord, loadData, getStepStatistics, toolbarConfig]);
 
   return <BPMContext.Provider value={contextValue}>{children}</BPMContext.Provider>;
 };

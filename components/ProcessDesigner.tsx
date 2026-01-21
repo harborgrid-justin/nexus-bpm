@@ -191,7 +191,7 @@ const DesignerFlow = ({
 };
 
 export const ProcessDesigner: React.FC = () => {
-  const { deployProcess, roles, addNotification, designerDraft, setDesignerDraft, nav, currentUser, processes } = useBPM();
+  const { deployProcess, roles, addNotification, designerDraft, setDesignerDraft, nav, currentUser, processes, setToolbarConfig } = useBPM();
   
   // --- Undo/Redo & State ---
   const { state: flowState, set: setFlowState, undo, redo, canUndo, canRedo } = useUndoRedo({ nodes: [] as Node[], edges: [] as Edge[] });
@@ -203,8 +203,6 @@ export const ProcessDesigner: React.FC = () => {
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
   const [viewMode, setViewMode] = useState<'canvas' | 'hierarchy'>('canvas');
-  const [aiPrompt, setAiPrompt] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
   const [selectionMode, setSelectionMode] = useState<'pan' | 'select'>('pan');
   const [clipboard, setClipboard] = useState<ProcessStep | null>(null);
   
@@ -262,6 +260,84 @@ export const ProcessDesigner: React.FC = () => {
           setProcessMeta(parsed.meta);
       }
   }, [nav.selectedId, processes, setFlowState, nav.view]);
+
+  // --- Handlers Defined Early for Toolbar ---
+  const handleDeploy = async () => {
+    const errors = validateGraph();
+    if (errors.length > 0) {
+        setValidationErrors(errors);
+        setShowValidationModal(true);
+        return;
+    }
+    const steps: ProcessStep[] = nodes.map(n => ({ ...n.data.step, position: n.position, nextStepIds: edges.filter(e => e.source === n.id).map(e => e.target) }));
+    const links: ProcessLink[] = edges.map(e => ({ id: e.id, sourceId: e.source, targetId: e.target, label: e.label as string }));
+    await deployProcess({ ...processMeta, steps, links, isActive: true, version: (processMeta.version || 1) + 1 });
+    addNotification('success', `Process ${processMeta.name} deployed successfully.`);
+  };
+
+  const handleClear = () => {
+      if(window.confirm('Clear canvas?')) { setFlowState({ nodes: [], edges: [] }); }
+  };
+
+  const handleLayout = (direction: 'LR' | 'TB') => {
+      const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges, direction);
+      setFlowState({ nodes: layoutedNodes, edges: layoutedEdges });
+  };
+
+  const toggleSimulation = () => {
+      if (simulationActive) {
+          setSimulationActive(false);
+          setSimStepIndex(0);
+      } else {
+          const startNode = nodes.find(n => n.data.step.type === 'start');
+          if (!startNode) { addNotification('error', 'No Start node found'); return; }
+          setSimulationActive(true);
+          // Simple traversal simulation
+          let currentId = startNode.id;
+          let stepsCount = 0;
+          
+          const interval = setInterval(() => {
+              if (stepsCount > 20) { clearInterval(interval); setSimulationActive(false); return; } // Safety break
+              
+              const outgoing = edges.filter(e => e.source === currentId);
+              if (outgoing.length === 0) {
+                  clearInterval(interval);
+                  setTimeout(() => setSimulationActive(false), 1000);
+              } else {
+                  // Pick random path for simulation
+                  const nextEdge = outgoing[Math.floor(Math.random() * outgoing.length)];
+                  currentId = nextEdge.target;
+                  // Update UI to highlight this node
+                  setSelectedNodeId(currentId);
+              }
+              stepsCount++;
+          }, 1000);
+      }
+  };
+
+  // --- Register Toolbar Actions ---
+  useEffect(() => {
+      setToolbarConfig({
+          file: [
+              { label: 'Save Draft', action: () => addNotification('info', 'Draft saved locally.') },
+              { label: 'Deploy Process', action: handleDeploy, shortcut: 'Ctrl+S' },
+              { label: 'Clear Canvas', action: handleClear, divider: true },
+          ],
+          edit: [
+              { label: 'Undo', action: undo, disabled: !canUndo, shortcut: 'Ctrl+Z' },
+              { label: 'Redo', action: redo, disabled: !canRedo, shortcut: 'Ctrl+Y' },
+          ],
+          view: [
+              { label: 'Auto Layout (Horizontal)', action: () => handleLayout('LR') },
+              { label: 'Auto Layout (Vertical)', action: () => handleLayout('TB') },
+              { label: 'Toggle Hierarchy View', action: () => setViewMode(m => m === 'canvas' ? 'hierarchy' : 'canvas') }
+          ],
+          tools: [
+              { label: simulationActive ? 'Stop Simulation' : 'Run Simulation', action: toggleSimulation },
+              { label: 'Validate Integrity', action: () => { const errs = validateGraph(); if(errs.length > 0) { setValidationErrors(errs); setShowValidationModal(true); } else { addNotification('success', 'Validation Passed'); } } }
+          ]
+      });
+  }, [setToolbarConfig, handleDeploy, undo, redo, canUndo, canRedo, simulationActive]);
 
   // --- Shortcuts ---
   useEffect(() => {
@@ -359,52 +435,6 @@ export const ProcessDesigner: React.FC = () => {
       return errors;
   };
 
-  const handleDeploy = async () => {
-    const errors = validateGraph();
-    if (errors.length > 0) {
-        setValidationErrors(errors);
-        setShowValidationModal(true);
-        return;
-    }
-    const steps: ProcessStep[] = nodes.map(n => ({ ...n.data.step, position: n.position, nextStepIds: edges.filter(e => e.source === n.id).map(e => e.target) }));
-    const links: ProcessLink[] = edges.map(e => ({ id: e.id, sourceId: e.source, targetId: e.target, label: e.label as string }));
-    await deployProcess({ ...processMeta, steps, links, isActive: true, version: (processMeta.version || 1) + 1 });
-    addNotification('success', `Process ${processMeta.name} deployed successfully.`);
-  };
-
-  // --- Simulation ---
-  const toggleSimulation = () => {
-      if (simulationActive) {
-          setSimulationActive(false);
-          setSimStepIndex(0);
-      } else {
-          const startNode = nodes.find(n => n.data.step.type === 'start');
-          if (!startNode) { addNotification('error', 'No Start node found'); return; }
-          setSimulationActive(true);
-          // Simple traversal simulation
-          let currentId = startNode.id;
-          let path = [currentId];
-          let stepsCount = 0;
-          
-          const interval = setInterval(() => {
-              if (stepsCount > 20) { clearInterval(interval); setSimulationActive(false); return; } // Safety break
-              
-              const outgoing = edges.filter(e => e.source === currentId);
-              if (outgoing.length === 0) {
-                  clearInterval(interval);
-                  setTimeout(() => setSimulationActive(false), 1000);
-              } else {
-                  // Pick random path for simulation
-                  const nextEdge = outgoing[Math.floor(Math.random() * outgoing.length)];
-                  currentId = nextEdge.target;
-                  // Update UI to highlight this node
-                  setSelectedNodeId(currentId);
-              }
-              stepsCount++;
-          }, 1000);
-      }
-  };
-
   // --- Handlers ---
   const handleMenuAction = (action: string, payload?: unknown) => {
     if (!contextMenu) return;
@@ -457,7 +487,7 @@ export const ProcessDesigner: React.FC = () => {
         addNode(payload as ProcessStepType, { x: contextMenu.position.x, y: contextMenu.position.y }); 
         break;
       case 'clear-canvas': 
-        if(window.confirm('Clear canvas?')) { setFlowState({ nodes: [], edges: [] }); } 
+        handleClear();
         break;
     }
     setContextMenu(null);
@@ -486,7 +516,7 @@ export const ProcessDesigner: React.FC = () => {
       <ReactFlowProvider>
       <div 
         className="flex flex-col bg-panel border border-default rounded-base shadow-sm overflow-hidden"
-        style={{ height: 'calc(100vh - 100px)', borderRadius: 'var(--radius-base)' }}
+        style={{ height: 'calc(100vh - 140px)', borderRadius: 'var(--radius-base)' }}
       >
         <div className="bg-subtle border-b border-default flex items-center justify-between shrink-0" style={{ height: 'var(--header-height)', padding: '0 var(--layout-padding)' }}>
            <div className="flex items-center" style={{ gap: 'var(--space-base)' }}>

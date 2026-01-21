@@ -28,6 +28,22 @@ export enum Permission {
   ANALYTICS_VIEW_ALL = 'analytics:view_all'
 }
 
+export interface ToolbarAction {
+  label: string;
+  action?: () => void;
+  shortcut?: string;
+  disabled?: boolean;
+  divider?: boolean;
+}
+
+export interface ToolbarConfig {
+  file?: ToolbarAction[];
+  edit?: ToolbarAction[];
+  view?: ToolbarAction[];
+  tools?: ToolbarAction[];
+  help?: ToolbarAction[];
+}
+
 export interface UserRole {
   id: string;
   name: string;

@@ -35,6 +35,7 @@ import { RuleGenPage } from './components/pages/RuleGenPage';
 import { ResourcePlanner } from './components/pages/ResourcePlanner';
 import { MarketplaceView } from './components/MarketplaceView';
 import { MobileFieldView } from './components/MobileFieldView';
+import { GlobalToolbar } from './components/shared/GlobalToolbar';
 
 import { ViewState } from './types';
 import { BPMProvider, useBPM } from './contexts/BPMContext';
@@ -387,6 +388,9 @@ const AppContent: React.FC = () => {
             <button className="text-secondary hover:text-blue-600 transition-colors p-1.5 hover:bg-slate-50 rounded-full" onClick={() => navigateTo('settings')}><SettingsIcon size={20}/></button>
           </div>
         </header>
+
+        {/* --- GLOBAL TOOLBAR --- */}
+        <GlobalToolbar />
 
         {/* Breadcrumbs Navigation */}
         <Breadcrumbs nav={nav} />

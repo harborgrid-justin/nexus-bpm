@@ -45,7 +45,7 @@ const MetricPanel = ({ label, value, sub, icon: Icon, color, onClick }: MetricPa
 };
 
 export const Dashboard: React.FC = () => {
-  const { tasks, cases, auditLogs, navigateTo } = useBPM();
+  const { tasks, cases, auditLogs, navigateTo, setToolbarConfig, addNotification } = useBPM();
   const [activeTab, setActiveTab] = useState('Overview');
   const [aiInsight, setAiInsight] = useState("Analyzing operational telemetry...");
   
@@ -54,6 +54,21 @@ export const Dashboard: React.FC = () => {
   const completedTasks = tasks.filter(t => t.status === 'Completed').length;
   const totalTasks = tasks.length || 1;
   const progress = Math.round((completedTasks / totalTasks) * 100);
+
+  // Set Toolbar actions on mount
+  useEffect(() => {
+      setToolbarConfig({
+          file: [
+              { label: 'Export Report (PDF)', action: () => addNotification('info', 'Report generation started...') },
+              { label: 'Export Data (CSV)', action: () => addNotification('info', 'CSV download started...') }
+          ],
+          view: [
+              { label: 'Refresh Data', action: () => window.location.reload(), shortcut: 'F5' },
+              { label: 'Show Overview', action: () => setActiveTab('Overview'), disabled: activeTab === 'Overview' },
+              { label: 'Show Planning', action: () => setActiveTab('Planning'), disabled: activeTab === 'Planning' }
+          ]
+      });
+  }, [setToolbarConfig, addNotification, activeTab]);
 
   // Real Financial Variance from Active Cases
   const varianceValue = useMemo(() => {
