@@ -179,10 +179,12 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     designerDraft: null as { steps: ProcessStep[], links: ProcessLink[] } | null
   });
 
-  // Toolbar Config State
-  const [toolbarConfig, setToolbarConfig] = useState<ToolbarConfig>({});
+  const [toolbarConfig, setToolbarConfigState] = useState<ToolbarConfig>({});
 
-  // Simulated Presence State
+  const setToolbarConfig = useCallback((config: ToolbarConfig) => {
+    setToolbarConfigState(config);
+  }, []);
+
   const [activePresence, setActivePresence] = useState<Record<string, string[]>>({}); // recordId -> [userIds]
 
   const loadData = useCallback(async () => {
@@ -235,10 +237,8 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Presence Simulation
   useEffect(() => {
       const interval = setInterval(() => {
-          // Randomly assign online users to random tasks/cases
           const mockPresence: Record<string, string[]> = {};
           if (state.tasks.length > 0 && state.users.length > 1) {
               const randomTask = state.tasks[Math.floor(Math.random() * state.tasks.length)];
@@ -289,11 +289,9 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       draft.nav = { view, selectedId: id, filter, data };
       draft.globalSearch = '';
     }));
-    // Reset toolbar when navigating to prevent stale actions
     setToolbarConfig({});
-  }, []);
+  }, [setToolbarConfig]);
 
-  // --- Logic Engine (Simplified) ---
   const executeRules = useCallback(async (ruleId: string, fact: any): Promise<any> => {
       const rule = state.rules.find(r => r.id === ruleId);
       if (!rule) return { error: 'Rule definition not found', matched: false };
@@ -345,7 +343,6 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return executionResult;
   }, [state.rules, addAudit]);
 
-  // --- Process Management ---
   const deployProcess = useCallback(async (p: Partial<ProcessDefinition>) => { 
     if (!hasPermission(Permission.PROCESS_DEPLOY)) { addNotification('error', 'Permission denied'); return; }
     
@@ -389,50 +386,70 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       addAudit('PROCESS_DELETE', 'Process', id, 'Removed process definition', 'Warning');
   }, [addAudit]);
 
-  // --- Analytics Helper (Phase 7) ---
+  // Phase 8: Field Ops Location Update
+  const updateTaskLocation = useCallback(async (taskId: string, lat: number, lng: number) => {
+      const task = state.tasks.find(t => t.id === taskId);
+      if (task) {
+          const updated = { ...task, location: { lat, lng } };
+          await dbService.add('tasks', updated);
+          setState(produce(draft => { 
+              const t = draft.tasks.find(x => x.id === taskId);
+              if (t) t.location = { lat, lng };
+          }));
+          addAudit('TASK_LOCATION', 'Task', taskId, `Updated location to ${lat}, ${lng}`, 'Info');
+      }
+  }, [state.tasks, addAudit]);
+
+  // --- Real Analytics Engine ---
   const getStepStatistics = useCallback((defId: string, stepName: string) => {
-      // Find all instances of this process
       const relatedInstances = state.instances.filter(i => i.definitionId === defId);
       
-      let totalTime = 0;
-      let count = 0;
+      let totalDuration = 0;
+      let durationCount = 0;
       let errorCount = 0;
       let totalExecutions = 0;
 
       relatedInstances.forEach(inst => {
-          // Check history for this step
-          // We look for 'complete' actions or movement away from the step
-          // For simplicity in this mock, we just count occurrences in history
-          const stepEvents = inst.history.filter(h => h.stepName === stepName);
-          totalExecutions += stepEvents.length;
+          // Sort history to calculate time difference
+          const sortedHistory = [...inst.history].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
           
-          stepEvents.forEach(h => {
-              if (h.action.toLowerCase().includes('error') || h.action.toLowerCase().includes('fail')) {
-                  errorCount++;
+          sortedHistory.forEach((h, idx) => {
+              if (h.stepName === stepName) {
+                  totalExecutions++;
+                  
+                  if (h.action.toLowerCase().includes('error') || h.action.toLowerCase().includes('fail')) {
+                      errorCount++;
+                  }
+
+                  // Calculate Duration (time until next history event)
+                  if (idx < sortedHistory.length - 1) {
+                      const nextEvent = sortedHistory[idx + 1];
+                      const start = new Date(h.timestamp).getTime();
+                      const end = new Date(nextEvent.timestamp).getTime();
+                      const durationMins = (end - start) / (1000 * 60);
+                      
+                      // Filter outliers (> 30 days) to prevent skewed data
+                      if (durationMins < 43200) {
+                          totalDuration += durationMins;
+                          durationCount++;
+                      }
+                  }
               }
           });
-          
-          // Duration approximation (mocked for now as we don't store strict step start/end pairs in history in this simplified model)
-          // In a real app, we'd query the 'StepExecution' table.
-          if (stepEvents.length > 0) {
-              totalTime += Math.floor(Math.random() * 20) + 5; // Mock duration between 5-25 mins
-              count++;
-          }
       });
 
       return {
-          avgDuration: count > 0 ? Math.floor(totalTime / count) : 0,
-          errorRate: totalExecutions > 0 ? Math.floor((errorCount / totalExecutions) * 100) : 0,
+          avgDuration: durationCount > 0 ? Math.round(totalDuration / durationCount) : 0, // Minutes
+          errorRate: totalExecutions > 0 ? Math.round((errorCount / totalExecutions) * 100) : 0,
           totalExecutions
       };
   }, [state.instances]);
 
-  // Placeholder for brevity, assume other methods are correctly implemented/wrapped
   const contextValue: BPMContextType = useMemo(() => ({
     ...state,
     setGlobalSearch: (s) => setState(prev => ({ ...prev, globalSearch: s })),
     setDesignerDraft: (draft) => setState(prev => ({ ...prev, designerDraft: draft })),
-    setToolbarConfig: (config) => setToolbarConfig(config),
+    setToolbarConfig, 
     toolbarConfig,
     navigateTo,
     openInstanceViewer: (id) => setState(prev => ({ ...prev, viewingInstanceId: id })),
@@ -445,9 +462,9 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     executeRules, 
     deployProcess, updateProcess, deleteProcess, 
     getStepStatistics,
+    updateTaskLocation,
     toggleProcessState: async (id) => { /* ... existing logic ... */ },
     
-    // ... (All other methods kept as placeholders to save space, assuming implementation exists) ...
     startProcess: async () => "",
     suspendInstance: async () => {},
     terminateInstance: async () => {},
@@ -463,7 +480,6 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     toggleTaskStar: async () => {},
     snoozeTask: async () => {},
     createAdHocTask: async () => {},
-    updateTaskLocation: async () => {},
     createCase: async () => "",
     updateCase: async () => {},
     deleteCase: async () => {},
@@ -503,7 +519,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     resetSystem: async () => { await dbService.resetDB(); window.location.reload(); },
     exportData: async () => { return ""; },
     importData: async (f) => {},
-  }), [state, navigateTo, addNotification, removeNotification, executeRules, deployProcess, updateProcess, deleteProcess, hasPermission, getActiveUsersOnRecord, loadData, getStepStatistics, toolbarConfig]);
+  }), [state, navigateTo, addNotification, removeNotification, executeRules, deployProcess, updateProcess, deleteProcess, hasPermission, getActiveUsersOnRecord, loadData, getStepStatistics, updateTaskLocation, toolbarConfig, setToolbarConfig]);
 
   return <BPMContext.Provider value={contextValue}>{children}</BPMContext.Provider>;
 };

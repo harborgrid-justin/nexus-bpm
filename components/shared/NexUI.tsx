@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { LucideIcon, ChevronRight, X, ChevronDown, Search, Check, AlertCircle, ArrowUp, ArrowDown, Lock } from 'lucide-react';
+import { LucideIcon, ChevronRight, X, ChevronDown, Search, Check, AlertCircle, ArrowUp, ArrowDown, Lock, GripVertical } from 'lucide-react';
 import { useBPM } from '../../contexts/BPMContext';
 import { Permission } from '../../types';
 
@@ -148,30 +148,47 @@ export function NexVirtualList<T>({
     );
 }
 
-// Rule 1: Structured Card
-export const NexCard: React.FC<{ 
+// Rule 1: Structured Card with ForwardRef for RGL compatibility
+interface NexCardProps extends React.HTMLAttributes<HTMLDivElement> {
     children?: React.ReactNode; 
     onClick?: () => void; 
     className?: string; 
     title?: React.ReactNode;
     actions?: React.ReactNode;
-}> = ({ children, onClick, className = '', title, actions }) => (
+    dragHandle?: boolean;
+}
+
+export const NexCard = React.forwardRef<HTMLDivElement, NexCardProps>(({ 
+    children, 
+    onClick, 
+    className = '', 
+    title, 
+    actions,
+    dragHandle,
+    style,
+    ...props // Capture RGL props (onMouseDown, onMouseUp, etc)
+}, ref) => (
   <div 
+    ref={ref}
     onClick={onClick}
     className={`bg-white border border-slate-200 shadow-sm flex flex-col ${onClick ? 'cursor-pointer hover:border-blue-400' : ''} ${className}`}
-    style={{ borderRadius: 'var(--radius-base)' }}
+    style={{ borderRadius: 'var(--radius-base)', ...style }}
+    {...props}
   >
-    {(title || actions) && (
+    {(title || actions || dragHandle) && (
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50" style={{ padding: 'var(--space-base)' }}>
-            <div className="font-bold text-slate-800 text-sm">{title}</div>
+            <div className="flex items-center gap-2">
+                {dragHandle && <GripVertical size={14} className="text-slate-400 cursor-grab active:cursor-grabbing drag-handle hover:text-slate-600"/>}
+                <div className="font-bold text-slate-800 text-sm">{title}</div>
+            </div>
             <div className="flex items-center gap-2">{actions}</div>
         </div>
     )}
-    <div className="flex-1">
+    <div className="flex-1 min-h-0 flex flex-col">
         {children}
     </div>
   </div>
-);
+));
 
 export const NexSwitch: React.FC<{ checked: boolean; onChange: (v: boolean) => void; label: string; icon?: LucideIcon }> = ({ checked, onChange, label, icon: Icon }) => (
   <label 

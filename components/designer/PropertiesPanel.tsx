@@ -29,6 +29,13 @@ const SmartScriptEditor = ({ value, onChange }: { value: string, onChange: (val:
     )
 }
 
+const safeValue = (val: any) => {
+    if (typeof val === 'object' && val !== null) {
+        try { return JSON.stringify(val, null, 2); } catch { return ''; }
+    }
+    return val || '';
+};
+
 export const PropertiesPanel = ({ step, onUpdate, onDelete, roles, onClose }: { step: ProcessStep | undefined; onUpdate: (step: ProcessStep) => void; onDelete: (id: string) => void; roles: UserRole[]; onClose?: () => void; }) => {
     const { forms } = useBPM();
     const [activeTab, setActiveTab] = useState<'config' | 'data' | 'logic' | 'policy'>('config');
@@ -90,7 +97,7 @@ export const PropertiesPanel = ({ step, onUpdate, onDelete, roles, onClose }: { 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--layout-gap)' }}>
                         <div className="p-3 bg-white border border-slate-200 rounded-sm">
                             <NexFormGroup label="Custom Icon URL" icon={ImageIcon}>
-                                <input className="prop-input text-xs" placeholder="https://..." value={step.data?.iconUrl || ''} onChange={e => updateDataField('iconUrl', e.target.value)} />
+                                <input className="prop-input text-xs" placeholder="https://..." value={safeValue(step.data?.iconUrl)} onChange={e => updateDataField('iconUrl', e.target.value)} />
                             </NexFormGroup>
                         </div>
 
@@ -114,19 +121,70 @@ export const PropertiesPanel = ({ step, onUpdate, onDelete, roles, onClose }: { 
                                 </NexFormGroup>
                             </>
                         )}
-                        {schema.map(field => (
-                            <NexFormGroup key={field.key} label={field.label} helpText={field.helpText}>
-                                {field.type === 'code' ? (
-                                    <SmartScriptEditor value={step.data?.[field.key] || ''} onChange={v => updateDataField(field.key, v)} />
-                                ) : field.type === 'select' ? (
-                                    <select className="prop-input" value={step.data?.[field.key] || ''} onChange={e => updateDataField(field.key, e.target.value)}>
-                                        {field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                    </select>
-                                ) : (
-                                    <input className="prop-input" type={field.type === 'number' ? 'number' : 'text'} value={step.data?.[field.key] || ''} onChange={e => updateDataField(field.key, e.target.value)} placeholder={field.placeholder} />
-                                )}
-                            </NexFormGroup>
-                        ))}
+                        {schema.map(field => {
+                            const rawVal = step.data?.[field.key];
+                            const displayVal = safeValue(rawVal);
+                            
+                            if (field.type === 'code') {
+                                return (
+                                    <NexFormGroup key={field.key} label={field.label} helpText={field.helpText}>
+                                        <SmartScriptEditor value={displayVal} onChange={v => updateDataField(field.key, v)} />
+                                    </NexFormGroup>
+                                );
+                            }
+                            
+                            if (field.type === 'boolean') {
+                                return (
+                                    <NexFormGroup key={field.key} label={field.label} helpText={field.helpText}>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={!!rawVal} 
+                                                onChange={e => updateDataField(field.key, e.target.checked)}
+                                                className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 cursor-pointer"
+                                            />
+                                            <span className="text-xs text-slate-600">{rawVal ? 'Enabled' : 'Disabled'}</span>
+                                        </div>
+                                    </NexFormGroup>
+                                );
+                            }
+
+                            if (field.type === 'select') {
+                                return (
+                                    <NexFormGroup key={field.key} label={field.label} helpText={field.helpText}>
+                                        <select className="prop-input" value={displayVal} onChange={e => updateDataField(field.key, e.target.value)}>
+                                            {field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                        </select>
+                                    </NexFormGroup>
+                                );
+                            }
+
+                            if (field.type === 'textarea' || field.type === 'json') {
+                                return (
+                                    <NexFormGroup key={field.key} label={field.label} helpText={field.helpText}>
+                                        <textarea 
+                                            className="prop-input h-24 py-2 font-mono text-xs leading-relaxed" 
+                                            value={displayVal} 
+                                            onChange={e => updateDataField(field.key, e.target.value)} 
+                                            placeholder={field.placeholder} 
+                                        />
+                                    </NexFormGroup>
+                                );
+                            }
+
+                            // Default Text/Number/Url
+                            return (
+                                <NexFormGroup key={field.key} label={field.label} helpText={field.helpText}>
+                                    <input 
+                                        className="prop-input" 
+                                        type={field.type === 'number' ? 'number' : 'text'} 
+                                        value={displayVal} 
+                                        onChange={e => updateDataField(field.key, e.target.value)} 
+                                        placeholder={field.placeholder} 
+                                    />
+                                </NexFormGroup>
+                            );
+                        })}
                     </div>
                 )}
 

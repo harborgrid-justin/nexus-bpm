@@ -36,6 +36,7 @@ import { getStepTypeMetadata } from './designer/designerUtils';
 import { NexFormGroup, NexModal, NexButton } from './shared/NexUI';
 import { validateStepConfiguration } from './designer/stepSchemas';
 import useUndoRedo from './hooks/useUndoRedo';
+import { useMediaQuery, BREAKPOINTS } from './hooks/useMediaQuery';
 
 const nodeTypes = { custom: NodeComponent };
 const edgeTypes = { custom: CustomEdge };
@@ -151,7 +152,7 @@ const DesignerFlow = ({
                 <Background color="#cbd5e1" gap={GRID_SIZE} variant={BackgroundVariant.Dots} style={{ opacity: 0.3 }} />
                 <Controls className="bg-white border border-slate-200 shadow-sm rounded-base text-slate-600" />
                 <MiniMap 
-                    className="border border-slate-200 shadow-sm rounded-base" 
+                    className="border border-slate-200 shadow-sm rounded-base hidden sm:block" 
                     nodeColor={(n) => {
                         if (n.data?.step?.type === 'start') return '#10b981';
                         if (n.data?.step?.type === 'end') return '#ef4444';
@@ -192,6 +193,7 @@ const DesignerFlow = ({
 
 export const ProcessDesigner: React.FC = () => {
   const { deployProcess, roles, addNotification, designerDraft, setDesignerDraft, nav, currentUser, processes, setToolbarConfig } = useBPM();
+  const isMobile = useMediaQuery(BREAKPOINTS.mobile);
   
   // --- Undo/Redo & State ---
   const { state: flowState, set: setFlowState, undo, redo, canUndo, canRedo } = useUndoRedo({ nodes: [] as Node[], edges: [] as Edge[] });
@@ -216,6 +218,14 @@ export const ProcessDesigner: React.FC = () => {
   const flowStateRef = useRef(flowState);
   const processMetaRef = useRef(processMeta);
   
+  // Responsive Init
+  useEffect(() => {
+      if (isMobile) {
+          setLeftOpen(false);
+          setRightOpen(false);
+      }
+  }, [isMobile]);
+
   useEffect(() => {
       flowStateRef.current = flowState;
       processMetaRef.current = processMeta;
@@ -380,7 +390,8 @@ export const ProcessDesigner: React.FC = () => {
     setFlowState({ nodes: [...nodes, newNode], edges });
     setSelectedNodeId(id);
     if (!rightOpen && type !== 'note') setRightOpen(true);
-  }, [nodes, edges, rightOpen, setFlowState]);
+    if (isMobile) setLeftOpen(false); // Close palette on mobile after add
+  }, [nodes, edges, rightOpen, setFlowState, isMobile]);
 
   const deleteNode = useCallback((id: string) => {
       setFlowState({
@@ -522,10 +533,10 @@ export const ProcessDesigner: React.FC = () => {
            <div className="flex items-center" style={{ gap: 'var(--space-base)' }}>
               <button onClick={() => setLeftOpen(!leftOpen)} className={`p-1 rounded-base hover:bg-white border border-transparent hover:border-subtle ${leftOpen ? 'text-blue-600' : 'text-secondary'}`}><LayoutPanelLeft size={16}/></button>
               <div className="h-4 w-px bg-default"></div>
-              <input className="bg-transparent text-sm font-bold text-primary w-48 outline-none" value={processMeta.name} onChange={e => setProcessMeta(p => ({ ...p, name: e.target.value }))} />
+              <input className="bg-transparent text-sm font-bold text-primary w-24 md:w-48 outline-none truncate" value={processMeta.name} onChange={e => setProcessMeta(p => ({ ...p, name: e.target.value }))} />
               
               {/* Undo Redo Controls */}
-              <div className="flex items-center gap-1 ml-4 bg-slate-100 p-1 rounded-sm">
+              <div className="hidden md:flex items-center gap-1 ml-4 bg-slate-100 p-1 rounded-sm">
                   <button onClick={undo} disabled={!canUndo} className="p-1 text-slate-500 hover:text-slate-800 disabled:opacity-30"><Undo size={14}/></button>
                   <button onClick={redo} disabled={!canRedo} className="p-1 text-slate-500 hover:text-slate-800 disabled:opacity-30"><Redo size={14}/></button>
               </div>
@@ -534,26 +545,26 @@ export const ProcessDesigner: React.FC = () => {
            <div className="flex items-center" style={{ gap: 'var(--space-base)' }}>
               <button 
                 onClick={toggleSimulation}
-                className={`flex items-center gap-2 px-3 py-1 rounded-sm text-xs font-bold border transition-all ${simulationActive ? 'bg-amber-100 text-amber-700 border-amber-300 animate-pulse' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}`}
+                className={`hidden md:flex items-center gap-2 px-3 py-1 rounded-sm text-xs font-bold border transition-all ${simulationActive ? 'bg-amber-100 text-amber-700 border-amber-300 animate-pulse' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}`}
               >
                   {simulationActive ? <StopCircle size={14}/> : <PlayCircle size={14}/>}
-                  {simulationActive ? 'Running Simulation...' : 'Test Run'}
+                  {simulationActive ? 'Running...' : 'Test Run'}
               </button>
 
-              <div className="h-4 w-px bg-default mx-1"></div>
+              <div className="h-4 w-px bg-default mx-1 hidden md:block"></div>
               
-              <button onClick={() => setFlowState({nodes:[], edges:[]})} className="p-1 text-secondary hover:text-rose-600"><Trash2 size={16}/></button>
-              <button onClick={handleDeploy} className="flex items-center gap-1 px-3 py-1 bg-brand-slate text-white rounded-base text-xs hover:bg-slate-900 shadow-sm"><Save size={14}/> Save</button>
+              <button onClick={() => setFlowState({nodes:[], edges:[]})} className="p-1 text-secondary hover:text-rose-600 hidden md:block"><Trash2 size={16}/></button>
+              <button onClick={handleDeploy} className="flex items-center gap-1 px-3 py-1 bg-brand-slate text-white rounded-base text-xs hover:bg-slate-900 shadow-sm"><Save size={14}/> <span className="hidden md:inline">Save</span></button>
               <button onClick={() => setRightOpen(!rightOpen)} className={`p-1 rounded-base hover:bg-white ${rightOpen ? 'text-blue-600' : 'text-secondary'}`}><PanelRight size={16}/></button>
            </div>
         </div>
 
-        <div className="flex-1 flex overflow-hidden">
-          <div className={`border-r border-default bg-subtle overflow-y-auto z-10 transition-all duration-300 ${leftOpen ? 'w-56' : 'w-0 border-none'}`}>
+        <div className="flex-1 flex overflow-hidden relative">
+          <div className={`border-r border-default bg-subtle overflow-y-auto z-30 transition-all duration-300 ${leftOpen ? 'w-56' : 'w-0 border-none'} ${isMobile ? 'absolute inset-y-0 left-0 shadow-2xl h-full' : ''}`}>
              <PaletteSidebar onAddNode={(type) => addNode(type)} />
           </div>
 
-          <div className="flex-1 h-full relative" onContextMenu={(e) => { e.preventDefault(); setContextMenu({ position: { x: e.clientX, y: e.clientY }, targetId: null }); }}>
+          <div className="flex-1 h-full relative z-0" onContextMenu={(e) => { e.preventDefault(); setContextMenu({ position: { x: e.clientX, y: e.clientY }, targetId: null }); }}>
              {viewMode === 'canvas' ? (
                 <DesignerFlow 
                     nodes={nodes} 
@@ -582,7 +593,7 @@ export const ProcessDesigner: React.FC = () => {
              <CanvasContextMenu position={contextMenu ? contextMenu.position : null} targetId={contextMenu ? contextMenu.targetId : null} onClose={() => setContextMenu(null)} onAction={handleMenuAction} />
           </div>
 
-          <div className={`${rightOpen ? 'w-[320px] md:w-[450px]' : 'w-0'} border-l border-default bg-white transition-all duration-300 z-20 shadow-xl overflow-hidden`}>
+          <div className={`border-l border-default bg-white transition-all duration-300 z-30 shadow-xl overflow-hidden ${rightOpen ? 'w-[320px] md:w-[450px]' : 'w-0'} ${isMobile ? 'absolute inset-y-0 right-0 h-full' : ''}`}>
              {selectedStep ? (
                  <PropertiesPanel step={selectedStep} onUpdate={updateSelectedStep} onDelete={deleteNode} roles={roles} onClose={() => setSelectedNodeId(null)} />
              ) : (
