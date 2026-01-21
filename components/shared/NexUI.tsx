@@ -1,30 +1,86 @@
 
-import React, { useEffect, useRef, useState } from 'react';
-import { LucideIcon, ChevronRight, X, ChevronDown, Search, Check } from 'lucide-react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
+import { LucideIcon, ChevronRight, X, ChevronDown, Search, Check, AlertCircle, ArrowUp, ArrowDown, Lock } from 'lucide-react';
+import { useBPM } from '../../contexts/BPMContext';
+import { Permission } from '../../types';
+
+// --- BASE COMPONENTS ---
 
 interface NexBadgeProps {
   children?: React.ReactNode;
-  variant?: 'slate' | 'blue' | 'rose' | 'emerald' | 'amber';
+  variant?: 'slate' | 'blue' | 'rose' | 'emerald' | 'amber' | 'violet';
   className?: string;
+  icon?: LucideIcon;
 }
 
-export const NexBadge: React.FC<NexBadgeProps> = ({ children, variant = 'slate', className = '' }) => {
+export const NexBadge: React.FC<NexBadgeProps> = ({ children, variant = 'slate', className = '', icon: Icon }) => {
   const styles = {
     slate: 'bg-slate-100 text-slate-600 border-slate-200',
-    blue: 'bg-blue-50 text-blue-700 border-blue-100',
-    rose: 'bg-red-50 text-red-700 border-red-100',
-    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-    amber: 'bg-amber-50 text-amber-700 border-amber-100'
+    blue: 'bg-blue-50 text-blue-700 border-blue-200',
+    rose: 'bg-rose-50 text-rose-700 border-rose-200',
+    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    amber: 'bg-amber-50 text-amber-700 border-amber-200',
+    violet: 'bg-violet-50 text-violet-700 border-violet-200'
   };
   return (
     <span 
-      className={`px-2.5 py-0.5 text-[11px] font-bold border ${styles[variant]} ${className}`}
+      className={`px-2 py-0.5 text-[10px] font-bold border flex items-center gap-1 w-fit uppercase tracking-wider ${styles[variant]} ${className}`}
       style={{ borderRadius: 'var(--radius-base)' }}
     >
+      {Icon && <Icon size={10} />}
       {children}
     </span>
   );
 };
+
+// Rule 2: Unified Badge System
+export const NexStatusBadge: React.FC<{ status: string }> = ({ status }) => {
+    const s = status.toLowerCase();
+    let variant: NexBadgeProps['variant'] = 'slate';
+    if (['active', 'completed', 'resolved', 'approved', 'open'].includes(s)) variant = 'emerald';
+    if (['in progress', 'pending', 'claimed'].includes(s)) variant = 'blue';
+    if (['critical', 'rejected', 'terminated', 'closed', 'breach'].includes(s)) variant = 'rose';
+    if (['suspended', 'warning', 'review'].includes(s)) variant = 'amber';
+
+    return <NexBadge variant={variant}>{status}</NexBadge>;
+};
+
+// Rule 11: Permission Guard
+export const Restricted: React.FC<{ to: Permission; fallback?: React.ReactNode; children: React.ReactNode }> = ({ to, fallback, children }) => {
+    const { hasPermission } = useBPM();
+    if (hasPermission(to)) return <>{children}</>;
+    return fallback ? <>{fallback}</> : null;
+};
+
+// Rule 7: Loading Skeleton
+export const NexSkeleton: React.FC<{ height?: string; width?: string; className?: string }> = ({ height = '20px', width = '100%', className = '' }) => (
+    <div className={`bg-slate-200 animate-pulse rounded-sm ${className}`} style={{ height, width }}></div>
+);
+
+// Rule 1: Structured Card
+export const NexCard: React.FC<{ 
+    children?: React.ReactNode; 
+    onClick?: () => void; 
+    className?: string; 
+    title?: React.ReactNode;
+    actions?: React.ReactNode;
+}> = ({ children, onClick, className = '', title, actions }) => (
+  <div 
+    onClick={onClick}
+    className={`bg-white border border-slate-200 shadow-sm flex flex-col ${onClick ? 'cursor-pointer hover:border-blue-400' : ''} ${className}`}
+    style={{ borderRadius: 'var(--radius-base)' }}
+  >
+    {(title || actions) && (
+        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50" style={{ padding: 'var(--space-base)' }}>
+            <div className="font-bold text-slate-800 text-sm">{title}</div>
+            <div className="flex items-center gap-2">{actions}</div>
+        </div>
+    )}
+    <div className="flex-1">
+        {children}
+    </div>
+  </div>
+);
 
 export const NexSwitch: React.FC<{ checked: boolean; onChange: (v: boolean) => void; label: string; icon?: LucideIcon }> = ({ checked, onChange, label, icon: Icon }) => (
   <label 
@@ -42,16 +98,6 @@ export const NexSwitch: React.FC<{ checked: boolean; onChange: (v: boolean) => v
       <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${checked ? 'translate-x-4' : 'translate-x-0'}`} />
     </div>
   </label>
-);
-
-export const NexCard: React.FC<{ children?: React.ReactNode; onClick?: () => void; className?: string; hover?: boolean }> = ({ children, onClick, className = '', hover = true }) => (
-  <div 
-    onClick={onClick}
-    className={`bg-white border border-slate-200 shadow-sm ${onClick ? 'cursor-pointer' : ''} ${hover && onClick ? 'hover:border-blue-400' : ''} ${className}`}
-    style={{ borderRadius: 'var(--radius-base)' }}
-  >
-    {children}
-  </div>
 );
 
 interface NexButtonProps {
@@ -165,16 +211,7 @@ export const NexModal: React.FC<{ isOpen: boolean; onClose: () => void; title: s
   );
 };
 
-// --- NEW COMPONENT: Searchable Select ---
-interface NexSearchSelectProps {
-    value: string;
-    onChange: (val: string) => void;
-    options: { label: string; value: string }[];
-    placeholder?: string;
-    className?: string;
-}
-
-export const NexSearchSelect: React.FC<NexSearchSelectProps> = ({ value, onChange, options, placeholder = "Select...", className }) => {
+export const NexSearchSelect: React.FC<{ value: string; onChange: (val: string) => void; options: { label: string; value: string }[]; placeholder?: string; className?: string }> = ({ value, onChange, options, placeholder = "Select...", className }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState('');
     const containerRef = useRef<HTMLDivElement>(null);
@@ -237,3 +274,154 @@ export const NexSearchSelect: React.FC<NexSearchSelectProps> = ({ value, onChang
         </div>
     );
 };
+
+// 6. Empty State Component
+export const NexEmptyState: React.FC<{ icon: LucideIcon; title: string; description?: string; action?: React.ReactNode }> = ({ icon: Icon, title, description, action }) => (
+    <div className="p-12 text-center border-2 border-dashed border-slate-200 rounded-sm bg-slate-50 flex flex-col items-center justify-center gap-3 h-full min-h-[200px]">
+        <Icon size={32} className="text-slate-300"/>
+        <div className="max-w-xs">
+            <p className="text-sm font-bold text-slate-500">{title}</p>
+            {description && <p className="text-xs text-slate-400 mt-1">{description}</p>}
+        </div>
+        {action && <div className="mt-2">{action}</div>}
+    </div>
+);
+
+// 3. Search & Filter Bar
+export const NexSearchFilterBar: React.FC<{ 
+    placeholder?: string; 
+    onSearch: (val: string) => void; 
+    searchValue: string; 
+    actions?: React.ReactNode;
+    filters?: React.ReactNode;
+}> = ({ placeholder = "Search...", onSearch, searchValue, actions, filters }) => (
+    <div className="flex flex-col md:flex-row gap-3">
+        <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14}/>
+            <input 
+                className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-sm text-xs font-medium focus:ring-1 focus:ring-blue-600 outline-none"
+                placeholder={placeholder}
+                value={searchValue}
+                onChange={e => onSearch(e.target.value)}
+            />
+        </div>
+        {filters && <div className="flex gap-2 items-center">{filters}</div>}
+        {actions && <div className="flex gap-2 items-center">{actions}</div>}
+    </div>
+);
+
+// 18. User Display
+export const NexUserDisplay: React.FC<{ userId: string; showEmail?: boolean; size?: 'sm' | 'md' }> = ({ userId, showEmail = false, size = 'sm' }) => {
+    const { users } = useBPM();
+    const user = users.find(u => u.id === userId);
+    
+    if (!user) return <span className="text-slate-400 italic text-xs">Unknown User ({userId})</span>;
+
+    const sizeClass = size === 'sm' ? 'w-6 h-6 text-[10px]' : 'w-8 h-8 text-xs';
+
+    return (
+        <div className="flex items-center gap-2">
+            <div className={`${sizeClass} rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 border border-slate-200 uppercase`}>
+                {user.name.charAt(0)}
+            </div>
+            <div>
+                <div className={`font-medium text-slate-700 ${size === 'sm' ? 'text-xs' : 'text-sm'}`}>{user.name}</div>
+                {showEmail && <div className="text-[10px] text-slate-400">{user.email}</div>}
+            </div>
+        </div>
+    );
+};
+
+// 9. Generic Data Table
+interface Column<T> {
+    header: string;
+    accessor: (item: T) => React.ReactNode;
+    width?: string;
+    align?: 'left' | 'center' | 'right';
+    sortable?: boolean;
+}
+
+interface NexDataTableProps<T> {
+    data: T[];
+    columns: Column<T>[];
+    keyField: keyof T;
+    onRowClick?: (item: T) => void;
+    emptyState?: React.ReactNode;
+}
+
+export function NexDataTable<T>({ data, columns, keyField, onRowClick, emptyState }: NexDataTableProps<T>) {
+    const [sortConfig, setSortConfig] = useState<{ key: number | null, dir: 'asc' | 'desc' }>({ key: null, dir: 'asc' });
+
+    const handleSort = (idx: number) => {
+        setSortConfig(current => ({
+            key: idx,
+            dir: current.key === idx && current.dir === 'asc' ? 'desc' : 'asc'
+        }));
+    };
+
+    const sortedData = useMemo(() => {
+        if (sortConfig.key === null) return data;
+        const col = columns[sortConfig.key];
+        
+        return [...data].sort((a, b) => {
+            const valA = col.accessor(a);
+            const valB = col.accessor(b);
+            // Basic string comparison logic for sorting - simplified for demo
+            const strA = typeof valA === 'string' || typeof valA === 'number' ? String(valA).toLowerCase() : '';
+            const strB = typeof valB === 'string' || typeof valB === 'number' ? String(valB).toLowerCase() : '';
+            
+            if (strA < strB) return sortConfig.dir === 'asc' ? -1 : 1;
+            if (strA > strB) return sortConfig.dir === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }, [data, sortConfig, columns]);
+
+    if (data.length === 0 && emptyState) return <>{emptyState}</>;
+
+    return (
+        <div className="bg-white rounded-sm border border-slate-300 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr className="text-[11px] font-bold text-slate-500 uppercase">
+                            {columns.map((col, idx) => (
+                                <th 
+                                    key={idx} 
+                                    className={`px-4 py-3 border-r border-slate-200 last:border-0 ${col.sortable ? 'cursor-pointer hover:bg-slate-100' : ''}`} 
+                                    style={{ width: col.width, textAlign: col.align }}
+                                    onClick={() => col.sortable && handleSort(idx)}
+                                >
+                                    <div className={`flex items-center gap-1 ${col.align === 'right' ? 'justify-end' : col.align === 'center' ? 'justify-center' : ''}`}>
+                                        {col.header}
+                                        {sortConfig.key === idx && (
+                                            sortConfig.dir === 'asc' ? <ArrowUp size={10}/> : <ArrowDown size={10}/>
+                                        )}
+                                    </div>
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {sortedData.map((item) => (
+                            <tr 
+                                key={String(item[keyField])} 
+                                onClick={() => onRowClick && onRowClick(item)}
+                                className={`text-xs group ${onRowClick ? 'hover:bg-slate-50 cursor-pointer transition-colors' : ''}`}
+                            >
+                                {columns.map((col, idx) => (
+                                    <td 
+                                        key={idx} 
+                                        className="px-4 py-3 border-r border-slate-100 last:border-0"
+                                        style={{ textAlign: col.align }}
+                                    >
+                                        {col.accessor(item)}
+                                    </td>
+                                ))}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}

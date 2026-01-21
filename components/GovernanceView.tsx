@@ -1,8 +1,10 @@
 
 import React, { useState, useMemo } from 'react';
 import { useBPM } from '../contexts/BPMContext';
-import { ShieldCheck, History, FileText, Search, Eye, Download } from 'lucide-react';
-import { NexCard } from './shared/NexUI';
+import { ShieldCheck, History, FileText, Eye, Download } from 'lucide-react';
+import { NexCard, NexDataTable, NexSearchFilterBar, NexEmptyState, NexStatusBadge, Restricted } from './shared/NexUI';
+import { Permission } from '../types';
+import { exportToCSV, formatDate } from '../utils';
 
 export const GovernanceView: React.FC = () => {
   const { auditLogs, processes, rules, openInstanceViewer, navigateTo, settings } = useBPM();
@@ -23,35 +25,31 @@ export const GovernanceView: React.FC = () => {
   );
 
   const handleEntityClick = (log: any) => {
-    if (log.entityType === 'Instance') {
-      openInstanceViewer(log.entityId);
-    } else if (log.entityType === 'Case') {
-      navigateTo('case-viewer', log.entityId);
-    } else if (log.entityType === 'Process') {
-      navigateTo('processes', log.entityId);
-    }
+    if (log.entityType === 'Instance') openInstanceViewer(log.entityId);
+    else if (log.entityType === 'Case') navigateTo('case-viewer', log.entityId);
+    else if (log.entityType === 'Process') navigateTo('processes', log.entityId);
   };
 
   const handleDownloadReport = () => {
-      const headers = ['Timestamp', 'Action', 'Severity', 'Entity Type', 'Entity ID', 'User', 'Details'];
-      const rows = filteredLogs.map(l => [
-          l.timestamp,
-          l.action,
-          l.severity,
-          l.entityType,
-          l.entityId,
-          l.userId,
-          `"${l.details.replace(/"/g, '""')}"` // Escape quotes
-      ].join(','));
-      
-      const csvContent = [headers.join(','), ...rows].join('\n');
-      const blob = new Blob([csvContent], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `audit_report_${new Date().toISOString().split('T')[0]}.csv`;
-      a.click();
+      exportToCSV(filteredLogs, 'audit_report', ['timestamp', 'action', 'severity', 'entityType', 'entityId', 'userId', 'details']);
   };
+
+  const columns = [
+      { header: 'Timestamp', accessor: (l: any) => formatDate(l.timestamp, true), width: '180px', sortable: true },
+      { header: 'Action', accessor: (l: any) => <NexStatusBadge status={l.action} />, width: '150px', sortable: true },
+      { header: 'Severity', accessor: (l: any) => (
+          <span className={`font-bold ${l.severity === 'Alert' ? 'text-rose-600' : l.severity === 'Warning' ? 'text-amber-600' : 'text-blue-600'}`}>{l.severity}</span>
+      ), width: '100px', sortable: true },
+      { header: 'Entity & Details', accessor: (l: any) => (
+          <div className="flex justify-between items-center w-full">
+              <span className="truncate max-w-xs" title={l.details}><span className="font-bold">{l.entityType}:</span> {l.details}</span>
+              {['Instance', 'Case', 'Process'].includes(l.entityType) && (
+                  <button onClick={(e) => { e.stopPropagation(); handleEntityClick(l); }} className="text-slate-400 hover:text-blue-600 p-1"><Eye size={14}/></button>
+              )}
+          </div>
+      )},
+      { header: 'User', accessor: (l: any) => <span className="font-mono text-slate-500">{l.userId}</span>, width: '120px', align: 'right' as const }
+  ];
 
   return (
     <div 
@@ -80,67 +78,24 @@ export const GovernanceView: React.FC = () => {
         style={{ gap: 'var(--layout-gap)' }}
       >
         <div className="flex-1 bg-panel border border-default rounded-base shadow-sm flex flex-col">
-          <div className="p-3 border-b border-subtle flex items-center justify-between bg-subtle">
-            <h3 className="text-xs font-bold text-secondary uppercase flex items-center gap-2"><History size={14}/> Operational Ledger</h3>
-            <div className="relative w-64">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-tertiary" size={12}/>
-              <input 
-                type="text" 
+          <div className="p-3 border-b border-subtle bg-subtle">
+             <NexSearchFilterBar 
                 placeholder="Search ledger..." 
-                className="w-full pl-8 pr-3 py-1.5 bg-panel border border-default rounded-base text-xs outline-none focus:border-active transition-all"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-              />
-            </div>
+                searchValue={searchTerm} 
+                onSearch={setSearchTerm} 
+                actions={
+                    <Restricted to={Permission.ADMIN_ACCESS}>
+                        <button onClick={handleDownloadReport} className="p-2 hover:bg-slate-200 rounded text-slate-500" title="Export CSV"><Download size={16}/></button>
+                    </Restricted>
+                }
+             />
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-subtle border-b border-subtle">
-                <tr className="text-xs font-bold text-secondary uppercase">
-                  <th className="px-4 py-2 border-r border-subtle">Timestamp</th>
-                  <th className="px-4 py-2 border-r border-subtle">Action</th>
-                  <th className="px-4 py-2 border-r border-subtle">Entity & Details</th>
-                  <th className="px-4 py-2 text-right">User</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-subtle">
-                {filteredLogs.length === 0 ? (
-                  <tr><td colSpan={4} className="p-8 text-center text-xs italic text-tertiary">No events found.</td></tr>
-                ) : filteredLogs.map(log => (
-                  <tr key={log.id} className="hover:bg-subtle transition-colors text-xs group">
-                    <td className="px-4 py-2 text-secondary font-mono whitespace-nowrap">
-                      {new Date(log.timestamp).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'medium' })}
-                    </td>
-                    <td className="px-4 py-2">
-                      <span className={`px-1.5 py-0.5 rounded-base text-xs font-bold uppercase border ${
-                        log.severity === 'Alert' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                        log.severity === 'Warning' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                        'bg-blue-50 text-blue-700 border-blue-200'
-                      }`}>
-                        {log.action}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="truncate max-w-xs">
-                          <span className="font-bold text-primary mr-2">{log.entityType}:</span>
-                          <span className="text-secondary">{log.details}</span>
-                        </div>
-                        {['Instance', 'Case', 'Process'].includes(log.entityType) && (
-                          <button onClick={() => handleEntityClick(log)} className="text-tertiary hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Eye size={12}/>
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      <span className="font-semibold text-primary">{log.userId}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <NexDataTable 
+            data={filteredLogs} 
+            columns={columns} 
+            keyField="id" 
+            emptyState={<NexEmptyState icon={History} title="No Events" description="Audit log is empty." />}
+          />
         </div>
 
         <div 
@@ -158,17 +113,11 @@ export const GovernanceView: React.FC = () => {
               ))}
             </div>
             <div className="mt-4 pt-4 border-t border-white/10 text-[10px] text-slate-400">
-                Last Audit: {new Date(settings.compliance.lastAudit).toLocaleDateString()}
+                Last Audit: {formatDate(settings.compliance.lastAudit)}
             </div>
-            <button onClick={handleDownloadReport} className="w-full mt-4 py-2 bg-panel text-primary rounded-base text-xs font-bold uppercase hover:bg-subtle border border-transparent flex items-center justify-center gap-2">
-                <Download size={14}/> Download Report
-            </button>
           </div>
 
-          <NexCard className="p-0">
-            <div className="p-3 border-b border-subtle bg-subtle">
-               <h3 className="text-xs font-bold text-secondary uppercase flex items-center gap-2"><FileText size={14}/> Model Integrity</h3>
-            </div>
+          <NexCard title={<span className="flex items-center gap-2 text-xs font-bold uppercase"><FileText size={14}/> Model Integrity</span>}>
             <div className="divide-y divide-subtle">
               {processes.slice(0, 5).map(p => (
                 <div key={p.id} onClick={() => navigateTo('processes', p.id)} className="p-3 hover:bg-subtle cursor-pointer flex justify-between items-center group">

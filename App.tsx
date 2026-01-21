@@ -112,7 +112,7 @@ const NavGroup = ({ title, children, collapsed }: { title: string, children?: Re
   );
 };
 
-// --- Breadcrumb Component ---
+// --- Rule 10: Breadcrumb Automation ---
 const Breadcrumbs = ({ nav }: { nav: { view: ViewState, selectedId?: string } }) => {
     const { addNotification } = useBPM();
     const copyId = () => {
@@ -122,7 +122,34 @@ const Breadcrumbs = ({ nav }: { nav: { view: ViewState, selectedId?: string } })
         }
     };
 
-    const getViewName = (v: string) => v.charAt(0).toUpperCase() + v.slice(1).replace(/-/g, ' ');
+    const getViewName = (v: string) => {
+        const map: Record<string, string> = {
+            'dashboard': 'Operational Overview',
+            'inbox': 'Task Management',
+            'cases': 'Case Management',
+            'designer': 'Workflow Studio',
+            'processes': 'Process Registry',
+            'forms': 'Form Builder',
+            'rules': 'Decision Logic',
+            'identity': 'Access Control',
+            'analytics': 'Intelligence',
+            'governance': 'Audit & Compliance'
+        };
+        return map[v] || v.charAt(0).toUpperCase() + v.slice(1).replace(/-/g, ' ');
+    };
+
+    const parentMap: Record<string, ViewState> = {
+        'case-viewer': 'cases',
+        'create-case': 'cases',
+        'edit-case': 'cases',
+        'form-designer': 'forms',
+        'edit-user': 'identity',
+        'create-user': 'identity',
+        'create-role': 'identity',
+        'edit-role': 'identity',
+    };
+
+    const parent = parentMap[nav.view];
 
     return (
         <div 
@@ -131,12 +158,21 @@ const Breadcrumbs = ({ nav }: { nav: { view: ViewState, selectedId?: string } })
         >
             <Home size={12} className="text-tertiary"/>
             <ChevronRight size={10} className="text-tertiary"/>
-            <span className="font-medium text-primary">{getViewName(nav.view)}</span>
+            
+            {parent && (
+                <>
+                    <span className="font-medium text-slate-500 hover:text-primary cursor-pointer" onClick={() => window.location.hash = parent}>{getViewName(parent)}</span>
+                    <ChevronRight size={10} className="text-tertiary"/>
+                </>
+            )}
+
+            <span className="font-bold text-primary">{getViewName(nav.view)}</span>
+            
             {nav.selectedId && (
                 <>
                     <ChevronRight size={10} className="text-tertiary"/>
-                    <button onClick={copyId} className="font-mono text-blue-600 hover:underline hover:text-blue-800" title="Click to Copy ID">
-                        {nav.selectedId}
+                    <button onClick={copyId} className="font-mono text-blue-600 hover:underline hover:text-blue-800 flex items-center gap-1" title="Click to Copy ID">
+                        <span className="opacity-50">ID:</span> {nav.selectedId.split('-').pop()}
                     </button>
                 </>
             )}
