@@ -1,17 +1,18 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useBPM } from '../contexts/BPMContext';
-import { Play, FileText, Layers, Plus, Edit, MoreVertical, Copy, Trash2, PauseCircle, StopCircle, Search, History, BookOpen, Globe, CheckSquare, XCircle } from 'lucide-react';
+import { Play, FileText, Layers, Plus, Edit, MoreVertical, Copy, Trash2, PauseCircle, StopCircle, Search, History, BookOpen, Globe, Upload } from 'lucide-react';
 import { NexBadge, NexModal, NexButton } from './shared/NexUI';
 import { ProcessDiffViewer } from './governance/ProcessDiffViewer';
 import { ProcessDefinition } from '../types';
 import { generateProcessDocumentation } from '../services/geminiService';
 
 export const ProcessRepository: React.FC = () => {
-  const { processes, instances, startProcess, openInstanceViewer, deployProcess, deleteProcess, toggleProcessState, suspendInstance, terminateInstance, navigateTo } = useBPM();
+  const { processes, instances, startProcess, openInstanceViewer, deployProcess, deleteProcess, toggleProcessState, suspendInstance, terminateInstance, navigateTo, addNotification } = useBPM();
   const [activeTab, setActiveTab] = useState<'definitions' | 'instances'>('definitions');
   const [filterQuery, setFilterQuery] = useState('');
   const [showArchived, setShowArchived] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Instance Bulk Selection
   const [selectedInstanceIds, setSelectedInstanceIds] = useState<Set<string>>(new Set());
@@ -51,6 +52,31 @@ export const ProcessRepository: React.FC = () => {
       } finally {
           setGeneratingDocs(false);
       }
+  };
+
+  const handleImportClick = () => {
+      fileInputRef.current?.click();
+  };
+
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+          try {
+              const content = JSON.parse(evt.target?.result as string);
+              // Basic validation
+              if (!content.name || !content.steps) throw new Error("Invalid Process Definition");
+              
+              const newProc = { ...content, id: undefined, version: 1, history: [], createdAt: new Date().toISOString() };
+              await deployProcess(newProc);
+              addNotification('success', `Imported "${newProc.name}" successfully`);
+          } catch(err) {
+              addNotification('error', 'Failed to import process. Invalid JSON.');
+          }
+      };
+      reader.readAsText(file);
+      e.target.value = ''; // Reset
   };
 
   const filteredProcesses = processes.filter(p => 
@@ -123,10 +149,14 @@ export const ProcessRepository: React.FC = () => {
               />
           </div>
           {activeTab === 'definitions' && (
-              <label className="flex items-center gap-2 text-xs text-slate-600 font-medium cursor-pointer select-none">
-                  <input type="checkbox" checked={showArchived} onChange={e => setShowArchived(e.target.checked)} className="rounded-sm border-slate-300 text-blue-600 focus:ring-blue-500"/>
-                  Show Archived
-              </label>
+              <>
+                <label className="flex items-center gap-2 text-xs text-slate-600 font-medium cursor-pointer select-none">
+                    <input type="checkbox" checked={showArchived} onChange={e => setShowArchived(e.target.checked)} className="rounded-sm border-slate-300 text-blue-600 focus:ring-blue-500"/>
+                    Show Archived
+                </label>
+                <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleImportFile} />
+                <NexButton size="sm" variant="secondary" onClick={handleImportClick} icon={Upload}>Import</NexButton>
+              </>
           )}
           {activeTab === 'instances' && selectedInstanceIds.size > 0 && (
               <div className="flex items-center gap-2 animate-fade-in">

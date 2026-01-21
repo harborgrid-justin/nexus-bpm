@@ -52,6 +52,9 @@ const KPICard: React.FC<KPICardProps> = ({ title, value, change, trend, icon: Ic
 export const AnalyticsView: React.FC = () => {
   const { instances, tasks, auditLogs, navigateTo } = useBPM();
   const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d' | '90d'>('7d');
+  const [showFilter, setShowFilter] = useState(false);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const completedInstances = instances.filter(i => i.status === 'Completed').length;
   
@@ -172,7 +175,7 @@ export const AnalyticsView: React.FC = () => {
           <h2 className="text-xl font-bold text-slate-900 tracking-tight">Performance Analytics</h2>
           <p className="text-xs text-slate-500 font-medium">Predictive modeling & operational telemetry.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 relative">
             <div className="flex gap-1 bg-slate-100 p-1 rounded-sm border border-slate-200">
                 {['24h', '7d', '30d', '90d'].map(r => (
                     <button 
@@ -184,7 +187,19 @@ export const AnalyticsView: React.FC = () => {
                     </button>
                 ))}
             </div>
-            <NexButton variant="secondary" icon={Filter} className="px-2">Filter</NexButton>
+            <div className="relative">
+                <NexButton variant="secondary" icon={Filter} onClick={() => setShowFilter(!showFilter)} className="px-2">Filter</NexButton>
+                {showFilter && (
+                    <div className="absolute right-0 top-10 bg-white border border-slate-200 rounded-sm shadow-xl p-4 w-64 z-50 animate-slide-up">
+                        <h4 className="text-xs font-bold mb-3 uppercase">Date Range</h4>
+                        <div className="space-y-2">
+                            <input type="date" className="prop-input text-xs" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+                            <input type="date" className="prop-input text-xs" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+                            <NexButton variant="primary" onClick={() => setShowFilter(false)} className="w-full mt-2">Apply</NexButton>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
       </header>
 

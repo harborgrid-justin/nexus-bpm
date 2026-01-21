@@ -1,11 +1,20 @@
 
 import React from 'react';
 import { useBPM } from '../contexts/BPMContext';
-import { Plus, Layout, Edit, Trash2, Calendar, FileText } from 'lucide-react';
+import { Plus, Layout, Edit, Trash2, Copy, FileText } from 'lucide-react';
 import { NexButton } from './shared/NexUI';
 
 export const FormRepository: React.FC = () => {
-  const { forms, navigateTo } = useBPM();
+  const { forms, navigateTo, deleteForm, saveForm } = useBPM();
+
+  const handleDuplicate = async (form: any) => {
+      await saveForm({
+          ...form,
+          id: `form-${Date.now()}`,
+          name: `${form.name} (Copy)`,
+          lastModified: new Date().toISOString()
+      });
+  };
 
   return (
     <div className="space-y-6 animate-fade-in pb-20">
@@ -25,7 +34,9 @@ export const FormRepository: React.FC = () => {
                     <Layout size={20}/>
                  </div>
                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => navigateTo('form-designer', form.id)} className="p-1.5 hover:bg-slate-100 rounded text-blue-600"><Edit size={14}/></button>
+                    <button onClick={() => navigateTo('form-designer', form.id)} className="p-1.5 hover:bg-slate-100 rounded text-blue-600" title="Edit"><Edit size={14}/></button>
+                    <button onClick={() => handleDuplicate(form)} className="p-1.5 hover:bg-slate-100 rounded text-indigo-600" title="Duplicate"><Copy size={14}/></button>
+                    <button onClick={() => { if(confirm('Delete this form?')) deleteForm(form.id); }} className="p-1.5 hover:bg-slate-100 rounded text-rose-600" title="Delete"><Trash2 size={14}/></button>
                  </div>
               </div>
               <h3 className="font-bold text-slate-800 text-sm mb-1">{form.name}</h3>

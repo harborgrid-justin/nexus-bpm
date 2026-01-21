@@ -252,27 +252,35 @@ export const ApiGatewayView: React.FC = () => {
                    <div className="flex justify-end">
                        <NexButton variant="primary" icon={Plus} onClick={() => setWebhookModalOpen(true)}>Register Webhook</NexButton>
                    </div>
-                   <div className="space-y-3">
-                       {webhooks.map(wh => (
-                           <NexCard key={wh.id} className="p-4 flex items-center justify-between">
-                               <div className="flex items-center gap-4">
-                                   <div className={`p-2 rounded-sm ${wh.active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
-                                       <Webhook size={20}/>
+                   {webhooks.length === 0 ? (
+                       <div className="p-12 border-2 border-dashed border-slate-200 rounded-sm bg-slate-50 flex flex-col items-center justify-center gap-3">
+                           <Webhook size={32} className="text-slate-300"/>
+                           <p className="text-sm font-bold text-slate-500">No outbound webhooks configured.</p>
+                           <NexButton variant="primary" onClick={() => setWebhookModalOpen(true)} icon={Plus}>Create First Webhook</NexButton>
+                       </div>
+                   ) : (
+                       <div className="space-y-3">
+                           {webhooks.map(wh => (
+                               <NexCard key={wh.id} className="p-4 flex items-center justify-between">
+                                   <div className="flex items-center gap-4">
+                                       <div className={`p-2 rounded-sm ${wh.active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                                           <Webhook size={20}/>
+                                       </div>
+                                       <div>
+                                           <h4 className="text-sm font-bold text-slate-900">{wh.name}</h4>
+                                           <p className="text-xs text-slate-500 font-mono">{wh.url}</p>
+                                       </div>
                                    </div>
-                                   <div>
-                                       <h4 className="text-sm font-bold text-slate-900">{wh.name}</h4>
-                                       <p className="text-xs text-slate-500 font-mono">{wh.url}</p>
+                                   <div className="flex items-center gap-4">
+                                       <div className="flex gap-1">
+                                           {wh.events.map(ev => <span key={ev} className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-bold rounded-full border border-blue-100">{ev}</span>)}
+                                       </div>
+                                       <NexSwitch checked={wh.active} onChange={() => {}} label="" />
                                    </div>
-                               </div>
-                               <div className="flex items-center gap-4">
-                                   <div className="flex gap-1">
-                                       {wh.events.map(ev => <span key={ev} className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-bold rounded-full border border-blue-100">{ev}</span>)}
-                                   </div>
-                                   <NexSwitch checked={wh.active} onChange={() => {}} label="" />
-                               </div>
-                           </NexCard>
-                       ))}
-                   </div>
+                               </NexCard>
+                           ))}
+                       </div>
+                   )}
                </div>
            )}
 

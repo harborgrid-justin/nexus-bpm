@@ -54,20 +54,6 @@ const SLACountdown = ({ dueDate }: { dueDate: string }) => {
     );
 };
 
-// --- Utility Functions ---
-const getRelativeTime = (isoString: string) => {
-    if (!isoString) return '';
-    const date = new Date(isoString);
-    const now = new Date();
-    const diff = date.getTime() - now.getTime();
-    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-    
-    if (days < 0) return `${Math.abs(days)}d overdue`;
-    if (days === 0) return 'Today';
-    if (days === 1) return 'Tomorrow';
-    return `${days}d left`;
-};
-
 interface TaskListProps {
     task: Task;
     isSelected: boolean;
@@ -301,7 +287,38 @@ export const TaskInbox: React.FC = () => {
   };
   
   const activeForm = selectedTask?.formId ? forms.find(f => f.id === selectedTask.formId) : null;
-  const handleSubmit = async () => { /* ... */ };
+  
+  const handleSubmit = async () => { 
+      if (!selectedTask) return;
+      
+      // Validation Logic
+      if (activeForm) {
+          const errors = validateForm(activeForm, formData);
+          if (Object.keys(errors).length > 0) {
+              setFormErrors(errors);
+              addNotification('error', 'Please fix form errors before completing.');
+              return;
+          }
+      }
+
+      await completeTask(selectedTask.id, 'completed', commentText, formData);
+      addNotification('success', 'Task completed successfully');
+      setSelectedTask(null);
+  };
+
+  const handleExportCSV = () => {
+      const headers = ['ID', 'Title', 'Process', 'Status', 'Priority', 'Due Date', 'Assignee'];
+      const rows = filteredTasks.map(t => [
+          t.id, t.title, t.processName, t.status, t.priority, new Date(t.dueDate).toLocaleDateString(), t.assignee
+      ].join(','));
+      const csv = [headers.join(','), ...rows].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tasks_export_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+  };
 
   return (
     <div 
@@ -349,6 +366,8 @@ export const TaskInbox: React.FC = () => {
                 <div className="flex gap-1">
                     <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-base ${viewMode === 'list' ? 'bg-active text-blue-600' : 'text-tertiary hover:text-secondary'}`}><ListIcon size={16}/></button>
                     <button onClick={() => setViewMode('kanban')} className={`p-1.5 rounded-base ${viewMode === 'kanban' ? 'bg-active text-blue-600' : 'text-tertiary hover:text-secondary'}`}><LayoutGrid size={16}/></button>
+                    <div className="w-px h-6 bg-slate-200 mx-1"></div>
+                    <button onClick={handleExportCSV} className="p-1.5 rounded-base text-tertiary hover:text-blue-600" title="Export CSV"><Download size={16}/></button>
                 </div>
             </div>
             

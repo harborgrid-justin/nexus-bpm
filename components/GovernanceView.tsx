@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { useBPM } from '../contexts/BPMContext';
-import { ShieldCheck, History, AlertTriangle, FileText, User, Search, Filter, CheckCircle, Fingerprint, ShieldAlert, Globe, ExternalLink, Eye } from 'lucide-react';
-import { NexCard, NexBadge } from './shared/NexUI';
+import { ShieldCheck, History, FileText, Search, Eye, Download } from 'lucide-react';
+import { NexCard } from './shared/NexUI';
 
 export const GovernanceView: React.FC = () => {
   const { auditLogs, processes, rules, openInstanceViewer, navigateTo, settings } = useBPM();
@@ -30,6 +30,27 @@ export const GovernanceView: React.FC = () => {
     } else if (log.entityType === 'Process') {
       navigateTo('processes', log.entityId);
     }
+  };
+
+  const handleDownloadReport = () => {
+      const headers = ['Timestamp', 'Action', 'Severity', 'Entity Type', 'Entity ID', 'User', 'Details'];
+      const rows = filteredLogs.map(l => [
+          l.timestamp,
+          l.action,
+          l.severity,
+          l.entityType,
+          l.entityId,
+          l.userId,
+          `"${l.details.replace(/"/g, '""')}"` // Escape quotes
+      ].join(','));
+      
+      const csvContent = [headers.join(','), ...rows].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `audit_report_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
   };
 
   return (
@@ -132,14 +153,16 @@ export const GovernanceView: React.FC = () => {
               {settings.compliance.standards.map(reg => (
                 <div key={reg} className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-base">
                   <span className="text-xs font-medium text-slate-300">{reg}</span>
-                  <CheckCircle size={12} className="text-emerald-500"/>
+                  <div className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.6)]"></div>
                 </div>
               ))}
             </div>
             <div className="mt-4 pt-4 border-t border-white/10 text-[10px] text-slate-400">
                 Last Audit: {new Date(settings.compliance.lastAudit).toLocaleDateString()}
             </div>
-            <button className="w-full mt-4 py-2 bg-panel text-primary rounded-base text-xs font-bold uppercase hover:bg-subtle border border-transparent">Download Report</button>
+            <button onClick={handleDownloadReport} className="w-full mt-4 py-2 bg-panel text-primary rounded-base text-xs font-bold uppercase hover:bg-subtle border border-transparent flex items-center justify-center gap-2">
+                <Download size={14}/> Download Report
+            </button>
           </div>
 
           <NexCard className="p-0">

@@ -99,8 +99,10 @@ export const IdentityView: React.FC = () => {
               
               <div className="space-y-2">
                  {myDelegations.length === 0 ? (
-                   <div className="p-8 border border-dashed border-slate-200 rounded-sm text-center bg-slate-50">
-                     <p className="text-xs text-slate-400 font-bold uppercase">No Active Delegations</p>
+                   <div className="p-8 border-2 border-dashed border-slate-200 rounded-sm text-center bg-slate-50 flex flex-col items-center justify-center gap-2">
+                     <Key size={24} className="text-slate-300"/>
+                     <p className="text-xs text-slate-500 font-bold uppercase">No Active Delegations</p>
+                     <NexButton size="sm" variant="secondary" onClick={() => navigateTo('create-delegation')} icon={Plus}>Add Delegation</NexButton>
                    </div>
                  ) : (
                    myDelegations.map(del => (
@@ -146,37 +148,45 @@ export const IdentityView: React.FC = () => {
             )}
           </div>
 
-          <div 
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
-            style={{ gap: 'var(--layout-gap)' }}
-          >
-            {filteredUsers.map(user => (
-              <NexCard key={user.id} className="p-4 flex flex-col gap-3 group relative">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-sm bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-sm border border-slate-200">
-                        {user.name.charAt(0)}
+          {filteredUsers.length === 0 ? (
+             <div className="p-12 text-center border-2 border-dashed border-slate-200 rounded-sm bg-slate-50 flex flex-col items-center gap-3">
+                <Users size={32} className="text-slate-300"/>
+                <p className="text-sm font-bold text-slate-500">No users found.</p>
+                <NexButton variant="primary" onClick={() => navigateTo('create-user')} icon={UserPlus}>Provision First User</NexButton>
+             </div>
+          ) : (
+            <div 
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+                style={{ gap: 'var(--layout-gap)' }}
+            >
+                {filteredUsers.map(user => (
+                <NexCard key={user.id} className="p-4 flex flex-col gap-3 group relative hover:border-blue-300 transition-all">
+                    <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-sm bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-sm border border-slate-200">
+                            {user.name.charAt(0)}
+                        </div>
+                        <div>
+                            <h4 className="font-bold text-slate-800 text-sm">{user.name}</h4>
+                            <p className="text-[11px] text-slate-500 truncate max-w-[140px]">{user.email}</p>
+                        </div>
                     </div>
-                    <div>
-                        <h4 className="font-bold text-slate-800 text-sm">{user.name}</h4>
-                        <p className="text-[11px] text-slate-500 truncate max-w-[140px]">{user.email}</p>
+                    <NexBadge variant={user.status === 'Active' ? 'emerald' : 'rose'}>{user.status}</NexBadge>
                     </div>
-                  </div>
-                  <NexBadge variant={user.status === 'Active' ? 'emerald' : 'rose'}>{user.status}</NexBadge>
-                </div>
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[10px]">
-                   <span className="font-bold text-slate-400 uppercase flex items-center gap-1">
-                      <Lock size={10}/> {roles.find(r => user.roleIds.includes(r.id))?.name || 'Authorized'}
-                   </span>
-                   {/* User Actions */}
-                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                       <button onClick={() => navigateTo('edit-user', user.id)} className="p-1 hover:bg-slate-100 rounded text-blue-600"><Edit size={14}/></button>
-                       <button onClick={() => deleteUser(user.id)} className="p-1 hover:bg-slate-100 rounded text-rose-600"><Trash2 size={14}/></button>
-                   </div>
-                </div>
-              </NexCard>
-            ))}
-          </div>
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[10px]">
+                    <span className="font-bold text-slate-400 uppercase flex items-center gap-1">
+                        <Lock size={10}/> {roles.find(r => user.roleIds.includes(r.id))?.name || 'Authorized'}
+                    </span>
+                    {/* User Actions */}
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => navigateTo('edit-user', user.id)} className="p-1 hover:bg-slate-100 rounded text-blue-600"><Edit size={14}/></button>
+                        <button onClick={() => deleteUser(user.id)} className="p-1 hover:bg-slate-100 rounded text-rose-600"><Trash2 size={14}/></button>
+                    </div>
+                    </div>
+                </NexCard>
+                ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -188,31 +198,39 @@ export const IdentityView: React.FC = () => {
               <div className="flex justify-end">
                   <NexButton variant="secondary" icon={Shield} onClick={() => navigateTo('create-role')}>Define Role</NexButton>
               </div>
-              <div 
-                className="grid"
-                style={{ gap: 'var(--layout-gap)' }}
-              >
-                  {roles.map(role => (
-                      <NexCard key={role.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group">
-                          <div>
-                              <h4 className="font-bold text-slate-900 text-sm mb-1">{role.name}</h4>
-                              <p className="text-[10px] text-slate-500 font-mono">{role.id}</p>
-                          </div>
-                          <div className="flex items-center gap-4">
-                              <div className="flex flex-wrap gap-1 justify-end">
-                                  {role.permissions.slice(0, 5).map(p => (
-                                      <span key={p} className="px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-sm text-[9px] font-medium">{p}</span>
-                                  ))}
-                                  {role.permissions.length > 5 && <span className="px-2 py-0.5 text-[9px] text-slate-400">+{role.permissions.length - 5} more</span>}
-                              </div>
-                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button onClick={() => navigateTo('edit-role', role.id)} className="p-1 hover:bg-slate-100 rounded text-blue-600"><Edit size={14}/></button>
-                                  <button onClick={() => deleteRole(role.id)} className="p-1 hover:bg-slate-100 rounded text-rose-600"><Trash2 size={14}/></button>
-                              </div>
-                          </div>
-                      </NexCard>
-                  ))}
-              </div>
+              {roles.length === 0 ? (
+                  <div className="p-12 text-center border-2 border-dashed border-slate-200 rounded-sm bg-slate-50 flex flex-col items-center gap-3">
+                    <Shield size={32} className="text-slate-300"/>
+                    <p className="text-sm font-bold text-slate-500">No RBAC roles defined.</p>
+                    <NexButton variant="primary" onClick={() => navigateTo('create-role')} icon={Plus}>Create First Role</NexButton>
+                 </div>
+              ) : (
+                <div 
+                    className="grid"
+                    style={{ gap: 'var(--layout-gap)' }}
+                >
+                    {roles.map(role => (
+                        <NexCard key={role.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group">
+                            <div>
+                                <h4 className="font-bold text-slate-900 text-sm mb-1">{role.name}</h4>
+                                <p className="text-[10px] text-slate-500 font-mono">{role.id}</p>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <div className="flex flex-wrap gap-1 justify-end">
+                                    {role.permissions.slice(0, 5).map(p => (
+                                        <span key={p} className="px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-sm text-[9px] font-medium">{p}</span>
+                                    ))}
+                                    {role.permissions.length > 5 && <span className="px-2 py-0.5 text-[9px] text-slate-400">+{role.permissions.length - 5} more</span>}
+                                </div>
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onClick={() => navigateTo('edit-role', role.id)} className="p-1 hover:bg-slate-100 rounded text-blue-600"><Edit size={14}/></button>
+                                    <button onClick={() => deleteRole(role.id)} className="p-1 hover:bg-slate-100 rounded text-rose-600"><Trash2 size={14}/></button>
+                                </div>
+                            </div>
+                        </NexCard>
+                    ))}
+                </div>
+              )}
           </div>
       )}
 
@@ -224,25 +242,33 @@ export const IdentityView: React.FC = () => {
               <div className="flex justify-end">
                   <NexButton variant="secondary" icon={Landmark} onClick={() => navigateTo('create-group')}>Create Group</NexButton>
               </div>
-              <div 
-                className="grid sm:grid-cols-2 lg:grid-cols-3"
-                style={{ gap: 'var(--layout-gap)' }}
-              >
-                  {groups.map(group => (
-                      <NexCard key={group.id} className="p-4 group relative">
-                          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button onClick={() => navigateTo('edit-group', group.id)} className="p-1 hover:bg-slate-100 rounded text-blue-600"><Edit size={14}/></button>
-                              <button onClick={() => deleteGroup(group.id)} className="p-1 hover:bg-slate-100 rounded text-rose-600"><Trash2 size={14}/></button>
-                          </div>
-                          <div className="flex items-start justify-between mb-3">
-                              <Landmark size={20} className="text-slate-400"/>
-                              {group.parentGroupId && <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-sm border border-blue-100">Sub-Unit</span>}
-                          </div>
-                          <h4 className="font-bold text-slate-900 text-sm mb-1">{group.name}</h4>
-                          <p className="text-xs text-slate-500 leading-snug">{group.description}</p>
-                      </NexCard>
-                  ))}
-              </div>
+              {groups.length === 0 ? (
+                  <div className="p-12 text-center border-2 border-dashed border-slate-200 rounded-sm bg-slate-50 flex flex-col items-center gap-3">
+                    <Landmark size={32} className="text-slate-300"/>
+                    <p className="text-sm font-bold text-slate-500">No organization groups found.</p>
+                    <NexButton variant="primary" onClick={() => navigateTo('create-group')} icon={Plus}>Create Group</NexButton>
+                 </div>
+              ) : (
+                <div 
+                    className="grid sm:grid-cols-2 lg:grid-cols-3"
+                    style={{ gap: 'var(--layout-gap)' }}
+                >
+                    {groups.map(group => (
+                        <NexCard key={group.id} className="p-4 group relative hover:border-blue-300 transition-all">
+                            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => navigateTo('edit-group', group.id)} className="p-1 hover:bg-slate-100 rounded text-blue-600"><Edit size={14}/></button>
+                                <button onClick={() => deleteGroup(group.id)} className="p-1 hover:bg-slate-100 rounded text-rose-600"><Trash2 size={14}/></button>
+                            </div>
+                            <div className="flex items-start justify-between mb-3">
+                                <Landmark size={20} className="text-slate-400"/>
+                                {group.parentGroupId && <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-sm border border-blue-100">Sub-Unit</span>}
+                            </div>
+                            <h4 className="font-bold text-slate-900 text-sm mb-1">{group.name}</h4>
+                            <p className="text-xs text-slate-500 leading-snug">{group.description}</p>
+                        </NexCard>
+                    ))}
+                </div>
+              )}
           </div>
       )}
 
