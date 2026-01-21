@@ -3,13 +3,13 @@ import React from 'react';
 import { ProcessStepType } from '../../types';
 import { 
   Play, Flag, User, Cog, GitBranch, Box, 
-  FunctionSquare, Zap, Clock, ShieldCheck, Mail, MessageSquare, Smartphone, 
-  FileText, PenTool, Database, Cloud, Code, Terminal, Server, 
-  CreditCard, DollarSign, BrainCircuit, Mic, Image as ImageIcon,
-  Share2, Key, Lock, Globe, HardDrive, FileSpreadsheet,
-  AlertTriangle, StopCircle, RotateCw, GitMerge, MoreHorizontal,
-  Layout, Briefcase, ShoppingCart, Activity,
-  CheckSquare, Plus, Upload, Table, StickyNote, ArrowRightCircle
+  FunctionSquare, Zap, Clock, Mail, MessageSquare, Smartphone, 
+  FileText, PenTool, Database, Cloud, Code, Server, 
+  CreditCard, DollarSign, BrainCircuit, Image as ImageIcon,
+  Globe, HardDrive, FileSpreadsheet,
+  AlertTriangle, StopCircle, RotateCw, GitMerge,
+  Layout, Briefcase, Activity,
+  CheckSquare, Plus, Upload, Table, StickyNote
 } from 'lucide-react';
 
 export interface StepMetadata {

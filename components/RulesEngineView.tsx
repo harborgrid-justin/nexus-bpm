@@ -1,3 +1,4 @@
+
 import React, { useState, ChangeEvent, useMemo, useRef, useEffect } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { BusinessRule, RuleCondition, RuleAction, DecisionTable, Condition, ConditionGroup } from '../types';
@@ -5,7 +6,7 @@ import {
   FunctionSquare, Plus, BrainCircuit, Table, TestTube, Trash2, Save, 
   Upload, Play, GitMerge, X, 
   Activity, Tag, ArrowUp, ArrowDown, Download, Maximize2, Sparkles, MessageSquare, Search, LucideIcon,
-  ChevronDown, ChevronRight, Check, AlertCircle, GripVertical
+  ChevronDown, ChevronRight, Check, GripVertical
 } from 'lucide-react';
 import { produce } from 'immer';
 import { NexButton, NexBadge } from './shared/NexUI';
@@ -145,7 +146,7 @@ interface TestCase {
     input: string; 
 }
 
-const LiveTestPanel = ({ ruleId, rules, decisionTables }: { ruleId: string | null, rules: BusinessRule[], decisionTables: DecisionTable[] }) => {
+const LiveTestPanel = ({ ruleId }: { ruleId: string | null }) => {
     const { executeRules } = useBPM();
     const [inputData, setInputData] = useState('{\n  "invoice": {\n    "amount": 7500,\n    "region": "EMEA"\n  }\n}');
     const [output, setOutput] = useState<any>(null);
@@ -842,7 +843,7 @@ export const RulesEngineView: React.FC = () => {
             </main>
 
             <aside className="w-full md:w-[var(--prop-panel-width)] shrink-0 hidden md:block">
-                <LiveTestPanel ruleId={selectedAsset?.id || null} rules={rules} decisionTables={decisionTables} />
+                <LiveTestPanel ruleId={selectedAsset?.id || null} />
             </aside>
         </div>
     );

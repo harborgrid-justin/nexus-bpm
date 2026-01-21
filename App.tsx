@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { 
   LayoutDashboard, CheckSquare, PenTool, BarChart3, Menu, X, Bell, 
   Search, Layers, Settings as SettingsIcon, ShieldCheck, 

@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { 
   Globe, Server, Activity, Play, Copy, RefreshCw, 
-  Database, Terminal, Plus, ShieldAlert, Wifi, WifiOff, Settings, Zap, PauseCircle, Lock, Webhook
+  Database, Terminal, Plus, Wifi, WifiOff, Settings, Zap, PauseCircle, Lock, Webhook
 } from 'lucide-react';
 import { NexCard, NexButton, NexBadge, NexSwitch, NexModal, NexFormGroup } from './shared/NexUI';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';

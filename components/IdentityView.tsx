@@ -3,17 +3,17 @@ import React, { useState } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { 
   Users, Shield, Landmark, UserPlus, Search, 
-  MoreVertical, Key, User as UserIcon, PlusCircle, Trash2, Globe, Fingerprint, Lock,
-  Clock, X, ChevronRight, ShieldAlert, CheckSquare, Plus, Edit, Slash, Zap
+  Key, User as UserIcon, PlusCircle, Trash2, Fingerprint, Lock,
+  ShieldAlert, Plus, Edit
 } from 'lucide-react';
-import { Permission, User } from '../types';
+import { Permission } from '../types';
 import { TabBtn } from './identity/TabBtn';
 import { IntegrationCard } from './identity/IntegrationCard';
 import { PolicyItem } from './identity/PolicyItem';
 import { NexButton, NexBadge, NexCard } from './shared/NexUI';
 
 export const IdentityView: React.FC = () => {
-  const { users, roles, groups, delegations, hasPermission, currentUser, revokeDelegation, deleteUser, deleteRole, deleteGroup, addNotification, navigateTo, settings, updateSystemSettings } = useBPM();
+  const { users, roles, groups, delegations, hasPermission, currentUser, revokeDelegation, deleteUser, deleteRole, deleteGroup, navigateTo, settings, updateSystemSettings } = useBPM();
   const [activeTab, setActiveTab] = useState<'profile' | 'users' | 'roles' | 'groups' | 'sso'>('profile');
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -303,17 +303,6 @@ export const IdentityView: React.FC = () => {
                          <PolicyItem text={`Minimum Length: ${settings.security.minPasswordLength} chars`} active />
                          <PolicyItem text="Requires MFA for Admins" active={settings.security.mfaEnabled} />
                          <PolicyItem text="Session Timeout: 60m" active />
-                     </div>
-                 </NexCard>
-                 <NexCard className="p-6">
-                     <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-                        <Globe size={16} className="text-blue-500"/> Geo-Fencing
-                     </h3>
-                     <div className="p-3 bg-slate-50 border border-slate-200 rounded-sm text-xs text-slate-600">
-                         Access restricted to <span className="font-bold text-slate-900">US, EU, UK</span> regions. Login attempts from high-risk zones trigger auto-lockout.
-                         <div className="mt-2 font-bold text-emerald-600">
-                             Status: {settings.security.geoFencing ? 'Active' : 'Disabled'}
-                         </div>
                      </div>
                  </NexCard>
               </div>
