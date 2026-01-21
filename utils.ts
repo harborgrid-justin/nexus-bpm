@@ -1,5 +1,5 @@
 
-import { TaskPriority } from './types';
+import { TaskPriority, FormDefinition, FormField } from './types';
 
 // --- Rule 12: Centralized Date Formatting ---
 export const formatDate = (dateString: string | undefined, includeTime = false): string => {
@@ -115,4 +115,90 @@ export const getPriorityColor = (p: TaskPriority) => {
     case TaskPriority.MEDIUM: return 'blue';
     default: return 'slate';
   }
+};
+
+// --- Rule 15: Centralized Form Validation ---
+export const validateForm = (form: FormDefinition, data: Record<string, any>): Record<string, string> => {
+    const errors: Record<string, string> = {};
+    
+    const isVisible = (field: FormField) => {
+        if (!field.visibility) return true;
+        const { targetFieldKey, operator, value } = field.visibility;
+        const targetValue = data[targetFieldKey];
+        
+        switch (operator) {
+            case 'eq': return String(targetValue) === String(value);
+            case 'neq': return String(targetValue) !== String(value);
+            case 'contains': return String(targetValue).includes(String(value));
+            case 'truthy': return !!targetValue;
+            case 'falsy': return !targetValue;
+            default: return true;
+        }
+    };
+
+    form.fields.forEach(field => {
+        if (!isVisible(field)) return;
+        if (field.behavior?.readOnly || field.behavior?.disabled) return;
+
+        const val = data[field.key];
+        const isEmpty = val === undefined || val === null || val === '';
+
+        if (field.required && isEmpty) {
+            errors[field.key] = 'This field is required.';
+        }
+
+        if (!isEmpty && field.validation) {
+            const { min, max, pattern, message } = field.validation;
+            
+            if (field.type === 'number' || field.type === 'slider' || field.type === 'rating') {
+                const num = Number(val);
+                if (min !== undefined && num < min) errors[field.key] = message || `Minimum value is ${min}`;
+                if (max !== undefined && num > max) errors[field.key] = message || `Maximum value is ${max}`;
+            }
+            if (field.type === 'text' || field.type === 'textarea' || field.type === 'password') {
+                if (min !== undefined && val.length < min) errors[field.key] = message || `Minimum length is ${min}`;
+                if (max !== undefined && val.length > max) errors[field.key] = message || `Maximum length is ${max}`;
+            }
+            if (pattern) {
+                const regex = new RegExp(pattern);
+                if (!regex.test(String(val))) errors[field.key] = message || 'Invalid format.';
+            }
+        }
+    });
+
+    return errors;
+};
+
+// --- Rule 24: Filter Predicate Builder ---
+export type FilterConfig<T> = {
+    [K in keyof T]?: string | number | boolean | ((val: T[K]) => boolean);
+};
+
+export const createFilterPredicate = <T>(config: FilterConfig<T>, searchTerm: string = '', searchFields: (keyof T)[] = []) => {
+    return (item: T): boolean => {
+        // 1. Check exact matches from config
+        for (const key in config) {
+            const filterVal = config[key];
+            const itemVal = item[key];
+            if (filterVal === undefined || filterVal === 'All' || filterVal === '') continue; // Skip empty filters
+
+            if (typeof filterVal === 'function') {
+                if (!filterVal(itemVal)) return false;
+            } else if (itemVal !== filterVal) {
+                return false;
+            }
+        }
+
+        // 2. Check search term
+        if (searchTerm && searchFields.length > 0) {
+            const lowerSearch = searchTerm.toLowerCase();
+            const matchesSearch = searchFields.some(field => {
+                const val = item[field];
+                return String(val).toLowerCase().includes(lowerSearch);
+            });
+            if (!matchesSearch) return false;
+        }
+
+        return true;
+    };
 };

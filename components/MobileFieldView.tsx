@@ -3,18 +3,28 @@ import React, { useState, useEffect } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { 
   MapPin, CheckSquare, RefreshCw, Wifi, WifiOff, List, 
-  Map as MapIcon, User, Camera, Calendar, ArrowRight, CheckCircle, Clock
+  Map as MapIcon, User, Camera, Calendar, ArrowRight, CheckCircle, Clock,
+  UploadCloud
 } from 'lucide-react';
 import { Task, TaskStatus } from '../types';
+import { syncService, SyncAction } from '../services/syncService';
 
 export const MobileFieldView: React.FC = () => {
   const { tasks, currentUser, completeTask, updateTaskLocation } = useBPM();
   const [activeTab, setActiveTab] = useState<'tasks' | 'map' | 'sync'>('tasks');
-  const [isOffline, setIsOffline] = useState(false);
-  const [pendingSync, setPendingSync] = useState<string[]>([]);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [syncQueue, setSyncQueue] = useState<SyncAction[]>([]);
   const [location, setLocation] = useState<{lat: number, lng: number} | null>(null);
 
   const myTasks = tasks.filter(t => t.assignee === currentUser?.id && t.status !== TaskStatus.COMPLETED);
+
+  useEffect(() => {
+      const unsub = syncService.subscribe((queue, online) => {
+          setSyncQueue(queue);
+          setIsOffline(!online);
+      });
+      return unsub;
+  }, []);
 
   useEffect(() => {
       // Mock Geolocation Watch
@@ -28,7 +38,7 @@ export const MobileFieldView: React.FC = () => {
 
   const handleCheckIn = async (taskId: string) => {
       if (isOffline) {
-          setPendingSync(prev => [...prev, `Check-In Task ${taskId}`]);
+          syncService.enqueue('CHECK_IN', { taskId, location });
           return;
       }
       if (location) {
@@ -38,11 +48,15 @@ export const MobileFieldView: React.FC = () => {
 
   const handleComplete = async (taskId: string) => {
       if (isOffline) {
-          setPendingSync(prev => [...prev, `Complete Task ${taskId}`]);
-          // Optimistic UI update could happen here
+          syncService.enqueue('COMPLETE_TASK', { taskId, action: 'approve' });
+          // Optimistic update could be handled in context, but for now we rely on queue feedback
           return;
       }
       await completeTask(taskId, 'approve', 'Completed via Field App');
+  };
+
+  const handleManualSync = () => {
+      syncService.processQueue();
   };
 
   return (
@@ -52,10 +66,17 @@ export const MobileFieldView: React.FC = () => {
             <h1 className="text-lg font-bold flex items-center gap-2">
                 NexFlow <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded uppercase tracking-wider">Field Ops</span>
             </h1>
-            <button onClick={() => setIsOffline(!isOffline)} className="flex items-center gap-1.5 text-xs font-bold bg-black/20 px-3 py-1.5 rounded-full backdrop-blur-sm">
-                {isOffline ? <WifiOff size={14}/> : <Wifi size={14}/>}
-                {isOffline ? 'Offline' : 'Online'}
-            </button>
+            <div className="flex items-center gap-2">
+                {syncQueue.length > 0 && (
+                    <span className="flex items-center gap-1 text-[10px] font-bold bg-orange-500/80 px-2 py-1 rounded-full animate-pulse">
+                        <UploadCloud size={10}/> {syncQueue.length}
+                    </span>
+                )}
+                <div className="flex items-center gap-1.5 text-xs font-bold bg-black/20 px-3 py-1.5 rounded-full backdrop-blur-sm">
+                    {isOffline ? <WifiOff size={14}/> : <Wifi size={14}/>}
+                    {isOffline ? 'Offline' : 'Online'}
+                </div>
+            </div>
         </div>
 
         {/* Content Area */}
@@ -88,7 +109,7 @@ export const MobileFieldView: React.FC = () => {
                                         {new Date(task.dueDate).toLocaleDateString()}
                                     </div>
                                     <div className="flex gap-2">
-                                        <button onClick={() => handleCheckIn(task.id)} className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 active:bg-slate-300">
+                                        <button onClick={() => handleCheckIn(task.id)} className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 active:bg-slate-300" title="Check In">
                                             <MapPin size={18}/>
                                         </button>
                                         <button onClick={() => handleComplete(task.id)} className={`h-10 px-4 flex items-center gap-2 rounded-full text-white font-bold text-sm shadow-sm active:bg-opacity-90 ${isOffline ? 'bg-slate-600' : 'bg-blue-600'}`}>
@@ -112,26 +133,36 @@ export const MobileFieldView: React.FC = () => {
 
             {activeTab === 'sync' && (
                 <div className="space-y-4">
-                    <h2 className="text-2xl font-black text-slate-800">Sync Status</h2>
+                    <h2 className="text-2xl font-black text-slate-800">Sync Manager</h2>
                     <div className="p-4 bg-white rounded-xl shadow-sm border border-slate-200">
                         <div className="flex justify-between items-center mb-4">
                             <span className="text-sm font-bold text-slate-600">Pending Actions</span>
-                            <span className="text-xs font-bold bg-orange-100 text-orange-600 px-2 py-1 rounded-full">{pendingSync.length}</span>
+                            <span className={`text-xs font-bold px-2 py-1 rounded-full ${syncQueue.length > 0 ? 'bg-orange-100 text-orange-600' : 'bg-emerald-100 text-emerald-600'}`}>{syncQueue.length}</span>
                         </div>
-                        {pendingSync.length === 0 ? (
-                            <p className="text-xs text-slate-400 italic">All caught up.</p>
+                        {syncQueue.length === 0 ? (
+                            <div className="text-center py-4">
+                                <CheckCircle size={32} className="mx-auto text-emerald-300 mb-2"/>
+                                <p className="text-xs text-slate-400 italic">All data synchronized.</p>
+                            </div>
                         ) : (
-                            <ul className="space-y-2">
-                                {pendingSync.map((action, i) => (
-                                    <li key={i} className="text-xs font-medium text-slate-700 bg-slate-50 p-2 rounded flex items-center gap-2">
-                                        <RefreshCw size={12} className="animate-spin text-blue-500"/> {action}
+                            <ul className="space-y-2 max-h-[300px] overflow-y-auto">
+                                {syncQueue.map((action) => (
+                                    <li key={action.id} className="text-xs font-medium text-slate-700 bg-slate-50 p-3 rounded-lg flex items-center justify-between border border-slate-100">
+                                        <div className="flex items-center gap-2">
+                                            {action.status === 'syncing' ? <RefreshCw size={12} className="animate-spin text-blue-500"/> : <Clock size={12} className="text-slate-400"/>}
+                                            <div className="flex flex-col">
+                                                <span className="font-bold">{action.type}</span>
+                                                <span className="text-[9px] text-slate-400">{new Date(action.timestamp).toLocaleTimeString()}</span>
+                                            </div>
+                                        </div>
+                                        {action.status === 'failed' && <span className="text-[9px] text-red-500 font-bold">Failed</span>}
                                     </li>
                                 ))}
                             </ul>
                         )}
-                        {pendingSync.length > 0 && !isOffline && (
-                            <button onClick={() => setPendingSync([])} className="w-full mt-4 bg-blue-600 text-white py-3 rounded-lg font-bold text-sm active:scale-[0.98] transition-transform">
-                                Sync Now
+                        {syncQueue.length > 0 && !isOffline && (
+                            <button onClick={handleManualSync} className="w-full mt-4 bg-blue-600 text-white py-3 rounded-lg font-bold text-sm active:scale-[0.98] transition-transform shadow-sm hover:bg-blue-700">
+                                Force Sync Now
                             </button>
                         )}
                     </div>

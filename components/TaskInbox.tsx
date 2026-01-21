@@ -9,33 +9,17 @@ import {
   Table as TableIcon, Download, Plus, Send, ChevronLeft, FormInput, Sparkles, BrainCircuit, ListChecks, Award, Trash2, Printer,
   Filter, Save, Eye
 } from 'lucide-react';
-import { NexBadge, NexButton, NexHistoryFeed } from './shared/NexUI';
-import { FormRenderer, validateForm } from './shared/FormRenderer';
+import { NexBadge, NexButton, NexHistoryFeed, NexDebouncedInput, NexUserDisplay, NexVirtualList } from './shared/NexUI';
+import { FormRenderer } from './shared/FormRenderer';
+import { validateForm, createFilterPredicate, calculateSLA } from '../utils';
 import { summarizeTaskContext } from '../services/geminiService';
 
 // --- SLA Visual Component ---
 const SLACountdown = ({ dueDate }: { dueDate: string }) => {
-    const [timeLeft, setTimeLeft] = useState('');
-    const [status, setStatus] = useState<'safe' | 'warn' | 'breach'>('safe');
+    const [sla, setSla] = useState(calculateSLA(dueDate));
 
     useEffect(() => {
-        const calculate = () => {
-            const now = new Date();
-            const due = new Date(dueDate);
-            const diff = due.getTime() - now.getTime();
-            
-            if (diff < 0) {
-                setStatus('breach');
-                setTimeLeft(`${Math.abs(Math.ceil(diff / (1000 * 60 * 60)))}h overdue`);
-            } else {
-                const hours = Math.ceil(diff / (1000 * 60 * 60));
-                if (hours < 24) setStatus('warn');
-                else setStatus('safe');
-                
-                if (hours > 24) setTimeLeft(`${Math.ceil(hours / 24)}d left`);
-                else setTimeLeft(`${hours}h left`);
-            }
-        };
+        const calculate = () => setSla(calculateSLA(dueDate));
         calculate();
         const interval = setInterval(calculate, 60000); // Update every minute
         return () => clearInterval(interval);
@@ -48,8 +32,8 @@ const SLACountdown = ({ dueDate }: { dueDate: string }) => {
     };
 
     return (
-        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm uppercase ${colors[status]}`}>
-            {timeLeft}
+        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm uppercase ${colors[sla.status]}`}>
+            {sla.timeLeft}
         </span>
     );
 };
@@ -70,7 +54,7 @@ const TaskListItem: React.FC<TaskListProps> = ({ task, isSelected, isChecked, is
     <div 
       onClick={() => onClick(task)}
       className={`border-b border-subtle cursor-pointer hover:bg-subtle transition-colors group flex items-start gap-3 relative ${isSelected ? 'bg-active border-l-4 border-l-blue-600 pl-2' : 'border-l-4 border-l-transparent pl-3'}`}
-      style={{ padding: isCompact ? 'calc(var(--space-base) * 0.75)' : 'var(--space-base)' }}
+      style={{ padding: isCompact ? 'calc(var(--space-base) * 0.75)' : 'var(--space-base)', height: '80px' }}
     >
       <div className="pt-1 flex flex-col gap-2 items-center" onClick={e => e.stopPropagation()}>
           <input type="checkbox" checked={isChecked} onChange={() => onCheck(task.id)} className="rounded-base border-default text-blue-600 focus:ring-blue-500" />
@@ -133,9 +117,7 @@ const KanbanCard: React.FC<KanbanProps> = ({ task, onClick, onStar }) => {
             <div className="pt-2 border-t border-subtle flex items-center justify-between text-xs text-tertiary">
                 <SLACountdown dueDate={task.dueDate} />
                 <div className="flex items-center gap-1">
-                    <div className="w-4 h-4 rounded-full bg-subtle flex items-center justify-center font-bold text-[8px] border border-default">
-                        {task.assignee === 'Unassigned' ? '?' : task.assignee.charAt(0)}
-                    </div>
+                    <NexUserDisplay userId={task.assignee} size="sm" />
                 </div>
             </div>
         </div>
@@ -214,30 +196,30 @@ export const TaskInbox: React.FC = () => {
       setShowSaveViewInput(false);
   };
 
-  // --- Derived Data & Filtering ---
+  // --- Derived Data & Filtering (Rule 24 Applied) ---
   const delegateRules = delegations.filter(d => d.toUserId === currentUser?.id && d.isActive);
   
   const filteredTasks = useMemo(() => {
-      let result = tasks.filter(t => {
-          if (activeTab !== 'snoozed' && t.snoozeUntil && new Date(t.snoozeUntil) > new Date()) return false;
-          if (activeTab === 'snoozed' && (!t.snoozeUntil || new Date(t.snoozeUntil) <= new Date())) return false;
+      // Base Filter based on Tab
+      const baseFilter = (t: Task) => {
+          if (activeTab === 'snoozed') return !!t.snoozeUntil && new Date(t.snoozeUntil) > new Date();
+          if (t.snoozeUntil && new Date(t.snoozeUntil) > new Date()) return false;
 
           if (activeTab === 'my') return t.assignee === currentUser?.id;
           if (activeTab === 'starred') return t.isStarred;
           if (activeTab === 'team') return t.assignee === 'Unassigned' || delegateRules.some(d => d.fromUserId === t.assignee);
-          
           return true;
-      });
+      };
 
-      if (localSearch) {
-          const q = localSearch.toLowerCase();
-          result = result.filter(t => t.title.toLowerCase().includes(q) || t.processName.toLowerCase().includes(q));
-      }
+      // Create Predicate from Config
+      const predicate = createFilterPredicate<Task>({
+          priority: quickFilter === 'Critical' ? TaskPriority.CRITICAL : undefined,
+      }, localSearch, ['title', 'processName']);
 
-      if (quickFilter === 'Critical') result = result.filter(t => t.priority === TaskPriority.CRITICAL);
-      if (quickFilter === 'Overdue') result = result.filter(t => new Date(t.dueDate) < new Date());
+      // Overdue Custom Check
+      const overdueFilter = (t: Task) => quickFilter === 'Overdue' ? new Date(t.dueDate) < new Date() : true;
 
-      return result.sort((a, b) => {
+      return tasks.filter(t => baseFilter(t) && predicate(t) && overdueFilter(t)).sort((a, b) => {
           const valA = a[sortConfig.key];
           const valB = b[sortConfig.key];
           if (valA === undefined || valB === undefined) return 0;
@@ -245,13 +227,7 @@ export const TaskInbox: React.FC = () => {
           if (valA > valB) return sortConfig.dir === 'asc' ? 1 : -1;
           return 0;
       });
-  }, [tasks, activeTab, localSearch, quickFilter, sortConfig, currentUser]);
-
-  const skillMatch = useMemo(() => {
-      if (!selectedTask || !currentUser) return false;
-      if (!selectedTask.requiredSkills || selectedTask.requiredSkills.length === 0) return true; 
-      return selectedTask.requiredSkills.every(s => currentUser.skills.includes(s));
-  }, [selectedTask, currentUser]);
+  }, [tasks, activeTab, localSearch, quickFilter, sortConfig, currentUser, delegateRules]);
 
   const toggleSelection = (id: string) => {
       const newSet = new Set(selectedIds);
@@ -291,7 +267,7 @@ export const TaskInbox: React.FC = () => {
   const handleSubmit = async () => { 
       if (!selectedTask) return;
       
-      // Validation Logic
+      // Validation Logic (Rule 15 Applied)
       if (activeForm) {
           const errors = validateForm(activeForm, formData);
           if (Object.keys(errors).length > 0) {
@@ -386,21 +362,28 @@ export const TaskInbox: React.FC = () => {
             </form>
             <div className="flex gap-2">
                 <div className="relative flex-1">
-                    <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-tertiary"/>
-                    <input className="w-full pl-8 pr-3 py-1.5 text-xs bg-panel border border-default rounded-base outline-none" placeholder="Search..." value={localSearch} onChange={e => setLocalSearch(e.target.value)} />
+                    <NexDebouncedInput 
+                        value={localSearch} 
+                        onChange={setLocalSearch} 
+                        placeholder="Search..."
+                        className="w-full pr-3 py-1.5 bg-panel border border-default rounded-base outline-none text-xs"
+                        icon={Search}
+                    />
                 </div>
                 <button onClick={() => setQuickFilter(f => f === 'Critical' ? null : 'Critical')} className={`px-2 py-1 rounded-base text-xs font-bold border ${quickFilter === 'Critical' ? 'bg-rose-100 text-rose-700 border-rose-200' : 'bg-panel text-secondary border-default'}`}>Critical</button>
             </div>
         </div>
 
         {/* Task List */}
-        <div className="flex-1 overflow-y-auto bg-panel min-h-0">
+        <div className="flex-1 overflow-y-hidden bg-panel min-h-0">
             {viewMode === 'list' && (
-                <div className="divide-y divide-subtle">
-                    {filteredTasks.map(t => (
+                <NexVirtualList 
+                    items={filteredTasks}
+                    itemHeight={80} // Height of TaskListItem
+                    renderItem={(t: Task, idx) => (
                         <TaskListItem key={t.id} task={t} isSelected={selectedTask?.id === t.id} isChecked={selectedIds.has(t.id)} isCompact={density === 'compact'} onCheck={toggleSelection} onClick={setSelectedTask} onStar={toggleTaskStar} />
-                    ))}
-                </div>
+                    )}
+                />
             )}
             {viewMode === 'kanban' && (
                 <div className="flex gap-4 p-4 h-full overflow-x-auto bg-canvas">
@@ -444,7 +427,7 @@ export const TaskInbox: React.FC = () => {
                    <h2 className="text-lg font-bold text-primary mb-2 leading-tight">{selectedTask.title}</h2>
                    <div className="flex items-center gap-4 text-xs text-secondary mb-4 pb-4 border-b border-subtle">
                        <span className="flex items-center gap-1"><Layers size={12}/> {selectedTask.processName}</span>
-                       <span className="flex items-center gap-1"><User size={12}/> {selectedTask.assignee}</span>
+                       <span className="flex items-center gap-1"><NexUserDisplay userId={selectedTask.assignee} size="sm" showEmail={false} /></span>
                    </div>
                    <p className="text-base text-primary leading-relaxed mb-4">{selectedTask.description || "No description provided."}</p>
                    

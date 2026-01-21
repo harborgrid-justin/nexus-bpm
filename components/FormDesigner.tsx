@@ -8,9 +8,11 @@ import {
   Type, Hash, Calendar, CheckSquare, List, AlignLeft, FileText, 
   Trash2, GripVertical, Settings, Info, Upload, PenTool, EyeOff, AlertTriangle,
   PanelLeft, PanelRight, Smartphone, Monitor, Star, Sliders, Tag, Palette, Lock, Clock, Minus, LayoutGrid, Globe, Calculator,
-  Columns, Forward, Copy, MousePointerClick, Shield
+  Columns, Forward, Copy, MousePointerClick, Shield, Undo, Redo
 } from 'lucide-react';
 import { produce } from 'immer';
+import useUndoRedo from './hooks/useUndoRedo';
+import { useMediaQuery, BREAKPOINTS } from './hooks/useMediaQuery';
 
 const FIELD_TYPES: { type: FormFieldType; icon: React.ElementType; label: string; category: string }[] = [
   { type: 'text', icon: Type, label: 'Text Field', category: 'Basic' },
@@ -34,7 +36,13 @@ const FIELD_TYPES: { type: FormFieldType; icon: React.ElementType; label: string
 
 export const FormDesigner: React.FC = () => {
   const { navigateTo, saveForm, forms, nav, addNotification, roles } = useBPM();
-  const [formDef, setFormDef] = useState<FormDefinition>({ id: `form-${Date.now()}`, name: 'New Form', description: '', fields: [], version: 1, lastModified: new Date().toISOString(), layoutMode: 'single' });
+  const isMobile = useMediaQuery(BREAKPOINTS.mobile);
+  
+  // Use Undo/Redo Hook for Form Definition
+  const { state: formDef, set: setFormDef, undo, redo, canUndo, canRedo } = useUndoRedo<FormDefinition>({ 
+      id: `form-${Date.now()}`, name: 'New Form', description: '', fields: [], version: 1, lastModified: new Date().toISOString(), layoutMode: 'single' 
+  });
+
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'general' | 'appearance' | 'data' | 'validation' | 'logic' | 'permissions'>('general');
   const [leftOpen, setLeftOpen] = useState(true);
@@ -45,21 +53,46 @@ export const FormDesigner: React.FC = () => {
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [isCopyMode, setIsCopyMode] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
-  const scrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ... (Logic handlers preserved) ...
-  useEffect(() => { if (nav.selectedId) { const existing = forms.find(f => f.id === nav.selectedId); if (existing) setFormDef(existing); } }, [nav.selectedId, forms]);
-  useEffect(() => { const handleResize = () => { if (window.innerWidth < 768 && previewMode === 'desktop') setPreviewMode('mobile'); }; window.addEventListener('resize', handleResize); return () => window.removeEventListener('resize', handleResize); }, [previewMode]);
+  useEffect(() => { 
+      if (nav.selectedId) { 
+          const existing = forms.find(f => f.id === nav.selectedId); 
+          if (existing) setFormDef(existing); 
+      } 
+  }, [nav.selectedId, forms, setFormDef]);
+
+  // Handle responsive layout using the hook
+  useEffect(() => {
+      if (isMobile) {
+          setPreviewMode('mobile');
+          setLeftOpen(false);
+          setRightOpen(false);
+      } else {
+          setPreviewMode('desktop');
+          setLeftOpen(true);
+          setRightOpen(true);
+      }
+  }, [isMobile]);
   
+  // Keyboard Shortcuts for Undo/Redo
+  useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); undo(); }
+          if ((e.metaKey || e.ctrlKey) && e.key === 'y') { e.preventDefault(); redo(); }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo]);
+
   const addField = (type: FormFieldType, index?: number) => {
     if (formDef.fields.length >= 50) { addNotification('error', 'Maximum field limit (50) reached.'); return; }
     const newField: FormField = { id: `f-${Date.now()}`, type, label: type === 'divider' ? 'Section Break' : `New ${type}`, key: `field_${Date.now()}`, required: false, placeholder: '', options: type === 'select' || type === 'tags' ? ['Option 1', 'Option 2'] : undefined, layout: { width: '100%' } };
-    setFormDef(produce(draft => { if (typeof index === 'number') draft.fields.splice(index, 0, newField); else draft.fields.push(newField); }));
+    setFormDef(produce(formDef, draft => { if (typeof index === 'number') draft.fields.splice(index, 0, newField); else draft.fields.push(newField); }));
     setSelectedFieldId(newField.id); setActiveTab('general'); if(!rightOpen) setRightOpen(true);
   };
 
   const moveField = (fromId: string, toIndex: number, isCopy: boolean) => {
-      setFormDef(produce(draft => {
+      setFormDef(produce(formDef, draft => {
           const fromIndex = draft.fields.findIndex(f => f.id === fromId);
           if (fromIndex === -1) return;
           const itemToMove = draft.fields[fromIndex];
@@ -69,10 +102,10 @@ export const FormDesigner: React.FC = () => {
       }));
   };
 
-  const deleteField = (id: string) => { setFormDef(produce(draft => { draft.fields = draft.fields.filter(f => f.id !== id); })); setSelectedFieldId(null); setContextMenu(null); };
+  const deleteField = (id: string) => { setFormDef(produce(formDef, draft => { draft.fields = draft.fields.filter(f => f.id !== id); })); setSelectedFieldId(null); setContextMenu(null); };
   const handleSave = async () => { if (!formDef.name.trim()) { addNotification('error', 'Please provide a form title.'); return; } await saveForm({ ...formDef, lastModified: new Date().toISOString() }); navigateTo('forms'); };
   const selectedField = formDef.fields.find(f => f.id === selectedFieldId);
-  const updateField = (id: string, updates: Partial<FormField>) => { setFormDef(produce(draft => { const field = draft.fields.find(f => f.id === id); if (field) Object.assign(field, updates); })); };
+  const updateField = (id: string, updates: Partial<FormField>) => { setFormDef(produce(formDef, draft => { const field = draft.fields.find(f => f.id === id); if (field) Object.assign(field, updates); })); };
   
   const updatePermission = (roleId: string, access: FieldPermission['access']) => {
       if (!selectedField) return;
@@ -102,7 +135,19 @@ export const FormDesigner: React.FC = () => {
   const categories = Array.from(new Set(FIELD_TYPES.map(f => f.category)));
 
   return (
-    <FormPageLayout title={formDef.name || "Form Designer"} onBack={() => navigateTo('forms')} onSave={handleSave} saveLabel="Publish Form" fullWidth>
+    <FormPageLayout 
+        title={formDef.name || "Form Designer"} 
+        onBack={() => navigateTo('forms')} 
+        onSave={handleSave} 
+        saveLabel="Publish Form" 
+        fullWidth
+        actions={
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-sm mr-2">
+                <button onClick={undo} disabled={!canUndo} className="p-1.5 text-slate-500 hover:text-slate-800 disabled:opacity-30 rounded-sm"><Undo size={16}/></button>
+                <button onClick={redo} disabled={!canRedo} className="p-1.5 text-slate-500 hover:text-slate-800 disabled:opacity-30 rounded-sm"><Redo size={16}/></button>
+            </div>
+        }
+    >
       <div className="flex h-full relative overflow-hidden" onClick={() => setContextMenu(null)}>
         
         <div className={`border-r border-slate-200 bg-slate-50 flex flex-col transition-all duration-300 ${leftOpen ? 'w-[260px]' : 'w-0 overflow-hidden'}`}>
@@ -135,7 +180,7 @@ export const FormDesigner: React.FC = () => {
                     <button onClick={() => setPreviewMode('desktop')} className={`p-1.5 rounded-sm ${previewMode === 'desktop' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}><Monitor size={14}/></button>
                     <button onClick={() => setPreviewMode('mobile')} className={`p-1.5 rounded-sm ${previewMode === 'mobile' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}><Smartphone size={14}/></button>
                  </div>
-                 <button onClick={() => setFormDef(d => ({ ...d, layoutMode: d.layoutMode === 'wizard' ? 'single' : 'wizard' }))} className={`flex items-center gap-2 px-3 py-1 rounded-sm text-xs font-bold ${formDef.layoutMode === 'wizard' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-sm' : 'text-slate-500'}`}><Forward size={14}/> Wizard Mode</button>
+                 <button onClick={() => setFormDef(produce(formDef, d => { d.layoutMode = d.layoutMode === 'wizard' ? 'single' : 'wizard'; }))} className={`flex items-center gap-2 px-3 py-1 rounded-sm text-xs font-bold ${formDef.layoutMode === 'wizard' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-sm' : 'text-slate-500'}`}><Forward size={14}/> Wizard Mode</button>
               </div>
               <div className="flex items-center gap-2">{!rightOpen && <button onClick={() => setRightOpen(true)} className="p-1.5 hover:bg-slate-50 rounded text-slate-500"><PanelRight size={16}/></button>}</div>
            </div>
@@ -143,8 +188,8 @@ export const FormDesigner: React.FC = () => {
            <div ref={canvasRef} className="flex-1 overflow-y-auto relative scroll-smooth" style={{ padding: 'var(--layout-padding)' }} onDragOver={(e) => { e.preventDefault(); }} onClick={() => setSelectedFieldId(null)}>
               <div className={`bg-white shadow-sm min-h-[800px] mx-auto rounded-sm border border-slate-200 flex flex-col transition-all duration-300 relative ${previewMode === 'mobile' ? 'max-w-[375px] border-x-4 border-x-slate-800 my-4 shadow-xl' : 'w-full max-w-4xl p-8'}`}>
                  <div className={`mb-8 border-b border-slate-100 pb-6 ${previewMode === 'mobile' ? 'p-6' : ''}`}>
-                    <input className="text-2xl font-bold text-slate-900 w-full outline-none bg-transparent" value={formDef.name} onChange={e => setFormDef({...formDef, name: e.target.value})} placeholder="Form Title" />
-                    <input className="text-sm text-slate-500 w-full outline-none mt-2 bg-transparent" value={formDef.description} onChange={e => setFormDef({...formDef, description: e.target.value})} placeholder="Enter form description..." />
+                    <input className="text-2xl font-bold text-slate-900 w-full outline-none bg-transparent" value={formDef.name} onChange={e => setFormDef(produce(formDef, d => { d.name = e.target.value }))} placeholder="Form Title" />
+                    <input className="text-sm text-slate-500 w-full outline-none mt-2 bg-transparent" value={formDef.description} onChange={e => setFormDef(produce(formDef, d => { d.description = e.target.value }))} placeholder="Enter form description..." />
                  </div>
                  <div className={`flex flex-wrap content-start ${previewMode === 'mobile' ? 'px-4 pb-4' : 'gap-y-0'}`}>
                     {renderDropZone(0)}

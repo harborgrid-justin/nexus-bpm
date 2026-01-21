@@ -4,6 +4,7 @@ import { FormDefinition, FormField } from '../../types';
 import { NexFormGroup, NexButton } from './NexUI';
 import { Check, X, PenTool, Info, Star, Upload, ArrowRight, ArrowLeft } from 'lucide-react';
 import { useBPM } from '../../contexts/BPMContext';
+import { validateForm } from '../../utils'; // Import centralized validation
 
 interface FormRendererProps {
   form: FormDefinition;
@@ -13,56 +14,7 @@ interface FormRendererProps {
   errors?: Record<string, string>;
 }
 
-export const validateForm = (form: FormDefinition, data: Record<string, any>): Record<string, string> => {
-    const errors: Record<string, string> = {};
-    
-    const isVisible = (field: FormField) => {
-        if (!field.visibility) return true;
-        const { targetFieldKey, operator, value } = field.visibility;
-        const targetValue = data[targetFieldKey];
-        
-        switch (operator) {
-            case 'eq': return String(targetValue) === String(value);
-            case 'neq': return String(targetValue) !== String(value);
-            case 'contains': return String(targetValue).includes(String(value));
-            case 'truthy': return !!targetValue;
-            case 'falsy': return !targetValue;
-            default: return true;
-        }
-    };
-
-    form.fields.forEach(field => {
-        if (!isVisible(field)) return;
-        if (field.behavior?.readOnly || field.behavior?.disabled) return;
-
-        const val = data[field.key];
-        const isEmpty = val === undefined || val === null || val === '';
-
-        if (field.required && isEmpty) {
-            errors[field.key] = 'This field is required.';
-        }
-
-        if (!isEmpty && field.validation) {
-            const { min, max, pattern, message } = field.validation;
-            
-            if (field.type === 'number' || field.type === 'slider' || field.type === 'rating') {
-                const num = Number(val);
-                if (min !== undefined && num < min) errors[field.key] = message || `Minimum value is ${min}`;
-                if (max !== undefined && num > max) errors[field.key] = message || `Maximum value is ${max}`;
-            }
-            if (field.type === 'text' || field.type === 'textarea' || field.type === 'password') {
-                if (min !== undefined && val.length < min) errors[field.key] = message || `Minimum length is ${min}`;
-                if (max !== undefined && val.length > max) errors[field.key] = message || `Maximum length is ${max}`;
-            }
-            if (pattern) {
-                const regex = new RegExp(pattern);
-                if (!regex.test(String(val))) errors[field.key] = message || 'Invalid format.';
-            }
-        }
-    });
-
-    return errors;
-};
+// Validation logic moved to utils.ts
 
 const FieldWrapper: React.FC<{ field: FormField; children: React.ReactNode }> = ({ field, children }) => (
     <div className="relative w-full">
@@ -432,3 +384,4 @@ export const FormRenderer: React.FC<FormRendererProps> = ({ form, data, onChange
     </div>
   );
 };
+export { validateForm };

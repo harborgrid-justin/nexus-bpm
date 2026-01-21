@@ -57,6 +57,97 @@ export const NexSkeleton: React.FC<{ height?: string; width?: string; className?
     <div className={`bg-slate-200 animate-pulse rounded-sm ${className}`} style={{ height, width }}></div>
 );
 
+// Rule 35: Debounced Input
+export const NexDebouncedInput: React.FC<{
+    value: string;
+    onChange: (value: string) => void;
+    debounce?: number;
+    placeholder?: string;
+    className?: string;
+    icon?: LucideIcon;
+}> = ({ value: initialValue, onChange, debounce = 300, placeholder, className, icon: Icon }) => {
+    const [value, setValue] = useState(initialValue);
+
+    useEffect(() => {
+        setValue(initialValue);
+    }, [initialValue]);
+
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            onChange(value);
+        }, debounce);
+        return () => clearTimeout(timeout);
+    }, [value, debounce, onChange]);
+
+    return (
+        <div className="relative w-full">
+            {Icon && <Icon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14}/>}
+            <input 
+                className={`${className} ${Icon ? 'pl-9' : 'pl-3'}`}
+                value={value} 
+                onChange={e => setValue(e.target.value)}
+                placeholder={placeholder}
+            />
+        </div>
+    );
+};
+
+// Rule 31: Lightweight Virtual List (Windowing simulation)
+export function NexVirtualList<T>({ 
+    items, 
+    renderItem, 
+    itemHeight, 
+    className 
+}: { 
+    items: T[], 
+    renderItem: (item: T, index: number) => React.ReactNode, 
+    itemHeight: number,
+    className?: string
+}) {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [scrollTop, setScrollTop] = useState(0);
+    const [containerHeight, setContainerHeight] = useState(600);
+
+    useEffect(() => {
+        if (containerRef.current) {
+            setContainerHeight(containerRef.current.clientHeight);
+            const handleScroll = () => setScrollTop(containerRef.current?.scrollTop || 0);
+            const current = containerRef.current;
+            current.addEventListener('scroll', handleScroll);
+            return () => current.removeEventListener('scroll', handleScroll);
+        }
+    }, []);
+
+    const totalHeight = items.length * itemHeight;
+    const startIndex = Math.floor(scrollTop / itemHeight);
+    const visibleCount = Math.ceil(containerHeight / itemHeight);
+    // Add buffer
+    const renderStart = Math.max(0, startIndex - 5);
+    const renderEnd = Math.min(items.length, startIndex + visibleCount + 5);
+    
+    const visibleItems = items.slice(renderStart, renderEnd).map((item, index) => ({
+        item,
+        index: renderStart + index,
+        top: (renderStart + index) * itemHeight
+    }));
+
+    return (
+        <div 
+            ref={containerRef} 
+            className={`overflow-y-auto relative ${className}`}
+            style={{ height: '100%' }}
+        >
+            <div style={{ height: totalHeight, position: 'relative' }}>
+                {visibleItems.map(({ item, index, top }) => (
+                    <div key={index} style={{ position: 'absolute', top, left: 0, right: 0, height: itemHeight }}>
+                        {renderItem(item, index)}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 // Rule 1: Structured Card
 export const NexCard: React.FC<{ 
     children?: React.ReactNode; 
@@ -297,12 +388,12 @@ export const NexSearchFilterBar: React.FC<{
 }> = ({ placeholder = "Search...", onSearch, searchValue, actions, filters }) => (
     <div className="flex flex-col md:flex-row gap-3">
         <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14}/>
-            <input 
-                className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-sm text-xs font-medium focus:ring-1 focus:ring-blue-600 outline-none"
+            <NexDebouncedInput 
+                value={searchValue} 
+                onChange={onSearch} 
                 placeholder={placeholder}
-                value={searchValue}
-                onChange={e => onSearch(e.target.value)}
+                className="w-full pr-4 py-2 bg-white border border-slate-300 rounded-sm text-xs font-medium focus:ring-1 focus:ring-blue-600 outline-none"
+                icon={Search}
             />
         </div>
         {filters && <div className="flex gap-2 items-center">{filters}</div>}

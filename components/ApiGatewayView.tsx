@@ -7,14 +7,10 @@ import {
 } from 'lucide-react';
 import { NexCard, NexButton, NexBadge, NexSwitch, NexModal, NexFormGroup } from './shared/NexUI';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { mockStreamService, StreamEvent } from '../services/mockStreamService';
 
-interface LiveLog {
-    id: string;
-    method: string;
-    path: string;
-    status: number;
-    latency: number;
-    timestamp: Date;
+interface LiveLog extends StreamEvent {
+    // Extending stream event
 }
 
 interface WebhookConfig {
@@ -72,24 +68,13 @@ export const ApiGatewayView: React.FC = () => {
   }, [auditLogs]);
 
   useEffect(() => {
-      const interval = setInterval(() => {
-          if (Math.random() > 0.6) { 
-              const methods = ['POST', 'GET'];
-              const statuses = [200, 200, 200, 201, 400, 401, 500];
-              const paths = ['/v1/rules/exec', '/v1/auth/token', '/v1/hooks/stripe', '/health'];
-              const newLog: LiveLog = {
-                  id: Math.random().toString(36).substr(2, 9),
-                  method: methods[Math.floor(Math.random() * methods.length)],
-                  path: paths[Math.floor(Math.random() * paths.length)],
-                  status: statuses[Math.floor(Math.random() * statuses.length)],
-                  latency: Math.floor(Math.random() * 200) + 20,
-                  timestamp: new Date()
-              };
-              setLiveLogs(prev => [newLog, ...prev].slice(0, 50));
-          }
-      }, 1500);
-      return () => clearInterval(interval);
-  }, []);
+      if (activeTab === 'logs') {
+          const unsub = mockStreamService.subscribe((event) => {
+              setLiveLogs(prev => [event as LiveLog, ...prev].slice(0, 100));
+          });
+          return unsub;
+      }
+  }, [activeTab]);
 
   const handleCopyUrl = (url: string) => {
     navigator.clipboard.writeText(`https://api.nexflow.io${url}`);
@@ -291,10 +276,9 @@ export const ApiGatewayView: React.FC = () => {
                        {liveLogs.map(log => (
                            <div key={log.id} className="flex gap-3 hover:bg-slate-800/50 p-0.5 rounded text-slate-300 animate-slide-up">
                                <span className="text-slate-600 w-16 shrink-0">{log.timestamp.toLocaleTimeString()}</span>
-                               <span className={`w-12 font-bold ${log.method === 'POST' ? 'text-amber-400' : 'text-blue-400'}`}>{log.method}</span>
-                               <span className={`w-8 font-bold ${log.status >= 500 ? 'text-rose-500' : log.status >= 400 ? 'text-orange-400' : 'text-emerald-400'}`}>{log.status}</span>
-                               <span className="flex-1 truncate text-slate-400">{log.path}</span>
-                               <span className="text-slate-600 w-12 text-right">{log.latency}ms</span>
+                               <span className={`w-12 font-bold ${log.source === 'API Gateway' ? 'text-amber-400' : 'text-blue-400'}`}>{log.source}</span>
+                               <span className={`w-8 font-bold ${log.severity === 'error' ? 'text-rose-500' : log.severity === 'warn' ? 'text-orange-400' : 'text-emerald-400'}`}>{log.severity}</span>
+                               <span className="flex-1 truncate text-slate-400">{log.message}</span>
                            </div>
                        ))}
                    </div>
