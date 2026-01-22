@@ -173,12 +173,29 @@ export const MobileFieldView: React.FC = () => {
       if (location) await updateTaskLocation(taskId, location.lat, location.lng);
   };
 
-  const handleCompleteFlow = async () => {
+  const handleCompleteFlow = async (signatureData: string) => {
       if (!selectedTaskId) return;
-      const payload = { taskId: selectedTaskId, action: 'approve', evidence: evidence.length, signature: true };
-      if (isOffline) syncService.enqueue('COMPLETE_TASK', payload);
-      else await completeTask(selectedTaskId, 'approve', 'Field Completion');
-      setShowSignature(false); setSelectedTaskId(null); setEvidence([]);
+      const payload = { 
+          taskId: selectedTaskId, 
+          action: 'approve', 
+          comments: 'Field Completion',
+          formData: { 
+              signature: signatureData, 
+              evidenceCount: evidence.length,
+              evidenceNames: evidence.map(f => f.name),
+              completionCoordinates: location
+          }
+      };
+      
+      if (isOffline) {
+          syncService.enqueue('COMPLETE_TASK', payload);
+      } else {
+          await completeTask(payload.taskId, payload.action, payload.comments, payload.formData);
+      }
+      
+      setShowSignature(false); 
+      setSelectedTaskId(null); 
+      setEvidence([]);
   };
 
   return (
@@ -270,7 +287,7 @@ export const MobileFieldView: React.FC = () => {
         </div>
 
         <NexModal isOpen={showSignature} onClose={() => setShowSignature(false)} title="Customer Sign-off" size="sm">
-            <SignaturePad onSave={handleCompleteFlow} />
+            <SignaturePad onSave={(data) => handleCompleteFlow(data)} />
         </NexModal>
 
         <div className="h-16 bg-panel border-t border-default flex justify-around items-center shrink-0 pb-safe z-40">
