@@ -1,5 +1,5 @@
 
-import React, { useState, Suspense, lazy } from 'react';
+import React, { useState, Suspense } from 'react';
 import { 
   LayoutDashboard, CheckSquare, PenTool, BarChart3, Menu, X, Bell, 
   Search, Layers, Settings as SettingsIcon, ShieldCheck, 
@@ -7,31 +7,33 @@ import {
   Database, LogIn, Command, Home, Calendar, Globe, FormInput,
   PanelLeftClose, PanelLeftOpen, ShoppingBag, Smartphone
 } from 'lucide-react';
+
+// --- Static Imports for Reliability ---
 import { Dashboard } from './components/Dashboard';
 import { TaskInbox } from './components/TaskInbox';
 import { TaskExplorer } from './components/TaskExplorer';
-// Lazy Load Heavy Components
-const ProcessDesigner = lazy(() => import('./components/ProcessDesigner').then(module => ({ default: module.ProcessDesigner })));
-const ProcessRepository = lazy(() => import('./components/ProcessRepository').then(module => ({ default: module.ProcessRepository })));
-const AnalyticsView = lazy(() => import('./components/AnalyticsView').then(module => ({ default: module.AnalyticsView })));
-const GovernanceView = lazy(() => import('./components/GovernanceView').then(module => ({ default: module.GovernanceView })));
-const SettingsView = lazy(() => import('./components/Settings').then(module => ({ default: module.Settings })));
-const IdentityView = lazy(() => import('./components/IdentityView').then(module => ({ default: module.IdentityView })));
-const ProcessInstanceViewer = lazy(() => import('./components/ProcessInstanceViewer').then(module => ({ default: module.ProcessInstanceViewer })));
-const CaseManagerView = lazy(() => import('./components/CaseManagerView').then(module => ({ default: module.CaseManagerView })));
-const CaseViewer = lazy(() => import('./components/CaseViewer').then(module => ({ default: module.CaseViewer })));
-const RulesEngineView = lazy(() => import('./components/RulesEngineView').then(module => ({ default: module.RulesEngineView })));
-const ApiGatewayView = lazy(() => import('./components/ApiGatewayView').then(module => ({ default: module.ApiGatewayView })));
-const FormRepository = lazy(() => import('./components/FormRepository').then(module => ({ default: module.FormRepository })));
-const FormDesigner = lazy(() => import('./components/FormDesigner').then(module => ({ default: module.FormDesigner })));
-const MarketplaceView = lazy(() => import('./components/MarketplaceView').then(module => ({ default: module.MarketplaceView })));
-const MobileFieldView = lazy(() => import('./components/MobileFieldView').then(module => ({ default: module.MobileFieldView })));
-const ResourcePlanner = lazy(() => import('./components/pages/ResourcePlanner').then(module => ({ default: module.ResourcePlanner })));
+import { ProcessRepository } from './components/ProcessRepository';
+import { ProcessDesigner } from './components/ProcessDesigner';
+import { AnalyticsView } from './components/AnalyticsView';
+import { GovernanceView } from './components/GovernanceView';
+import { Settings as SettingsView } from './components/Settings';
+import { IdentityView } from './components/IdentityView';
+import { ProcessInstanceViewer } from './components/ProcessInstanceViewer';
+import { CaseManagerView } from './components/CaseManagerView';
+import { CaseViewer } from './components/CaseViewer';
+import { RulesEngineView } from './components/RulesEngineView';
+import { ApiGatewayView } from './components/ApiGatewayView';
+import { FormRepository } from './components/FormRepository';
+import { FormDesigner } from './components/FormDesigner';
+import { MarketplaceView } from './components/MarketplaceView';
+import { MobileFieldView } from './components/MobileFieldView';
+import { ResourcePlanner } from './components/pages/ResourcePlanner';
 
 import { DevToolbar } from './components/DevToolbar';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CommandPalette } from './components/CommandPalette';
-// Import New Pages
+
+// Sub-Pages
 import { UserFormView, RoleFormView, GroupFormView, DelegationFormView } from './components/pages/IdentityPages';
 import { CaseCreateView, CaseEditView, CasePolicyView, CaseStakeholderView, CaseLaunchView } from './components/pages/CasePages';
 import { TaskReassignView, TaskMetadataView } from './components/pages/TaskPages';
@@ -223,9 +225,9 @@ const AppContent: React.FC = () => {
   if (nav.view === 'field-ops') {
       return (
           <>
-            <Suspense fallback={<div className="h-screen w-full flex items-center justify-center bg-black/10"><Loader2 className="animate-spin"/></div>}>
+            <div className="h-screen w-full">
                 <MobileFieldView />
-            </Suspense>
+            </div>
             <button onClick={() => navigateTo('dashboard')} className="fixed top-2 right-2 z-[250] bg-black/30 hover:bg-black/50 text-white rounded-full p-2 backdrop-blur-sm transition-all"><X size={20}/></button>
           </>
       );
@@ -310,11 +312,6 @@ const AppContent: React.FC = () => {
         <Breadcrumbs nav={nav} />
 
         <main className="flex-1 overflow-y-auto bg-app relative" style={{ padding: isFullCanvasView ? '0' : 'var(--layout-padding)' }}>
-          <Suspense fallback={
-            <div className="h-full w-full flex items-center justify-center">
-                <Loader2 className="animate-spin text-blue-500" size={24}/>
-            </div>
-          }>
             {isFullCanvasView ? (
                <div className="h-full w-full flex flex-col">
                   {nav.selectedId ? <CurrentComponent id={nav.selectedId} /> : <CurrentComponent />}
@@ -324,7 +321,6 @@ const AppContent: React.FC = () => {
                   {nav.selectedId ? <CurrentComponent id={nav.selectedId} /> : <CurrentComponent />}
                </div>
             )}
-          </Suspense>
         </main>
       </div>
 
