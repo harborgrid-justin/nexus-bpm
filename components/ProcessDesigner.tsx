@@ -18,10 +18,12 @@ import { CanvasContextMenu } from './designer/CanvasContextMenu';
 import { HierarchyView } from './designer/HierarchyView';
 import { SwimlaneRenderer } from './designer/SwimlaneRenderer';
 import { getStepTypeMetadata } from './designer/designerUtils';
-import { NexFormGroup, NexModal, NexButton } from './shared/NexUI';
-import { validateStepConfiguration } from './designer/stepSchemas';
+import { NexFormGroup, NexModal } from './shared/NexUI';
 import useUndoRedo from './hooks/useUndoRedo';
 import { useMediaQuery, BREAKPOINTS } from './hooks/useMediaQuery';
+import { generateBPMNXml } from '../services/bpmnExporter';
+import { useWorkflowSimulation } from './hooks/useWorkflowSimulation';
+import { STEP_TYPES, DRAFT_STORAGE_KEY, LAYOUT_DIRECTION } from '../constants';
 
 const nodeTypes = { custom: NodeComponent };
 const edgeTypes = { custom: CustomEdge };
@@ -55,8 +57,7 @@ const ProcessSettingsPanel: React.FC<{
     meta: Partial<ProcessDefinition>;
     onChange: (upd: Partial<ProcessDefinition>) => void;
     onClose: () => void;
-    roles: UserRole[];
-}> = ({ meta, onChange, onClose, roles }) => {
+}> = ({ meta, onChange, onClose }) => {
     const addLane = () => { onChange({ lanes: [...(meta.lanes || []), { id: `lane-${Date.now()}`, name: 'New Lane', height: 300, color: 'slate' }] }); };
     const updateLane = (id: string, updates: Partial<Swimlane>) => { onChange({ lanes: (meta.lanes || []).map(l => l.id === id ? { ...l, ...updates } : l) }); };
     const removeLane = (id: string) => { onChange({ lanes: (meta.lanes || []).filter(l => l.id !== id) }); };
@@ -106,8 +107,8 @@ const ProcessSettingsPanel: React.FC<{
 };
 
 const DesignerFlow = ({ 
-    nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeClick, onPaneClick, onContextMenu, onDrop, onDragOver, onLayout, isValidConnection, lanes,
-    simulationActive, activeSimNodeId, viewMode, setViewMode, selectionMode, setSelectionMode 
+    nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeClick, onPaneClick, onContextMenu, onDrop, onDragOver, onLayout, lanes,
+    simulationActive, activeSimNodeId, setViewMode, selectionMode, setSelectionMode 
 }: any) => {
     return (
         <div className="h-full w-full relative" onDrop={onDrop} onDragOver={onDragOver}>
@@ -123,7 +124,6 @@ const DesignerFlow = ({
                 onContextMenu={onContextMenu} 
                 nodeTypes={nodeTypes} 
                 edgeTypes={edgeTypes} 
-                isValidConnection={isValidConnection} 
                 snapToGrid={true} 
                 snapGrid={[GRID_SIZE, GRID_SIZE]} 
                 fitView 
@@ -138,8 +138,8 @@ const DesignerFlow = ({
                 <MiniMap 
                     className="border border-slate-200 shadow-sm rounded-base hidden sm:block" 
                     nodeColor={(n) => {
-                        if (n.data?.step?.type === 'start') return '#10b981';
-                        if (n.data?.step?.type === 'end') return '#ef4444';
+                        if (n.data?.step?.type === STEP_TYPES.START) return '#10b981';
+                        if (n.data?.step?.type === STEP_TYPES.END) return '#ef4444';
                         return '#e2e8f0';
                     }} 
                     maskColor="rgb(248, 250, 252, 0.7)" 
@@ -152,8 +152,8 @@ const DesignerFlow = ({
                         <button onClick={() => setSelectionMode('select')} className={`p-1.5 rounded transition-colors ${selectionMode === 'select' ? 'bg-blue-100 text-blue-700' : 'hover:bg-slate-100 text-slate-500'}`} title="Selection Tool (V)"><MousePointer size={16}/></button>
                     </div>
                     <div className="bg-white p-1 rounded-sm shadow-sm border border-slate-200 flex gap-1">
-                        <button onClick={() => onLayout('TB')} className="p-1.5 hover:bg-slate-100 rounded text-slate-500" title="Vertical Layout"><Layout size={16} className="rotate-90"/></button>
-                        <button onClick={() => onLayout('LR')} className="p-1.5 hover:bg-slate-100 rounded text-slate-500" title="Horizontal Layout"><Layout size={16}/></button>
+                        <button onClick={() => onLayout(LAYOUT_DIRECTION.VERTICAL)} className="p-1.5 hover:bg-slate-100 rounded text-slate-500" title="Vertical Layout"><Layout size={16} className="rotate-90"/></button>
+                        <button onClick={() => onLayout(LAYOUT_DIRECTION.HORIZONTAL)} className="p-1.5 hover:bg-slate-100 rounded text-slate-500" title="Horizontal Layout"><Layout size={16}/></button>
                     </div>
                 </Panel>
             </ReactFlow>
@@ -162,7 +162,7 @@ const DesignerFlow = ({
 };
 
 export const ProcessDesigner: React.FC = () => {
-  const { deployProcess, roles, addNotification, designerDraft, setDesignerDraft, nav, currentUser, processes, setToolbarConfig } = useBPM();
+  const { deployProcess, roles, addNotification, setDesignerDraft, nav, currentUser, processes, setToolbarConfig } = useBPM();
   const isMobile = useMediaQuery(BREAKPOINTS.mobile);
   
   const { state: flowState, set: setFlowState, undo, redo, canUndo, canRedo } = useUndoRedo({ nodes: [] as Node[], edges: [] as Edge[] });
@@ -183,9 +183,8 @@ export const ProcessDesigner: React.FC = () => {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [showValidationPanel, setShowValidationPanel] = useState(true);
   
-  // Simulation Controls
-  const [simulationActive, setSimulationActive] = useState(false);
-  const [simStepId, setSimStepId] = useState<string | null>(null);
+  // Simulation Hook
+  const { active: simulationActive, currentStepId: simStepId, start: startSimulation, stop: stopSimulation, step: stepSimulation } = useWorkflowSimulation(nodes, edges, addNotification);
 
   const flowStateRef = useRef(flowState);
   const processMetaRef = useRef(processMeta);
@@ -212,7 +211,7 @@ export const ProcessDesigner: React.FC = () => {
           const links: ProcessLink[] = curEdges.map(e => ({ id: e.id, sourceId: e.source, targetId: e.target, label: e.label as string }));
           
           setDesignerDraft({ steps, links });
-          localStorage.setItem('nexflow_draft', JSON.stringify({ steps, links, meta }));
+          localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({ steps, links, meta }));
       }, 2000);
       return () => clearTimeout(handler);
   }, [setDesignerDraft, nodes, edges, processMeta]);
@@ -229,7 +228,7 @@ export const ProcessDesigner: React.FC = () => {
               return; 
           }
       }
-      const saved = localStorage.getItem('nexflow_draft');
+      const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
       if (saved && !nav.selectedId) {
           const parsed = JSON.parse(saved);
           setFlowState({
@@ -243,8 +242,8 @@ export const ProcessDesigner: React.FC = () => {
   // Real-time Validation
   useEffect(() => {
       const errors: string[] = [];
-      const startNodes = nodes.filter(n => n.data.step.type === 'start');
-      const endNodes = nodes.filter(n => n.data.step.type === 'end' || n.data.step.type === 'terminate-end');
+      const startNodes = nodes.filter(n => n.data.step.type === STEP_TYPES.START);
+      const endNodes = nodes.filter(n => n.data.step.type === STEP_TYPES.END || n.data.step.type === 'terminate-end');
 
       if (startNodes.length === 0) errors.push("Workflow must have at least one 'Start' event.");
       if (endNodes.length === 0) errors.push("Workflow must have at least one 'End' or 'Terminate' event.");
@@ -254,12 +253,12 @@ export const ProcessDesigner: React.FC = () => {
 
       nodes.forEach(node => {
           const type = node.data.step.type;
-          if (type === 'note') return; 
+          if (type === STEP_TYPES.NOTE) return; 
           
-          if (type !== 'end' && type !== 'terminate-end' && !sourceIds.has(node.id)) {
+          if (type !== STEP_TYPES.END && type !== 'terminate-end' && !sourceIds.has(node.id)) {
               errors.push(`Step '${node.data.step.name}' has no outgoing connections (Dead End).`);
           }
-          if (type !== 'start' && !targetIds.has(node.id)) {
+          if (type !== STEP_TYPES.START && !targetIds.has(node.id)) {
               errors.push(`Step '${node.data.step.name}' is unreachable (Orphan).`);
           }
       });
@@ -286,58 +285,14 @@ export const ProcessDesigner: React.FC = () => {
   }, [validationErrors]);
 
   const handleClear = useCallback(() => { if(window.confirm('Clear canvas?')) { setFlowState({ nodes: [], edges: [] }); } }, [setFlowState]);
-  const handleLayout = useCallback((direction: 'LR' | 'TB') => {
+  const handleLayout = useCallback((direction: string) => {
       const { nodes, edges } = flowStateRef.current;
       const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges, direction);
       setFlowState({ nodes: layoutedNodes, edges: layoutedEdges });
   }, [setFlowState]);
 
-  const handleSyncIDE = useCallback(() => {
-      // Round-Trip Engineering Sim
-      addNotification('info', 'Syncing from JDeveloper / Git...');
-      setTimeout(() => {
-          // Simulate slight change
-          setProcessMeta(p => ({ ...p, version: (p.version || 1) + 0.1 }));
-          addNotification('success', 'Changes pulled from IDE.');
-      }, 1500);
-  }, [addNotification]);
-
-  const startSimulation = () => {
-      const startNode = nodes.find(n => n.data.step.type === 'start');
-      if (startNode) {
-          setSimStepId(startNode.id);
-          setSimulationActive(true);
-      } else {
-          addNotification('error', 'No Start Node found.');
-      }
-  };
-
-  const stopSimulation = () => {
-      setSimulationActive(false);
-      setSimStepId(null);
-  };
-
-  const stepSimulation = () => {
-      if (!simStepId) return;
-      const outgoing = edges.filter(e => e.source === simStepId);
-      if (outgoing.length === 0) {
-          addNotification('info', 'Simulation End Reached');
-          stopSimulation();
-      } else {
-          const next = outgoing[Math.floor(Math.random() * outgoing.length)].target;
-          setSimStepId(next);
-      }
-  };
-
   const generateBPMN = () => {
-      let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<bpmn:definitions>\n  <bpmn:process id="${processMeta.id || 'proc_1'}" isExecutable="true">\n`;
-      nodes.forEach(n => {
-          xml += `    <bpmn:task id="${n.id}" name="${n.data.step.name}" />\n`;
-      });
-      edges.forEach(e => {
-          xml += `    <bpmn:sequenceFlow id="${e.id}" sourceRef="${e.source}" targetRef="${e.target}" />\n`;
-      });
-      xml += `  </bpmn:process>\n</bpmn:definitions>`;
+      const xml = generateBPMNXml(processMeta, nodes, edges);
       setBpmnXml(xml);
       setShowXmlModal(true);
   };
@@ -346,7 +301,7 @@ export const ProcessDesigner: React.FC = () => {
       setToolbarConfig({
           file: [
               { label: 'Save Draft', action: () => addNotificationRef.current('info', 'Draft saved locally.') },
-              { label: 'Sync from IDE', action: handleSyncIDE, icon: RefreshCw },
+              { label: 'Sync from IDE', action: () => addNotificationRef.current('info', 'Sync simulated.'), icon: RefreshCw },
               { label: 'Deploy Process', action: handleDeploy, shortcut: 'Ctrl+S' },
               { label: 'Clear Canvas', action: handleClear, divider: true },
           ],
@@ -355,8 +310,8 @@ export const ProcessDesigner: React.FC = () => {
               { label: 'Redo', action: redo, disabled: !canRedo, shortcut: 'Ctrl+Y' },
           ],
           view: [
-              { label: 'Auto Layout (Horizontal)', action: () => handleLayout('LR') },
-              { label: 'Auto Layout (Vertical)', action: () => handleLayout('TB') },
+              { label: 'Auto Layout (Horizontal)', action: () => handleLayout(LAYOUT_DIRECTION.HORIZONTAL) },
+              { label: 'Auto Layout (Vertical)', action: () => handleLayout(LAYOUT_DIRECTION.VERTICAL) },
               { label: 'Toggle Hierarchy View', action: () => setViewMode(m => m === 'canvas' ? 'hierarchy' : 'canvas') },
               { label: 'View BPMN XML', action: generateBPMN }
           ],
@@ -364,9 +319,8 @@ export const ProcessDesigner: React.FC = () => {
               { label: 'Validate Integrity', action: () => setShowValidationPanel(true) }
           ]
       });
-  }, [setToolbarConfig, handleDeploy, handleClear, handleLayout, undo, redo, canUndo, canRedo, handleSyncIDE]);
+  }, [setToolbarConfig, handleDeploy, handleClear, handleLayout, undo, redo, canUndo, canRedo]);
 
-  // --- Node Operations ---
   const onNodesChange = useCallback((changes: NodeChange[]) => setFlowState({ nodes: applyNodeChanges(changes, nodes), edges }), [nodes, edges, setFlowState]);
   const onEdgesChange = useCallback((changes: EdgeChange[]) => setFlowState({ nodes, edges: applyEdgeChanges(changes, edges) }), [nodes, edges, setFlowState]);
   const addNode = useCallback((type: ProcessStepType | 'note', position?: { x: number, y: number }) => {
@@ -375,7 +329,7 @@ export const ProcessDesigner: React.FC = () => {
     const newNode: Node = { id, type: 'custom', position: position || { x: 250, y: 250 }, data: { step: { id, name: metadata.defaultName, type: type as ProcessStepType, description: '', requiredSkills: metadata.defaultSkills || [], data: {} } } };
     setFlowState({ nodes: [...nodes, newNode], edges });
     setSelectedNodeId(id);
-    if (!rightOpen && type !== 'note') setRightOpen(true);
+    if (!rightOpen && type !== STEP_TYPES.NOTE) setRightOpen(true);
     if (isMobile) setLeftOpen(false);
   }, [nodes, edges, rightOpen, setFlowState, isMobile]);
 
@@ -446,7 +400,6 @@ export const ProcessDesigner: React.FC = () => {
               )}
               <div className="h-4 w-px bg-default mx-1 hidden md:block"></div>
               <button onClick={generateBPMN} className="p-1 text-secondary hover:text-blue-600 hidden md:block" title="View XML"><Code size={16}/></button>
-              <button onClick={handleSyncIDE} className="p-1 text-secondary hover:text-blue-600 hidden md:block" title="Sync IDE"><RefreshCw size={16}/></button>
               <button onClick={() => setFlowState({nodes:[], edges:[]})} className="p-1 text-secondary hover:text-rose-600 hidden md:block"><Trash2 size={16}/></button>
               <button onClick={handleDeploy} className="flex items-center gap-1 px-3 py-1 bg-brand-slate text-white rounded-base text-xs hover:bg-slate-900 shadow-sm"><Save size={14}/> <span className="hidden md:inline">Save</span></button>
               <button onClick={() => setRightOpen(!rightOpen)} className={`p-1 rounded-base hover:bg-white ${rightOpen ? 'text-blue-600' : 'text-secondary'}`}><PanelRight size={16}/></button>
@@ -473,11 +426,9 @@ export const ProcessDesigner: React.FC = () => {
                         onDrop={onDrop} 
                         onDragOver={(e: any) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }} 
                         onLayout={handleLayout} 
-                        isValidConnection={(c: any) => true} 
                         lanes={processMeta.lanes}
                         simulationActive={simulationActive}
                         activeSimNodeId={simStepId} 
-                        viewMode={viewMode}
                         setViewMode={setViewMode}
                         selectionMode={selectionMode}
                         setSelectionMode={setSelectionMode}
@@ -487,7 +438,6 @@ export const ProcessDesigner: React.FC = () => {
                 )}
              </div>
              
-             {/* --- Validation Footer --- */}
              {showValidationPanel && (
                  <div className="bg-white border-t border-slate-200 h-32 flex flex-col transition-all">
                      <div className="flex items-center justify-between px-3 py-1 bg-slate-50 border-b border-slate-200">
@@ -522,7 +472,7 @@ export const ProcessDesigner: React.FC = () => {
              {selectedStep ? (
                  <PropertiesPanel step={selectedStep} onUpdate={updateSelectedStep} onDelete={deleteNode} roles={roles} onClose={() => setSelectedNodeId(null)} />
              ) : (
-                 <ProcessSettingsPanel meta={processMeta} onChange={setProcessMeta} onClose={() => setRightOpen(false)} roles={roles} />
+                 <ProcessSettingsPanel meta={processMeta} onChange={setProcessMeta} onClose={() => setRightOpen(false)} />
              )}
           </div>
         </div>

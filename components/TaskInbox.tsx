@@ -12,9 +12,11 @@ import {
 } from 'lucide-react';
 import { NexBadge, NexButton, NexHistoryFeed, NexDebouncedInput, NexUserDisplay, NexVirtualList, NexCard } from './shared/NexUI';
 import { FormRenderer } from './shared/FormRenderer';
-import { validateForm, createFilterPredicate, calculateSLA } from '../utils';
+import { validateForm, calculateSLA } from '../utils';
 import { summarizeTaskContext } from '../services/geminiService';
 import { Responsive, WidthProvider } from 'react-grid-layout';
+import { useDataFilter } from './hooks/useDataFilter';
+import { TASK_STATUS, PRIORITIES } from '../constants';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -111,9 +113,8 @@ export const TaskInbox: React.FC = () => {
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const [activeTab, setActiveTab] = useState<'my' | 'team' | 'starred' | 'snoozed'>('my');
   const [density, setDensity] = useState<'compact' | 'comfy'>('comfy');
-  const [sortConfig, setSortConfig] = useState<{ key: keyof Task, dir: 'asc' | 'desc' }>({ key: 'dueDate', dir: 'asc' });
-  const [localSearch, setLocalSearch] = useState('');
   const [isEditable, setIsEditable] = useState(false);
+  const [quickFilter, setQuickFilter] = useState<string | null>(null); // 'Critical', 'Overdue'
   
   // -- Layouts --
   const defaultLayouts = {
@@ -139,14 +140,31 @@ export const TaskInbox: React.FC = () => {
       });
   }, [setToolbarConfig, isEditable]);
 
-  // -- Saved View State --
-  const [activeSavedView, setActiveSavedView] = useState<string | null>(null);
-  const [showSaveViewInput, setShowSaveViewInput] = useState(false);
-  const [newViewName, setNewViewName] = useState('');
-
-  // -- Filters --
-  const [quickFilter, setQuickFilter] = useState<string | null>(null); // 'Critical', 'Overdue'
+  // --- Filtering Logic using Hooks (Finding 8) ---
+  const delegateRules = delegations.filter(d => d.toUserId === currentUser?.id && d.isActive);
   
+  const baseTasks = useMemo(() => {
+      return tasks.filter(t => {
+          if (activeTab === 'snoozed') return !!t.snoozeUntil && new Date(t.snoozeUntil) > new Date();
+          if (t.snoozeUntil && new Date(t.snoozeUntil) > new Date()) return false;
+
+          if (activeTab === 'my') return t.assignee === currentUser?.id;
+          if (activeTab === 'starred') return t.isStarred;
+          if (activeTab === 'team') return t.assignee === 'Unassigned' || delegateRules.some(d => d.fromUserId === t.assignee);
+          return true;
+      });
+  }, [tasks, activeTab, currentUser, delegateRules]);
+
+  const { data: filteredTasks, searchQuery, setSearchQuery } = useDataFilter<Task>(baseTasks, {
+      searchFields: ['title', 'processName'],
+      initialSort: { key: 'dueDate', dir: 'asc' },
+      filterPredicate: (t) => {
+          const isCritical = quickFilter === 'Critical' ? t.priority === PRIORITIES.CRITICAL : true;
+          const isOverdue = quickFilter === 'Overdue' ? new Date(t.dueDate) < new Date() : true;
+          return isCritical && isOverdue;
+      }
+  });
+
   // -- Bulk State --
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   
@@ -160,69 +178,12 @@ export const TaskInbox: React.FC = () => {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  // -- AI Insight State --
-  const [aiInsight, setAiInsight] = useState<{summary: string, sentiment: string, nextAction: string} | null>(null);
-  const [loadingAi, setLoadingAi] = useState(false);
-
   useEffect(() => {
       if (selectedTask) {
           setFormData(selectedTask.data || {});
           setFormErrors({});
-          setAiInsight(null);
-          handleAiSummary(selectedTask);
       }
   }, [selectedTask]);
-
-  const handleApplySavedView = (view: SavedView) => {
-      setActiveSavedView(view.id);
-      if (view.filters.status) setQuickFilter(view.filters.status); // Simplified mapping
-      if (view.filters.search) setLocalSearch(view.filters.search);
-  };
-
-  const handleSaveCurrentView = async () => {
-      if (!newViewName) return;
-      await saveView({
-          id: '',
-          name: newViewName,
-          type: 'Task',
-          filters: { search: localSearch, priority: quickFilter || undefined }
-      });
-      setNewViewName('');
-      setShowSaveViewInput(false);
-  };
-
-  // --- Derived Data & Filtering (Rule 24 Applied) ---
-  const delegateRules = delegations.filter(d => d.toUserId === currentUser?.id && d.isActive);
-  
-  const filteredTasks = useMemo(() => {
-      // Base Filter based on Tab
-      const baseFilter = (t: Task) => {
-          if (activeTab === 'snoozed') return !!t.snoozeUntil && new Date(t.snoozeUntil) > new Date();
-          if (t.snoozeUntil && new Date(t.snoozeUntil) > new Date()) return false;
-
-          if (activeTab === 'my') return t.assignee === currentUser?.id;
-          if (activeTab === 'starred') return t.isStarred;
-          if (activeTab === 'team') return t.assignee === 'Unassigned' || delegateRules.some(d => d.fromUserId === t.assignee);
-          return true;
-      };
-
-      // Create Predicate from Config
-      const predicate = createFilterPredicate<Task>({
-          priority: quickFilter === 'Critical' ? TaskPriority.CRITICAL : undefined,
-      }, localSearch, ['title', 'processName']);
-
-      // Overdue Custom Check
-      const overdueFilter = (t: Task) => quickFilter === 'Overdue' ? new Date(t.dueDate) < new Date() : true;
-
-      return tasks.filter(t => baseFilter(t) && predicate(t) && overdueFilter(t)).sort((a, b) => {
-          const valA = a[sortConfig.key];
-          const valB = b[sortConfig.key];
-          if (valA === undefined || valB === undefined) return 0;
-          if (valA < valB) return sortConfig.dir === 'asc' ? -1 : 1;
-          if (valA > valB) return sortConfig.dir === 'asc' ? 1 : -1;
-          return 0;
-      });
-  }, [tasks, activeTab, localSearch, quickFilter, sortConfig, currentUser, delegateRules]);
 
   const toggleSelection = (id: string) => {
       const newSet = new Set(selectedIds);
@@ -235,14 +196,6 @@ export const TaskInbox: React.FC = () => {
       if (!quickTaskTitle.trim()) return;
       await createAdHocTask(quickTaskTitle);
       setQuickTaskTitle('');
-  };
-  
-  const handleAiSummary = async (task: Task) => {
-      setLoadingAi(true);
-      try {
-          const result = await summarizeTaskContext(task);
-          setAiInsight(result);
-      } catch (e) { console.error(e); } finally { setLoadingAi(false); }
   };
   
   const activeForm = selectedTask?.formId ? forms.find(f => f.id === selectedTask.formId) : null;
@@ -311,7 +264,7 @@ export const TaskInbox: React.FC = () => {
                             <Plus size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-tertiary"/>
                             <input className="w-full pl-8 pr-3 py-1.5 text-xs border border-default rounded-base focus:ring-1 focus:ring-blue-500 outline-none bg-panel text-primary" placeholder="Quick add..." value={quickTaskTitle} onChange={e => setQuickTaskTitle(e.target.value)} />
                         </form>
-                        <NexDebouncedInput value={localSearch} onChange={setLocalSearch} placeholder="Search..." className="w-full pr-3 py-1.5 bg-panel border border-default rounded-base outline-none text-xs text-primary" icon={Search} />
+                        <NexDebouncedInput value={searchQuery} onChange={setSearchQuery} placeholder="Search..." className="w-full pr-3 py-1.5 bg-panel border border-default rounded-base outline-none text-xs text-primary" icon={Search} />
                     </div>
 
                     <div className="flex-1 overflow-y-auto bg-panel min-h-0">
@@ -332,7 +285,7 @@ export const TaskInbox: React.FC = () => {
                             <div className="h-12 bg-panel border-b border-default flex items-center justify-between px-4 shadow-sm shrink-0">
                                 <div className="flex items-center gap-2">
                                     <button onClick={() => setSelectedTask(null)} className="xl:hidden mr-2 text-secondary"><ChevronLeft size={18}/></button>
-                                    <NexBadge variant={selectedTask.priority === 'Critical' ? 'rose' : 'blue'}>{selectedTask.priority}</NexBadge>
+                                    <NexBadge variant={selectedTask.priority === PRIORITIES.CRITICAL ? 'rose' : 'blue'}>{selectedTask.priority}</NexBadge>
                                     <span className="text-xs text-tertiary font-mono">{selectedTask.id}</span>
                                 </div>
                                 <button onClick={() => setSelectedTask(null)} className="p-1.5 hover:bg-subtle rounded-base text-secondary"><X size={16}/></button>
@@ -367,7 +320,7 @@ export const TaskInbox: React.FC = () => {
                                         </div>
                                     )}
 
-                                    {activeForm && selectedTask.status !== TaskStatus.COMPLETED && (
+                                    {activeForm && selectedTask.status !== TASK_STATUS.COMPLETED && (
                                         <div className="mb-6 p-4 bg-subtle border border-blue-200 rounded-sm">
                                             <div className="flex items-center gap-2 mb-4 text-blue-700">
                                                 <FormInput size={16}/>
@@ -419,12 +372,12 @@ export const TaskInbox: React.FC = () => {
                         <div className="w-px h-8 bg-default"></div>
                         <div>
                             <div className="text-xs text-secondary uppercase font-bold">My Open</div>
-                            <div className="text-xl font-black text-blue-600">{tasks.filter(t => t.assignee === currentUser?.id && t.status !== 'Completed').length}</div>
+                            <div className="text-xl font-black text-blue-600">{tasks.filter(t => t.assignee === currentUser?.id && t.status !== TASK_STATUS.COMPLETED).length}</div>
                         </div>
                         <div className="w-px h-8 bg-default"></div>
                         <div>
                             <div className="text-xs text-secondary uppercase font-bold">Critical</div>
-                            <div className="text-xl font-black text-rose-600">{tasks.filter(t => t.priority === TaskPriority.CRITICAL).length}</div>
+                            <div className="text-xl font-black text-rose-600">{tasks.filter(t => t.priority === PRIORITIES.CRITICAL).length}</div>
                         </div>
                     </div>
                     {!isEditable && (

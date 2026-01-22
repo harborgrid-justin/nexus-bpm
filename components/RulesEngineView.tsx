@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { produce } from 'immer';
 import { NexButton, NexBadge, NexCard } from './shared/NexUI';
-import { explainRuleLogic } from '../services/geminiService';
 import { Responsive, WidthProvider } from 'react-grid-layout';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);

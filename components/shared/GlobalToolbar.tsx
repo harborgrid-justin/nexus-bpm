@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useBPM } from '../../contexts/BPMContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ToolbarAction } from '../../types';
+import { commandService, Command } from '../../services/commandService';
 
 interface MenuProps {
     label: string;
@@ -64,107 +65,56 @@ const ToolbarMenu: React.FC<MenuProps> = ({ label, items, isOpen, onToggle, onCl
 export const GlobalToolbar: React.FC = () => {
     const { toolbarConfig, navigateTo, reseedSystem, createAdHocTask, exportData, currentUser, addNotification } = useBPM();
     const { themeMode, setThemeMode, density, setDensity } = useTheme();
-    
-    // Siloed State: Only one menu active at a time
     const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
     const toggleMenu = (menu: string) => setActiveMenu(curr => curr === menu ? null : menu);
     const closeMenu = () => setActiveMenu(null);
 
-    // --- 10 Global Wired Actions ---
-
-    // 1. Quick Task
-    const actionQuickTask = async () => {
-        const title = prompt("Enter task title:");
-        if (title) {
-            await createAdHocTask(title);
-            addNotification('success', 'Task created successfully');
-            navigateTo('inbox');
-        }
-    };
-
-    // 2. New Case
-    const actionNewCase = () => navigateTo('create-case');
-
-    // 3. Backup Data
-    const actionBackup = async () => {
-        try {
-            const data = await exportData();
-            const blob = new Blob([data], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `nexflow_backup_${new Date().toISOString()}.json`;
-            a.click();
-            addNotification('success', 'System backup downloaded');
-        } catch (e) {
-            addNotification('error', 'Backup failed');
-        }
-    };
-
-    // 4. Copy Link
-    const actionCopyLink = () => {
-        navigator.clipboard.writeText(window.location.href);
-        addNotification('info', 'Current URL copied to clipboard');
-    };
-
-    // 5. Focus Search (Robust)
-    const actionSearch = () => {
-        const input = document.querySelector('input[placeholder="Global Search..."]') as HTMLInputElement;
-        // Check if input exists and is visible (not hidden by media query)
-        if (input && input.offsetParent !== null) {
-            input.focus();
-            input.select();
-        } else {
-            // Fallback: Dispatch Ctrl+K to open Command Palette on mobile/when hidden
-            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }));
-        }
-    };
-
-    // 6. Fullscreen
-    const actionFullscreen = () => {
-        if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(e => console.error(e));
-        } else {
-            document.exitFullscreen().catch(e => console.error(e));
-        }
-    };
-
-    // 7. Resource Planner
-    const actionPlanner = () => navigateTo('resource-planner');
-
-    // 8. API Gateway
-    const actionGateway = () => navigateTo('api-gateway');
-
-    // 9. System Settings
-    const actionSettings = () => navigateTo('settings');
-
-    // 10. My Profile
-    const actionProfile = () => {
-        if (currentUser) navigateTo('edit-user', currentUser.id);
-    };
-
-    // --- Menu Construction ---
+    // Register basic commands
+    useEffect(() => {
+        const unregister = [
+            commandService.register({ id: 'quick-task', label: 'New Quick Task', action: async () => {
+                const title = prompt("Enter task title:");
+                if (title) {
+                    await createAdHocTask(title);
+                    addNotification('success', 'Task created successfully');
+                    navigateTo('inbox');
+                }
+            }, shortcut: 'Alt+N' }),
+            commandService.register({ id: 'new-case', label: 'Start New Case', action: () => navigateTo('create-case') }),
+            commandService.register({ id: 'backup', label: 'Download System Backup', action: async () => {
+                try {
+                    const data = await exportData();
+                    const blob = new Blob([data], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a'); a.href = url; a.download = `nexflow_backup_${new Date().toISOString()}.json`; a.click();
+                    addNotification('success', 'System backup downloaded');
+                } catch (e) { addNotification('error', 'Backup failed'); }
+            }}),
+            commandService.register({ id: 'toggle-theme', label: 'Toggle Theme', action: () => setThemeMode(themeMode === 'light' ? 'dark' : 'light') }),
+        ];
+        return () => unregister.forEach(u => u());
+    }, [createAdHocTask, navigateTo, exportData, themeMode, setThemeMode, addNotification]);
 
     const fileMenu: ToolbarAction[] = [
         ...(toolbarConfig.file || []),
         { divider: true, label: '' },
-        { label: 'New Quick Task...', action: actionQuickTask, shortcut: 'Alt+N' },
-        { label: 'Start New Case...', action: actionNewCase },
-        { label: 'Download System Backup', action: actionBackup }
+        { label: 'New Quick Task...', action: () => commandService.execute('quick-task'), shortcut: 'Alt+N' },
+        { label: 'Start New Case...', action: () => commandService.execute('new-case') },
+        { label: 'Download System Backup', action: () => commandService.execute('backup') }
     ];
 
     const editMenu: ToolbarAction[] = [
         ...(toolbarConfig.edit || []),
         { divider: true, label: '' },
-        { label: 'Copy Page Link', action: actionCopyLink, shortcut: 'Alt+C' }
+        { label: 'Copy Page Link', action: () => { navigator.clipboard.writeText(window.location.href); addNotification('info', 'Copied'); }, shortcut: 'Alt+C' }
     ];
 
     const viewMenu: ToolbarAction[] = [
         ...(toolbarConfig.view || []),
         { divider: true, label: '' },
-        { label: 'Focus Search', action: actionSearch, shortcut: 'Cmd+K' },
-        { label: 'Toggle Fullscreen', action: actionFullscreen, shortcut: 'F11' },
+        { label: 'Focus Search', action: () => document.querySelector<HTMLInputElement>('input[placeholder="Global Search..."]')?.focus(), shortcut: 'Cmd+K' },
+        { label: 'Toggle Fullscreen', action: () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(), shortcut: 'F11' },
         { divider: true, label: '' },
         { label: 'Light Mode', action: () => setThemeMode('light'), disabled: themeMode === 'light' },
         { label: 'Dark Mode', action: () => setThemeMode('dark'), disabled: themeMode === 'dark' },
@@ -175,21 +125,20 @@ export const GlobalToolbar: React.FC = () => {
     const toolsMenu: ToolbarAction[] = [
         ...(toolbarConfig.tools || []),
         { divider: true, label: '' },
-        { label: 'Resource Planner', action: actionPlanner },
-        { label: 'API Gateway', action: actionGateway },
-        { label: 'System Configuration', action: actionSettings }
+        { label: 'Resource Planner', action: () => navigateTo('resource-planner') },
+        { label: 'API Gateway', action: () => navigateTo('api-gateway') },
+        { label: 'System Configuration', action: () => navigateTo('settings') }
     ];
 
     const userMenu: ToolbarAction[] = [
-        { label: 'My Profile', action: actionProfile },
+        { label: 'My Profile', action: () => currentUser && navigateTo('edit-user', currentUser.id) },
         { divider: true, label: '' },
         { label: 'Log Out', action: () => window.location.reload(), shortcut: 'Alt+Q' }
     ];
 
-    const defaultHelpActions: ToolbarAction[] = [
+    const helpMenu: ToolbarAction[] = [
+        ...(toolbarConfig.help || []),
         { label: 'Documentation', action: () => window.open('https://nexflow.io/docs', '_blank') },
-        { label: 'Keyboard Shortcuts', action: () => alert('Press Ctrl+K for Command Palette') },
-        { label: 'About NexFlow', action: () => alert('NexFlow Enterprise BPM v2.4.0') },
         { label: 'Reset Demo Data', action: () => { if(confirm('Reset all data?')) reseedSystem(); }, divider: true, shortcut: 'Dev' },
     ];
 
@@ -200,7 +149,7 @@ export const GlobalToolbar: React.FC = () => {
             <ToolbarMenu label="View" items={viewMenu} isOpen={activeMenu === 'view'} onToggle={() => toggleMenu('view')} onClose={closeMenu} />
             <ToolbarMenu label="Tools" items={toolsMenu} isOpen={activeMenu === 'tools'} onToggle={() => toggleMenu('tools')} onClose={closeMenu} />
             <ToolbarMenu label="User" items={userMenu} isOpen={activeMenu === 'user'} onToggle={() => toggleMenu('user')} onClose={closeMenu} />
-            <ToolbarMenu label="Help" items={[...(toolbarConfig.help || []), ...defaultHelpActions]} isOpen={activeMenu === 'help'} onToggle={() => toggleMenu('help')} onClose={closeMenu} />
+            <ToolbarMenu label="Help" items={helpMenu} isOpen={activeMenu === 'help'} onToggle={() => toggleMenu('help')} onClose={closeMenu} />
         </div>
     );
 };

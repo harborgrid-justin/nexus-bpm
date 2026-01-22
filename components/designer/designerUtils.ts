@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { ProcessStepType } from '../../types';
+import { STEP_TYPES } from '../../constants';
 import { 
   Play, Flag, User, Cog, GitBranch, Box, 
   FunctionSquare, Zap, Clock, Mail, MessageSquare, Smartphone, 
@@ -29,30 +30,37 @@ export const STEP_CATEGORIES = [
 
 const METADATA: { [key in ProcessStepType | 'note']?: StepMetadata } = {
   // --- ANNOTATIONS ---
-  'note': { icon: StickyNote, color: 'text-yellow-600', defaultName: 'Note', category: 'Annotations' },
+  [STEP_TYPES.NOTE]: { icon: StickyNote, color: 'text-yellow-600', defaultName: 'Note', category: 'Annotations' },
 
   // --- CORE ---
-  'start': { icon: Play, color: 'text-emerald-600', defaultName: 'Start', category: 'Core' },
-  'end': { icon: Flag, color: 'text-rose-600', defaultName: 'End', category: 'Core' },
-  'user-task': { icon: User, color: 'text-blue-600', defaultName: 'User Task', category: 'Core' },
-  'service-task': { icon: Cog, color: 'text-slate-600', defaultName: 'Service Task', category: 'Core' },
-  'sub-process': { icon: Box, color: 'text-slate-500', defaultName: 'Sub-Process', category: 'Core' },
-  'script-task': { icon: Code, color: 'text-orange-600', defaultName: 'Script', category: 'Core' },
+  [STEP_TYPES.START]: { icon: Play, color: 'text-emerald-600', defaultName: 'Start', category: 'Core' },
+  [STEP_TYPES.END]: { icon: Flag, color: 'text-rose-600', defaultName: 'End', category: 'Core' },
+  [STEP_TYPES.USER_TASK]: { icon: User, color: 'text-blue-600', defaultName: 'User Task', category: 'Core' },
+  [STEP_TYPES.SERVICE_TASK]: { icon: Cog, color: 'text-slate-600', defaultName: 'Service Task', category: 'Core' },
+  [STEP_TYPES.SUB_PROCESS]: { icon: Box, color: 'text-slate-500', defaultName: 'Sub-Process', category: 'Core' },
+  [STEP_TYPES.SCRIPT_TASK]: { icon: Code, color: 'text-orange-600', defaultName: 'Script', category: 'Core' },
 
   // --- GATEWAYS ---
-  'exclusive-gateway': { icon: GitBranch, color: 'text-amber-500', defaultName: 'Exclusive (XOR)', category: 'Gateways' },
-  'parallel-gateway': { icon: Plus, color: 'text-emerald-500', defaultName: 'Parallel (AND)', category: 'Gateways' },
-  'inclusive-gateway': { icon: GitMerge, color: 'text-blue-500', defaultName: 'Inclusive (OR)', category: 'Gateways' },
+  [STEP_TYPES.EXCLUSIVE_GATEWAY]: { icon: GitBranch, color: 'text-amber-500', defaultName: 'Exclusive (XOR)', category: 'Gateways' },
+  [STEP_TYPES.PARALLEL_GATEWAY]: { icon: Plus, color: 'text-emerald-500', defaultName: 'Parallel (AND)', category: 'Gateways' },
+  [STEP_TYPES.INCLUSIVE_GATEWAY]: { icon: GitMerge, color: 'text-blue-500', defaultName: 'Inclusive (OR)', category: 'Gateways' },
   'complex-gateway': { icon: Activity, color: 'text-purple-500', defaultName: 'Complex', category: 'Gateways' },
   'event-gateway': { icon: Zap, color: 'text-orange-500', defaultName: 'Event Based', category: 'Gateways' },
 
   // --- EVENTS ---
-  'timer-event': { icon: Clock, color: 'text-slate-600', defaultName: 'Timer', category: 'Events' },
-  'message-event': { icon: Mail, color: 'text-slate-600', defaultName: 'Message', category: 'Events' },
+  [STEP_TYPES.TIMER_EVENT]: { icon: Clock, color: 'text-slate-600', defaultName: 'Timer', category: 'Events' },
+  [STEP_TYPES.MESSAGE_EVENT]: { icon: Mail, color: 'text-slate-600', defaultName: 'Message', category: 'Events' },
   'signal-event': { icon: Activity, color: 'text-slate-600', defaultName: 'Signal', category: 'Events' },
   'error-event': { icon: AlertTriangle, color: 'text-rose-500', defaultName: 'Error', category: 'Events' },
   'escalation-event': { icon: Zap, color: 'text-amber-500', defaultName: 'Escalation', category: 'Events' },
   'compensation-event': { icon: RotateCw, color: 'text-blue-500', defaultName: 'Compensate', category: 'Events' },
+
+  // --- LOGIC & RULES ---
+  [STEP_TYPES.BUSINESS_RULE]: { icon: FunctionSquare, color: 'text-slate-800', defaultName: 'Bus. Rule', category: 'Logic & Rules' },
+  'decision-table': { icon: Table, color: 'text-blue-600', defaultName: 'Decision Tbl', category: 'Logic & Rules' },
+  'wait-state': { icon: Clock, color: 'text-slate-500', defaultName: 'Wait', category: 'Logic & Rules' },
+  'terminate-end': { icon: StopCircle, color: 'text-rose-700', defaultName: 'Terminate', category: 'Logic & Rules' },
+  'loop-container': { icon: RotateCw, color: 'text-amber-600', defaultName: 'Loop', category: 'Logic & Rules' },
 
   // --- COMMUNICATION ---
   'email-send': { icon: Mail, color: 'text-indigo-500', defaultName: 'Send Email', category: 'Communication' },
@@ -134,13 +142,6 @@ const METADATA: { [key in ProcessStepType | 'note']?: StepMetadata } = {
   'sap-posting': { icon: Server, color: 'text-blue-900', defaultName: 'SAP Post', category: 'Finance' },
   'oracle-ledger': { icon: Database, color: 'text-red-700', defaultName: 'Oracle GL', category: 'Finance' },
   'expensify-report': { icon: DollarSign, color: 'text-green-500', defaultName: 'Expensify', category: 'Finance' },
-
-  // --- LOGIC & RULES ---
-  'business-rule': { icon: FunctionSquare, color: 'text-slate-800', defaultName: 'Bus. Rule', category: 'Logic & Rules' },
-  'decision-table': { icon: Table, color: 'text-blue-600', defaultName: 'Decision Tbl', category: 'Logic & Rules' },
-  'wait-state': { icon: Clock, color: 'text-slate-500', defaultName: 'Wait', category: 'Logic & Rules' },
-  'terminate-end': { icon: StopCircle, color: 'text-rose-700', defaultName: 'Terminate', category: 'Logic & Rules' },
-  'loop-container': { icon: RotateCw, color: 'text-amber-600', defaultName: 'Loop', category: 'Logic & Rules' },
 };
 
 export const getStepTypeMetadata = (type: ProcessStepType | 'note'): StepMetadata => {

@@ -1,41 +1,18 @@
 
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { LucideIcon, ChevronRight, X, ChevronDown, Search, Check, AlertCircle, ArrowUp, ArrowDown, Lock, GripVertical } from 'lucide-react';
+import { LucideIcon, Search, Check, ArrowUp, ArrowDown, X, ChevronDown } from 'lucide-react';
 import { useBPM } from '../../contexts/BPMContext';
 import { Permission } from '../../types';
 
-// --- BASE COMPONENTS ---
+// Re-export Primitives
+export * from '../ui/primitives';
+import { NexBadge } from '../ui/primitives';
 
-interface NexBadgeProps {
-  children?: React.ReactNode;
-  variant?: 'slate' | 'blue' | 'rose' | 'emerald' | 'amber' | 'violet';
-  className?: string;
-  icon?: LucideIcon;
-}
-
-export const NexBadge: React.FC<NexBadgeProps> = ({ children, variant = 'slate', className = '', icon: Icon }) => {
-  const styles = {
-    slate: 'bg-subtle text-secondary border-default',
-    blue: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800',
-    rose: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-800',
-    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800',
-    amber: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800',
-    violet: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/30 dark:text-violet-300 dark:border-violet-800'
-  };
-  return (
-    <span 
-      className={`px-2 py-0.5 text-[10px] font-bold border flex items-center gap-1 w-fit uppercase tracking-wider ${styles[variant]} ${className}`}
-      style={{ borderRadius: 'var(--radius-base)' }}
-    >
-      {Icon && <Icon size={10} />}
-      {children}
-    </span>
-  );
-};
+// --- COMPLEX COMPONENTS KEPT HERE FOR NOW ---
 
 export const NexStatusBadge: React.FC<{ status: string }> = ({ status }) => {
     const s = status.toLowerCase();
-    let variant: NexBadgeProps['variant'] = 'slate';
+    let variant: any = 'slate';
     if (['active', 'completed', 'resolved', 'approved', 'open'].includes(s)) variant = 'emerald';
     if (['in progress', 'pending', 'claimed'].includes(s)) variant = 'blue';
     if (['critical', 'rejected', 'terminated', 'closed', 'breach'].includes(s)) variant = 'rose';
@@ -49,10 +26,6 @@ export const Restricted: React.FC<{ to: Permission; fallback?: React.ReactNode; 
     if (hasPermission(to)) return <>{children}</>;
     return fallback ? <>{fallback}</> : null;
 };
-
-export const NexSkeleton: React.FC<{ height?: string; width?: string; className?: string }> = ({ height = '20px', width = '100%', className = '' }) => (
-    <div className={`bg-default animate-pulse ${className}`} style={{ height, width, borderRadius: 'var(--radius-base)' }}></div>
-);
 
 export const NexDebouncedInput: React.FC<{
     value: string;
@@ -89,105 +62,10 @@ export const NexDebouncedInput: React.FC<{
     );
 };
 
-export function NexVirtualList<T>({ 
-    items, 
-    renderItem, 
-    itemHeight, 
-    className 
-}: { 
-    items: T[], 
-    renderItem: (item: T, index: number) => React.ReactNode, 
-    itemHeight: number,
-    className?: string
-}) {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [scrollTop, setScrollTop] = useState(0);
-    const [containerHeight, setContainerHeight] = useState(600);
-
-    useEffect(() => {
-        if (containerRef.current) {
-            setContainerHeight(containerRef.current.clientHeight);
-            const handleScroll = () => setScrollTop(containerRef.current?.scrollTop || 0);
-            const current = containerRef.current;
-            current.addEventListener('scroll', handleScroll);
-            return () => current.removeEventListener('scroll', handleScroll);
-        }
-    }, []);
-
-    const totalHeight = items.length * itemHeight;
-    const startIndex = Math.floor(scrollTop / itemHeight);
-    const visibleCount = Math.ceil(containerHeight / itemHeight);
-    const renderStart = Math.max(0, startIndex - 5);
-    const renderEnd = Math.min(items.length, startIndex + visibleCount + 5);
-    
-    const visibleItems = items.slice(renderStart, renderEnd).map((item, index) => ({
-        item,
-        index: renderStart + index,
-        top: (renderStart + index) * itemHeight
-    }));
-
-    return (
-        <div 
-            ref={containerRef} 
-            className={`overflow-y-auto relative ${className}`}
-            style={{ height: '100%' }}
-        >
-            <div style={{ height: totalHeight, position: 'relative' }}>
-                {visibleItems.map(({ item, index, top }) => (
-                    <div key={index} style={{ position: 'absolute', top, left: 0, right: 0, height: itemHeight }}>
-                        {renderItem(item, index)}
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-}
-
-interface NexCardProps extends React.HTMLAttributes<HTMLDivElement> {
-    children?: React.ReactNode; 
-    onClick?: () => void; 
-    className?: string; 
-    title?: React.ReactNode;
-    actions?: React.ReactNode;
-    dragHandle?: boolean;
-}
-
-export const NexCard = React.forwardRef<HTMLDivElement, NexCardProps>(({ 
-    children, 
-    onClick, 
-    className = '', 
-    title, 
-    actions, 
-    dragHandle,
-    style,
-    ...props 
-}, ref) => (
-  <div 
-    ref={ref}
-    onClick={onClick}
-    className={`bg-panel border border-default shadow-sm flex flex-col transition-colors ${onClick ? 'cursor-pointer hover:border-active' : ''} ${className}`}
-    style={{ borderRadius: 'var(--radius-base)', ...style }}
-    {...props}
-  >
-    {(title || actions || dragHandle) && (
-        <div className="flex items-center justify-between border-b border-default bg-subtle" style={{ padding: 'var(--space-base)' }}>
-            <div className="flex items-center gap-2">
-                {dragHandle && <GripVertical size={14} className="text-tertiary cursor-grab active:cursor-grabbing drag-handle hover:text-primary"/>}
-                <div className="font-bold text-primary text-sm">{title}</div>
-            </div>
-            <div className="flex items-center gap-2">{actions}</div>
-        </div>
-    )}
-    <div className="flex-1 min-h-0 flex flex-col">
-        {children}
-    </div>
-  </div>
-));
-
 export const NexSwitch: React.FC<{ checked: boolean; onChange: (v: boolean) => void; label: string; icon?: LucideIcon }> = ({ checked, onChange, label, icon: Icon }) => (
   <label 
-    className="flex items-center justify-between border border-default hover:bg-subtle transition-colors cursor-pointer group"
-    style={{ padding: 'var(--space-base)', borderRadius: 'var(--radius-base)' }}
+    className="flex items-center justify-between border border-default hover:bg-subtle transition-colors cursor-pointer group rounded-base px-layout gap-base"
+    style={{ padding: 'var(--space-base)' }}
   >
     <div className="flex items-center gap-3">
       {Icon && <Icon size={16} className={checked ? 'text-blue-600' : 'text-tertiary'} />}
@@ -200,57 +78,6 @@ export const NexSwitch: React.FC<{ checked: boolean; onChange: (v: boolean) => v
       <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${checked ? 'translate-x-4' : 'translate-x-0'}`} />
     </div>
   </label>
-);
-
-interface NexButtonProps {
-  children?: React.ReactNode;
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
-  onClick?: React.MouseEventHandler<HTMLButtonElement>;
-  icon?: LucideIcon;
-  className?: string;
-  disabled?: boolean;
-  type?: 'button' | 'submit' | 'reset';
-  size?: 'sm' | 'md' | 'lg';
-}
-
-export const NexButton: React.FC<NexButtonProps> = ({ children, variant = 'primary', onClick, icon: Icon, className = '', disabled = false, type = 'button', size = 'md' }) => {
-  const styles = {
-    primary: 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm border-transparent',
-    secondary: 'bg-panel border-default text-secondary hover:bg-subtle hover:text-primary shadow-sm',
-    danger: 'bg-panel border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-900 dark:hover:bg-rose-900/20',
-    ghost: 'bg-transparent text-secondary hover:bg-subtle hover:text-primary'
-  };
-  
-  const sizes = {
-      sm: 'px-2.5 text-[11px] h-7',
-      md: 'px-4 text-[13px] h-9',
-      lg: 'px-6 text-[15px] h-11'
-  };
-
-  return (
-    <button 
-      type={type}
-      disabled={disabled}
-      onClick={onClick}
-      className={`${sizes[size]} font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none border ${styles[variant]} ${className}`}
-      style={{ borderRadius: 'var(--radius-base)' }}
-    >
-      {Icon && <Icon size={size === 'sm' ? 14 : 16} />}
-      {children}
-    </button>
-  );
-};
-
-export const NexFormGroup: React.FC<{ label: string; children: React.ReactNode; helpText?: string; icon?: LucideIcon; required?: boolean }> = ({ label, children, helpText, icon: Icon, required }) => (
-  <div className="space-y-1.5 w-full">
-    <label className="text-xs font-bold text-secondary uppercase tracking-wide flex items-center gap-2">
-      {Icon && <Icon size={14} className="text-tertiary" />}
-      {label}
-      {required && <span className="text-rose-500 ml-0.5">*</span>}
-    </label>
-    {children}
-    {helpText && <p className="text-[11px] text-tertiary leading-tight">{helpText}</p>}
-  </div>
 );
 
 export const NexHistoryFeed = ({ history }: { history: any[] }) => (
@@ -296,8 +123,7 @@ export const NexModal: React.FC<{ isOpen: boolean; onClose: () => void; title: s
     <div className="fixed inset-0 z-modal bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center p-4 animate-fade-in">
       <div 
         ref={modalRef} 
-        className={`bg-panel w-full ${maxWidths[size]} border border-default shadow-2xl animate-slide-up flex flex-col max-h-[90vh]`}
-        style={{ borderRadius: 'calc(var(--radius-base) * 2)' }}
+        className={`bg-panel w-full ${maxWidths[size]} border border-default shadow-2xl animate-slide-up flex flex-col max-h-[90vh] rounded-lg`}
       >
         <div className="flex items-center justify-between p-5 border-b border-default shrink-0">
           <h3 className="text-[16px] font-bold text-primary">{title}</h3>
@@ -431,6 +257,60 @@ export const NexUserDisplay: React.FC<{ userId: string; showEmail?: boolean; siz
         </div>
     );
 };
+
+export function NexVirtualList<T>({ 
+    items, 
+    renderItem, 
+    itemHeight, 
+    className 
+}: { 
+    items: T[], 
+    renderItem: (item: T, index: number) => React.ReactNode, 
+    itemHeight: number,
+    className?: string
+}) {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [scrollTop, setScrollTop] = useState(0);
+    const [containerHeight, setContainerHeight] = useState(600);
+
+    useEffect(() => {
+        if (containerRef.current) {
+            setContainerHeight(containerRef.current.clientHeight);
+            const handleScroll = () => setScrollTop(containerRef.current?.scrollTop || 0);
+            const current = containerRef.current;
+            current.addEventListener('scroll', handleScroll);
+            return () => current.removeEventListener('scroll', handleScroll);
+        }
+    }, []);
+
+    const totalHeight = items.length * itemHeight;
+    const startIndex = Math.floor(scrollTop / itemHeight);
+    const visibleCount = Math.ceil(containerHeight / itemHeight);
+    const renderStart = Math.max(0, startIndex - 5);
+    const renderEnd = Math.min(items.length, startIndex + visibleCount + 5);
+    
+    const visibleItems = items.slice(renderStart, renderEnd).map((item, index) => ({
+        item,
+        index: renderStart + index,
+        top: (renderStart + index) * itemHeight
+    }));
+
+    return (
+        <div 
+            ref={containerRef} 
+            className={`overflow-y-auto relative ${className}`}
+            style={{ height: '100%' }}
+        >
+            <div style={{ height: totalHeight, position: 'relative' }}>
+                {visibleItems.map(({ item, index, top }) => (
+                    <div key={index} style={{ position: 'absolute', top, left: 0, right: 0, height: itemHeight }}>
+                        {renderItem(item, index)}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
 
 interface Column<T> {
     header: string;
