@@ -61,7 +61,6 @@ export const FormDesigner: React.FC = () => {
       } 
   }, [nav.selectedId, forms, setFormDef]);
 
-  // Handle responsive layout using the hook
   useEffect(() => {
       if (isMobile) {
           setPreviewMode('mobile');
@@ -74,7 +73,6 @@ export const FormDesigner: React.FC = () => {
       }
   }, [isMobile]);
   
-  // Keyboard Shortcuts for Undo/Redo
   useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
           if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); undo(); }
@@ -142,28 +140,28 @@ export const FormDesigner: React.FC = () => {
         saveLabel="Publish Form" 
         fullWidth
         actions={
-            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-sm mr-2">
-                <button onClick={undo} disabled={!canUndo} className="p-1.5 text-slate-500 hover:text-slate-800 disabled:opacity-30 rounded-sm"><Undo size={16}/></button>
-                <button onClick={redo} disabled={!canRedo} className="p-1.5 text-slate-500 hover:text-slate-800 disabled:opacity-30 rounded-sm"><Redo size={16}/></button>
+            <div className="flex items-center gap-1 bg-subtle p-1 rounded-sm mr-2 border border-default">
+                <button onClick={undo} disabled={!canUndo} className="p-1.5 text-secondary hover:text-primary disabled:opacity-30 rounded-sm"><Undo size={16}/></button>
+                <button onClick={redo} disabled={!canRedo} className="p-1.5 text-secondary hover:text-primary disabled:opacity-30 rounded-sm"><Redo size={16}/></button>
             </div>
         }
     >
       <div className="flex h-full relative overflow-hidden" onClick={() => setContextMenu(null)}>
         
-        <div className={`border-r border-slate-200 bg-slate-50 flex flex-col transition-all duration-300 ${leftOpen ? 'w-[260px]' : 'w-0 overflow-hidden'}`}>
-           <div className="border-b border-slate-200 flex items-center justify-between shrink-0" style={{ padding: 'var(--space-base)' }}>
-              <h3 className="text-xs font-bold text-slate-500 uppercase">Field Library</h3>
-              <button onClick={() => setLeftOpen(false)} className="text-slate-400 hover:text-slate-600"><PanelLeft size={14}/></button>
+        <div className={`border-r border-default bg-subtle flex flex-col transition-all duration-300 ${leftOpen ? 'w-[260px]' : 'w-0 overflow-hidden'}`}>
+           <div className="border-b border-default flex items-center justify-between shrink-0" style={{ padding: 'var(--space-base)' }}>
+              <h3 className="text-xs font-bold text-secondary uppercase">Field Library</h3>
+              <button onClick={() => setLeftOpen(false)} className="text-tertiary hover:text-primary"><PanelLeft size={14}/></button>
            </div>
            <div className="flex-1 overflow-y-auto p-4 space-y-6 select-none">
              {categories.map(cat => (
                <div key={cat}>
-                 <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{cat}</h4>
+                 <h4 className="text-[10px] font-bold text-tertiary uppercase tracking-wider mb-2">{cat}</h4>
                  <div className="grid grid-cols-2 gap-2">
                    {FIELD_TYPES.filter(ft => ft.category === cat).map(ft => (
-                     <div key={ft.type} draggable onDragStart={(e) => handleDragStartLibrary(e, ft.type)} onClick={() => addField(ft.type)} className="flex flex-col items-center justify-center gap-2 p-3 bg-white border border-slate-200 rounded-sm hover:border-blue-400 hover:shadow-sm transition-all text-center group h-20 cursor-grab active:cursor-grabbing" title={`Drag to add ${ft.label}`}>
-                       <ft.icon size={20} className="text-slate-500 group-hover:text-blue-600"/>
-                       <span className="text-[10px] font-bold text-slate-700 leading-tight">{ft.label}</span>
+                     <div key={ft.type} draggable onDragStart={(e) => handleDragStartLibrary(e, ft.type)} onClick={() => addField(ft.type)} className="flex flex-col items-center justify-center gap-2 p-3 bg-panel border border-default rounded-sm hover:border-active hover:shadow-sm transition-all text-center group h-20 cursor-grab active:cursor-grabbing" title={`Drag to add ${ft.label}`}>
+                       <ft.icon size={20} className="text-secondary group-hover:text-blue-600"/>
+                       <span className="text-[10px] font-bold text-primary leading-tight">{ft.label}</span>
                      </div>
                    ))}
                  </div>
@@ -172,38 +170,38 @@ export const FormDesigner: React.FC = () => {
            </div>
         </div>
 
-        <div className="flex-1 bg-slate-100 flex flex-col min-w-0 relative">
-           <div className="h-10 bg-white border-b border-slate-200 flex items-center justify-between px-4 shrink-0 z-10">
-              <div className="flex items-center gap-2">{!leftOpen && <button onClick={() => setLeftOpen(true)} className="p-1.5 hover:bg-slate-50 rounded text-slate-500"><PanelLeft size={16}/></button>}</div>
-              <div className="flex items-center gap-4 bg-slate-100 p-1 rounded-sm">
-                 <div className="flex items-center gap-2 border-r border-slate-300 pr-2 mr-2">
-                    <button onClick={() => setPreviewMode('desktop')} className={`p-1.5 rounded-sm ${previewMode === 'desktop' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}><Monitor size={14}/></button>
-                    <button onClick={() => setPreviewMode('mobile')} className={`p-1.5 rounded-sm ${previewMode === 'mobile' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400'}`}><Smartphone size={14}/></button>
+        <div className="flex-1 bg-canvas flex flex-col min-w-0 relative">
+           <div className="h-10 bg-panel border-b border-default flex items-center justify-between px-4 shrink-0 z-10">
+              <div className="flex items-center gap-2">{!leftOpen && <button onClick={() => setLeftOpen(true)} className="p-1.5 hover:bg-subtle rounded text-secondary"><PanelLeft size={16}/></button>}</div>
+              <div className="flex items-center gap-4 bg-subtle p-1 rounded-sm border border-default">
+                 <div className="flex items-center gap-2 border-r border-default pr-2 mr-2">
+                    <button onClick={() => setPreviewMode('desktop')} className={`p-1.5 rounded-sm ${previewMode === 'desktop' ? 'bg-panel shadow-sm text-blue-600' : 'text-tertiary hover:text-secondary'}`}><Monitor size={14}/></button>
+                    <button onClick={() => setPreviewMode('mobile')} className={`p-1.5 rounded-sm ${previewMode === 'mobile' ? 'bg-panel shadow-sm text-blue-600' : 'text-tertiary hover:text-secondary'}`}><Smartphone size={14}/></button>
                  </div>
-                 <button onClick={() => setFormDef(produce(formDef, d => { d.layoutMode = d.layoutMode === 'wizard' ? 'single' : 'wizard'; }))} className={`flex items-center gap-2 px-3 py-1 rounded-sm text-xs font-bold ${formDef.layoutMode === 'wizard' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-sm' : 'text-slate-500'}`}><Forward size={14}/> Wizard Mode</button>
+                 <button onClick={() => setFormDef(produce(formDef, d => { d.layoutMode = d.layoutMode === 'wizard' ? 'single' : 'wizard'; }))} className={`flex items-center gap-2 px-3 py-1 rounded-sm text-xs font-bold ${formDef.layoutMode === 'wizard' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'text-secondary hover:text-primary'}`}><Forward size={14}/> Wizard Mode</button>
               </div>
-              <div className="flex items-center gap-2">{!rightOpen && <button onClick={() => setRightOpen(true)} className="p-1.5 hover:bg-slate-50 rounded text-slate-500"><PanelRight size={16}/></button>}</div>
+              <div className="flex items-center gap-2">{!rightOpen && <button onClick={() => setRightOpen(true)} className="p-1.5 hover:bg-subtle rounded text-secondary"><PanelRight size={16}/></button>}</div>
            </div>
 
            <div ref={canvasRef} className="flex-1 overflow-y-auto relative scroll-smooth" style={{ padding: 'var(--layout-padding)' }} onDragOver={(e) => { e.preventDefault(); }} onClick={() => setSelectedFieldId(null)}>
-              <div className={`bg-white shadow-sm min-h-[800px] mx-auto rounded-sm border border-slate-200 flex flex-col transition-all duration-300 relative ${previewMode === 'mobile' ? 'max-w-[375px] border-x-4 border-x-slate-800 my-4 shadow-xl' : 'w-full max-w-4xl p-8'}`}>
-                 <div className={`mb-8 border-b border-slate-100 pb-6 ${previewMode === 'mobile' ? 'p-6' : ''}`}>
-                    <input className="text-2xl font-bold text-slate-900 w-full outline-none bg-transparent" value={formDef.name} onChange={e => setFormDef(produce(formDef, d => { d.name = e.target.value }))} placeholder="Form Title" />
-                    <input className="text-sm text-slate-500 w-full outline-none mt-2 bg-transparent" value={formDef.description} onChange={e => setFormDef(produce(formDef, d => { d.description = e.target.value }))} placeholder="Enter form description..." />
+              <div className={`bg-panel shadow-sm min-h-[800px] mx-auto rounded-sm border border-default flex flex-col transition-all duration-300 relative ${previewMode === 'mobile' ? 'max-w-[375px] border-x-4 border-x-slate-800 my-4 shadow-xl' : 'w-full max-w-4xl p-8'}`}>
+                 <div className={`mb-8 border-b border-default pb-6 ${previewMode === 'mobile' ? 'p-6' : ''}`}>
+                    <input className="text-2xl font-bold text-primary w-full outline-none bg-transparent placeholder:text-tertiary" value={formDef.name} onChange={e => setFormDef(produce(formDef, d => { d.name = e.target.value }))} placeholder="Form Title" />
+                    <input className="text-sm text-secondary w-full outline-none mt-2 bg-transparent placeholder:text-tertiary" value={formDef.description} onChange={e => setFormDef(produce(formDef, d => { d.description = e.target.value }))} placeholder="Enter form description..." />
                  </div>
                  <div className={`flex flex-wrap content-start ${previewMode === 'mobile' ? 'px-4 pb-4' : 'gap-y-0'}`}>
                     {renderDropZone(0)}
                     {formDef.fields.map((field, idx) => (
                     <React.Fragment key={field.id}>
                         <div className={`relative group p-1 transition-all ${dragInfo?.id === field.id ? 'opacity-50 scale-95' : 'opacity-100'}`} style={{ width: previewMode === 'mobile' ? '100%' : (field.layout?.width || '100%') }} onClick={(e) => { e.stopPropagation(); setSelectedFieldId(field.id); if(!rightOpen) setRightOpen(true); }} draggable onDragStart={(e) => handleDragStartField(e, field.id)}>
-                            <div className={`relative rounded-sm border p-3 cursor-pointer ${selectedFieldId === field.id ? 'border-blue-500 bg-blue-50/10 ring-1 ring-blue-500/20 z-10' : 'border-transparent hover:border-slate-300 hover:bg-slate-50'}`}>
+                            <div className={`relative rounded-sm border p-3 cursor-pointer ${selectedFieldId === field.id ? 'border-active bg-active/10 ring-1 ring-blue-500/20 z-10' : 'border-transparent hover:border-default hover:bg-subtle'}`}>
                                 <div className="flex items-center justify-between mb-2 select-none">
-                                    <label className="text-sm font-bold text-slate-800 flex items-center gap-2 cursor-grab active:cursor-grabbing">
-                                        <GripVertical size={14} className="text-slate-300 hover:text-slate-600"/> {field.label} {field.required && <span className="text-rose-500">*</span>}
+                                    <label className="text-sm font-bold text-primary flex items-center gap-2 cursor-grab active:cursor-grabbing">
+                                        <GripVertical size={14} className="text-tertiary hover:text-secondary"/> {field.label} {field.required && <span className="text-rose-500">*</span>}
                                     </label>
                                     <button onClick={(e) => { e.stopPropagation(); deleteField(field.id); }} className="text-rose-500 hover:bg-rose-100 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={14}/></button>
                                 </div>
-                                <div className="w-full pointer-events-none opacity-80 h-9 bg-slate-50 border border-slate-300 rounded-sm"></div>
+                                <div className="w-full pointer-events-none opacity-80 h-9 bg-subtle border border-default rounded-sm"></div>
                             </div>
                         </div>
                         {renderDropZone(idx + 1)}
@@ -214,16 +212,16 @@ export const FormDesigner: React.FC = () => {
            </div>
         </div>
 
-        <div className={`border-l border-slate-200 bg-white flex flex-col shadow-xl z-10 shrink-0 transition-all duration-300 ${rightOpen ? 'w-[320px]' : 'w-0 overflow-hidden'}`}>
-           <div className="border-b border-slate-100 bg-slate-50 flex items-center justify-between shrink-0" style={{ padding: 'var(--space-base)' }}>
-              <h3 className="text-xs font-bold text-slate-800 uppercase flex items-center gap-2"><Settings size={14}/> Properties</h3>
-              <button onClick={() => setRightOpen(false)} className="text-slate-400 hover:text-slate-600"><PanelRight size={14}/></button>
+        <div className={`border-l border-default bg-panel flex flex-col shadow-xl z-10 shrink-0 transition-all duration-300 ${rightOpen ? 'w-[320px]' : 'w-0 overflow-hidden'}`}>
+           <div className="border-b border-default bg-subtle flex items-center justify-between shrink-0" style={{ padding: 'var(--space-base)' }}>
+              <h3 className="text-xs font-bold text-secondary uppercase flex items-center gap-2"><Settings size={14}/> Properties</h3>
+              <button onClick={() => setRightOpen(false)} className="text-tertiary hover:text-secondary"><PanelRight size={14}/></button>
            </div>
            {selectedField ? (
              <div className="flex flex-col h-full overflow-hidden">
-                <div className="flex border-b border-slate-200 overflow-x-auto no-scrollbar">
+                <div className="flex border-b border-default overflow-x-auto no-scrollbar">
                     {['general', 'appearance', 'data', 'validation', 'permissions'].map(t => (
-                        <button key={t} onClick={() => setActiveTab(t as any)} className={`px-3 py-3 text-[10px] font-bold uppercase transition-all whitespace-nowrap ${activeTab === t ? 'text-blue-600 border-b-2 border-blue-600 bg-white' : 'text-slate-500 bg-slate-50 hover:text-slate-800'}`}>{t}</button>
+                        <button key={t} onClick={() => setActiveTab(t as any)} className={`px-3 py-3 text-[10px] font-bold uppercase transition-all whitespace-nowrap ${activeTab === t ? 'text-blue-600 border-b-2 border-blue-600 bg-panel' : 'text-secondary bg-subtle hover:text-primary'}`}>{t}</button>
                     ))}
                 </div>
                 <div className="space-y-5 overflow-y-auto flex-1" style={{ padding: 'var(--card-padding)' }}>
@@ -243,10 +241,10 @@ export const FormDesigner: React.FC = () => {
                             {roles.map(role => {
                                 const current = selectedField.permissions?.find(p => p.roleId === role.id)?.access || 'read_write';
                                 return (
-                                    <div key={role.id} className="flex items-center justify-between border-b border-slate-100 pb-2">
-                                        <span className="text-xs font-bold text-slate-700">{role.name}</span>
+                                    <div key={role.id} className="flex items-center justify-between border-b border-default pb-2">
+                                        <span className="text-xs font-bold text-secondary">{role.name}</span>
                                         <select 
-                                            className="text-xs border border-slate-300 rounded-sm p-1 bg-white"
+                                            className="text-xs border border-default rounded-sm p-1 bg-panel text-primary outline-none"
                                             value={current}
                                             onChange={e => updatePermission(role.id, e.target.value as any)}
                                         >
@@ -261,7 +259,7 @@ export const FormDesigner: React.FC = () => {
                     )}
                 </div>
              </div>
-           ) : <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-8 text-center bg-slate-50/50"><Settings size={32} className="mb-3 opacity-20"/><p className="text-xs font-bold uppercase">Select a field</p></div>}
+           ) : <div className="flex-1 flex flex-col items-center justify-center text-tertiary p-8 text-center bg-subtle"><Settings size={32} className="mb-3 opacity-20"/><p className="text-xs font-bold uppercase">Select a field</p></div>}
         </div>
       </div>
     </FormPageLayout>

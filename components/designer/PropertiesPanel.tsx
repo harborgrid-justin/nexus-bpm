@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
-import { ProcessStep, UserRole } from '../../types';
+import { ProcessStep, UserRole, SimulationConfig } from '../../types';
 import { useBPM } from '../../contexts/BPMContext';
-import { Trash2, Compass, X, Settings, Database, FunctionSquare, ShieldAlert, Code, StickyNote, Image as ImageIcon } from 'lucide-react';
+import { Trash2, Compass, X, Settings, Database, FunctionSquare, ShieldAlert, Code, StickyNote, Image as ImageIcon, Beaker, Clock, DollarSign } from 'lucide-react';
 import { NexFormGroup, NexSearchSelect } from '../shared/NexUI';
 import { getStepTypeMetadata } from './designerUtils';
 import { DataMapper } from '../shared/DataMapper';
@@ -37,25 +37,23 @@ const safeValue = (val: any) => {
 };
 
 export const PropertiesPanel = ({ step, onUpdate, onDelete, roles, onClose }: { step: ProcessStep | undefined; onUpdate: (step: ProcessStep) => void; onDelete: (id: string) => void; roles: UserRole[]; onClose?: () => void; }) => {
-    const { forms } = useBPM();
-    const [activeTab, setActiveTab] = useState<'config' | 'data' | 'logic' | 'policy'>('config');
+    const { forms, rules, integrations } = useBPM();
+    const [activeTab, setActiveTab] = useState<'config' | 'data' | 'logic' | 'sim'>('config');
     const meta = step ? getStepTypeMetadata(step.type) : { icon: Compass, color: 'text-slate-400', defaultName: '', category: '' };
     const schema = step ? (STEP_SCHEMAS[step.type] || []) : [];
     
-    const panelWidthClass = useMemo(() => {
-        if (!step) return 'w-[320px]';
-        if (activeTab === 'data') return 'w-[600px]'; // Expand for Mapper
-        return 'w-[320px]'; // Normal
-    }, [step, activeTab]);
+    // Note: Parent handles the container width transition. This panel just fills it.
+    // Data Mapping tab might need more space, but for now we constrain it or rely on parent sizing.
 
     const updateField = (field: keyof ProcessStep, value: any) => { if (step) onUpdate({ ...step, [field]: value }); };
     const updateDataField = (key: string, value: any) => { if (step) onUpdate({ ...step, data: { ...step.data, [key]: value } }); };
+    const updateSimField = (key: keyof SimulationConfig, value: any) => { if (step) onUpdate({ ...step, simulation: { ...step.simulation, [key]: value } as any }); };
 
     if (!step) return null;
 
     if (step.type === 'note' as any) {
         return (
-            <aside className="w-[320px] h-full bg-yellow-50 border-l border-yellow-200 flex flex-col shadow-xl z-20">
+            <aside className="w-full h-full bg-yellow-50 flex flex-col">
                 <div className="p-4 border-b border-yellow-200 flex justify-between items-center text-yellow-800">
                     <h3 className="font-bold flex items-center gap-2"><StickyNote size={16}/> Annotation</h3>
                     <button onClick={onClose}><X size={16}/></button>
@@ -76,7 +74,7 @@ export const PropertiesPanel = ({ step, onUpdate, onDelete, roles, onClose }: { 
     }
 
     return (
-      <aside className={`${panelWidthClass} h-full bg-white border-l border-slate-300 flex flex-col shadow-xl z-20 transition-all duration-300 ease-in-out`}>
+      <aside className="w-full h-full bg-white flex flex-col">
             <div className="flex items-center justify-between border-b border-slate-300 bg-slate-50" style={{ height: 'var(--header-height)', padding: '0 var(--space-base)' }}>
                 <div className="flex items-center gap-2"><meta.icon size={14} className={meta.color} /><h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">{meta.category}</h3></div>
                 <div className="flex items-center gap-2"><button onClick={onClose} className="text-slate-400 hover:text-slate-800"><X size={14}/></button></div>
@@ -86,7 +84,7 @@ export const PropertiesPanel = ({ step, onUpdate, onDelete, roles, onClose }: { 
                 <input type="text" className="text-xs text-slate-500 w-full outline-none bg-transparent" value={step.description || ''} onChange={e => updateField('description', e.target.value)} placeholder="Add technical description..." />
             </div>
             <div className="flex border-b border-slate-200 bg-slate-50/50">
-                {[ { id: 'config', icon: Settings, label: 'Config' }, { id: 'data', icon: Database, label: 'Wiring' }, { id: 'logic', icon: FunctionSquare, label: 'Logic' }, { id: 'policy', icon: ShieldAlert, label: 'Policy' } ].map(tab => (
+                {[ { id: 'config', icon: Settings, label: 'Impl' }, { id: 'data', icon: Database, label: 'IO' }, { id: 'logic', icon: FunctionSquare, label: 'Rules' }, { id: 'sim', icon: Beaker, label: 'Sim' } ].map(tab => (
                     <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex-1 py-2 flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase transition-all border-b-2 ${activeTab === tab.id ? 'border-blue-600 text-blue-600 bg-white' : 'border-transparent text-slate-500 hover:bg-white hover:text-slate-700'}`}>
                         <tab.icon size={12}/> {tab.label}
                     </button>
@@ -121,6 +119,29 @@ export const PropertiesPanel = ({ step, onUpdate, onDelete, roles, onClose }: { 
                                 </NexFormGroup>
                             </>
                         )}
+
+                        {step.type === 'service-task' && (
+                            <NexFormGroup label="Bind Integration (JCA)">
+                                <NexSearchSelect 
+                                    value={step.integrationId || ''} 
+                                    onChange={v => updateField('integrationId', v)}
+                                    options={[{label: '-- Select Adapter --', value: ''}, ...integrations.map(i => ({ label: `${i.name} (${i.provider})`, value: i.id }))]}
+                                    placeholder="Search Adapters..."
+                                />
+                            </NexFormGroup>
+                        )}
+
+                        {step.type === 'business-rule' && (
+                            <NexFormGroup label="Business Rule">
+                                <NexSearchSelect 
+                                    value={step.businessRuleId || ''} 
+                                    onChange={v => updateField('businessRuleId', v)}
+                                    options={[{label: '-- Select Rule --', value: ''}, ...rules.map(r => ({ label: r.name, value: r.id }))]}
+                                    placeholder="Search Rules..."
+                                />
+                            </NexFormGroup>
+                        )}
+
                         {schema.map(field => {
                             const rawVal = step.data?.[field.key];
                             const displayVal = safeValue(rawVal);
@@ -205,6 +226,45 @@ export const PropertiesPanel = ({ step, onUpdate, onDelete, roles, onClose }: { 
                         <NexFormGroup label="Exit Script" icon={Code}>
                             <SmartScriptEditor value={step.onExitAction || ''} onChange={v => updateField('onExitAction', v)} />
                         </NexFormGroup>
+                        <NexFormGroup label="Retry Policy">
+                            <div className="flex items-center gap-2 bg-white border p-2 rounded-sm">
+                                <input type="checkbox" checked={step.retryPolicy?.enabled} onChange={e => updateField('retryPolicy', { ...step.retryPolicy, enabled: e.target.checked })} />
+                                <span className="text-xs text-slate-600">Enable Retry</span>
+                            </div>
+                        </NexFormGroup>
+                    </div>
+                )}
+
+                {activeTab === 'sim' && (
+                    <div className="space-y-4">
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-sm text-xs text-amber-800">
+                            Configure parameters for "What-If" monte carlo simulations.
+                        </div>
+                        <NexFormGroup label="Cost Per Execution" icon={DollarSign}>
+                            <input type="number" className="prop-input" value={step.simulation?.costPerExecution || 0} onChange={e => updateSimField('costPerExecution', Number(e.target.value))} />
+                        </NexFormGroup>
+                        <NexFormGroup label="Distribution Type" icon={Clock}>
+                            <select className="prop-input" value={step.simulation?.durationDistribution || 'fixed'} onChange={e => updateSimField('durationDistribution', e.target.value)}>
+                                <option value="fixed">Fixed</option>
+                                <option value="normal">Normal (Bell Curve)</option>
+                                <option value="uniform">Uniform</option>
+                            </select>
+                        </NexFormGroup>
+                        {step.simulation?.durationDistribution === 'fixed' && (
+                            <NexFormGroup label="Duration (mins)">
+                                <input type="number" className="prop-input" value={step.simulation?.durationParams?.fixed || 0} onChange={e => updateSimField('durationParams', { ...step.simulation?.durationParams, fixed: Number(e.target.value) })} />
+                            </NexFormGroup>
+                        )}
+                        {step.simulation?.durationDistribution === 'normal' && (
+                            <div className="grid grid-cols-2 gap-2">
+                                <NexFormGroup label="Mean (mins)">
+                                    <input type="number" className="prop-input" value={step.simulation?.durationParams?.mean || 0} onChange={e => updateSimField('durationParams', { ...step.simulation?.durationParams, mean: Number(e.target.value) })} />
+                                </NexFormGroup>
+                                <NexFormGroup label="Std Dev">
+                                    <input type="number" className="prop-input" value={step.simulation?.durationParams?.stdDev || 0} onChange={e => updateSimField('durationParams', { ...step.simulation?.durationParams, stdDev: Number(e.target.value) })} />
+                                </NexFormGroup>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

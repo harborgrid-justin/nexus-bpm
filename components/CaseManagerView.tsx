@@ -1,12 +1,46 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useBPM } from '../contexts/BPMContext';
-import { Briefcase, Plus, Search, Filter, Clock, ChevronRight, AlertCircle, X, SearchX, CheckCircle, PieChart, BarChart3, User as UserIcon, LayoutGrid, List as ListIcon, MoreHorizontal } from 'lucide-react';
-import { NexCard, NexButton, NexBadge } from './shared/NexUI';
+import { useTheme } from '../contexts/ThemeContext';
+import { Briefcase, Plus, Search, Filter, Clock, ChevronRight, AlertCircle, X, SearchX, CheckCircle, PieChart, BarChart3, User as UserIcon, LayoutGrid, List as ListIcon, MoreHorizontal, Settings, GripVertical } from 'lucide-react';
+import { NexCard, NexButton, NexBadge, NexStatusBadge } from './shared/NexUI';
 import { TaskStatus, Case } from '../types';
+import { Responsive, WidthProvider } from 'react-grid-layout';
+
+const ResponsiveGridLayout = WidthProvider(Responsive);
+
+// --- KPI Widget Component ---
+const KPIWidget = React.forwardRef<HTMLDivElement, any>(({ title, value, icon: Icon, color, onClick, isEditable, className, style, ...props }, ref) => {
+    const colors = {
+        blue: 'text-blue-700 bg-blue-50 border-blue-200',
+        emerald: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+        rose: 'text-rose-700 bg-rose-50 border-rose-200'
+    };
+    return (
+        <div 
+            ref={ref} 
+            style={{ borderRadius: 'var(--radius-base)', ...style }}
+            className={`bg-panel p-3 border border-default shadow-sm flex flex-col justify-between h-full ${className} ${onClick ? 'cursor-pointer hover:border-active' : ''}`}
+            onClick={onClick}
+            {...props}
+        >
+            <div className="flex justify-between items-start">
+                <div className={`p-2 rounded-sm ${colors[color as keyof typeof colors]}`}>
+                    <Icon size={18}/>
+                </div>
+                {isEditable && <GripVertical size={14} className="drag-handle text-tertiary cursor-move"/>}
+            </div>
+            <div>
+                <div className="text-2xl font-bold text-primary">{value}</div>
+                <div className="text-[10px] font-bold text-secondary uppercase">{title}</div>
+            </div>
+        </div>
+    );
+});
 
 export const CaseManagerView: React.FC = () => {
-  const { cases, navigateTo, currentUser, tasks, users, updateCase } = useBPM();
+  const { cases, navigateTo, currentUser, tasks, users, updateCase, setToolbarConfig } = useBPM();
+  const { gridConfig } = useTheme();
   
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
@@ -14,8 +48,35 @@ export const CaseManagerView: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [priorityFilter, setPriorityFilter] = useState<string>('All');
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list');
+  const [isEditable, setIsEditable] = useState(false);
 
-  // --- 1. & 2. Filtering & Sorting ---
+  // Layouts
+  const defaultLayouts = {
+      lg: [
+          { i: 'kpi-active', x: 0, y: 0, w: 4, h: 4 },
+          { i: 'kpi-workload', x: 4, y: 0, w: 4, h: 4 },
+          { i: 'kpi-critical', x: 8, y: 0, w: 4, h: 4 },
+          { i: 'main-content', x: 0, y: 4, w: 12, h: 16 }
+      ],
+      md: [
+          { i: 'kpi-active', x: 0, y: 0, w: 3, h: 4 },
+          { i: 'kpi-workload', x: 3, y: 0, w: 3, h: 4 },
+          { i: 'kpi-critical', x: 6, y: 0, w: 4, h: 4 },
+          { i: 'main-content', x: 0, y: 4, w: 10, h: 16 }
+      ]
+  };
+  const [layouts, setLayouts] = useState(defaultLayouts);
+
+  useEffect(() => {
+      setToolbarConfig({
+          view: [
+              { label: isEditable ? 'Lock Layout' : 'Edit Layout', action: () => setIsEditable(!isEditable), icon: Settings },
+              { label: 'Reset Layout', action: () => setLayouts(defaultLayouts) }
+          ]
+      });
+  }, [setToolbarConfig, isEditable]);
+
+  // --- Filtering & Sorting ---
   const filteredCases = useMemo(() => {
       return cases
         .filter(c => {
@@ -32,7 +93,7 @@ export const CaseManagerView: React.FC = () => {
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); // Sort Newest First
   }, [cases, searchQuery, filterMine, statusFilter, priorityFilter, currentUser]);
 
-  // --- 3. KPI Calculations ---
+  // --- KPI Calculations ---
   const kpis = useMemo(() => {
       const active = cases.filter(c => c.status !== 'Closed').length;
       const critical = cases.filter(c => c.priority === 'Critical' && c.status !== 'Closed').length;
@@ -65,223 +126,120 @@ export const CaseManagerView: React.FC = () => {
   };
 
   return (
-    <div 
-      className="animate-fade-in pb-20 flex flex-col h-[calc(100vh-120px)]"
-      style={{ gap: 'var(--section-gap)' }}
-    >
-      <header className="flex items-center justify-between border-b border-slate-300 pb-4 shrink-0">
+    <div className="animate-fade-in flex flex-col h-full overflow-hidden">
+      <header className="flex items-center justify-between border-b border-default pb-4 shrink-0 mb-2">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Case Management</h2>
-          <p className="text-xs text-slate-500 font-medium">Orchestrate complex non-linear workflows.</p>
+          <h2 className="text-xl font-bold text-primary tracking-tight">Case Management</h2>
+          <p className="text-xs text-secondary font-medium">Orchestrate complex non-linear workflows.</p>
         </div>
-        <div className="flex gap-4">
-            <div className="flex bg-slate-100 p-1 rounded-sm border border-slate-200">
-                <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-sm transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}><ListIcon size={16}/></button>
-                <button onClick={() => setViewMode('board')} className={`p-1.5 rounded-sm transition-all ${viewMode === 'board' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}><LayoutGrid size={16}/></button>
-            </div>
-            <NexButton variant="primary" icon={Plus} onClick={() => navigateTo('create-case')}>New Case</NexButton>
-        </div>
+        <NexButton variant="primary" icon={Plus} onClick={() => navigateTo('create-case')}>New Case</NexButton>
       </header>
 
-      {/* --- KPI Stats (Only in List Mode to save space in Board) --- */}
-      {viewMode === 'list' && (
-        <div 
-            className="grid grid-cols-3 shrink-0"
-            style={{ gap: 'var(--layout-gap)' }}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 -mx-4 px-4 pb-10">
+        <ResponsiveGridLayout
+            className="layout"
+            layouts={layouts}
+            breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+            cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
+            rowHeight={gridConfig.rowHeight}
+            margin={gridConfig.margin}
+            isDraggable={isEditable}
+            isResizable={isEditable}
+            draggableHandle=".drag-handle"
+            onLayoutChange={(curr, all) => setLayouts(all)}
         >
-            <div className="bg-white p-3 border border-slate-200 rounded-sm shadow-sm flex items-center justify-between">
-                <div>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase">Active Cases</p>
-                    <p className="text-xl font-bold text-slate-800">{kpis.active}</p>
-                </div>
-                <div className="p-2 bg-blue-50 text-blue-600 rounded-sm"><Briefcase size={18}/></div>
-            </div>
-            <div className="bg-white p-3 border border-slate-200 rounded-sm shadow-sm flex items-center justify-between">
-                <div>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase">My Workload</p>
-                    <p className="text-xl font-bold text-slate-800">{kpis.myActive}</p>
-                </div>
-                <div className="p-2 bg-emerald-50 text-emerald-600 rounded-sm"><UserIcon size={18}/></div>
-            </div>
-            <div className="bg-white p-3 border border-slate-200 rounded-sm shadow-sm flex items-center justify-between">
-                <div>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase">Critical</p>
-                    <p className="text-xl font-bold text-rose-700">{kpis.critical}</p>
-                </div>
-                <div className="p-2 bg-rose-50 text-rose-600 rounded-sm"><AlertCircle size={18}/></div>
-            </div>
-        </div>
-      )}
+            <KPIWidget key="kpi-active" isEditable={isEditable} title="Active Cases" value={kpis.active} icon={Briefcase} color="blue" onClick={() => !isEditable && setStatusFilter('Open')} />
+            <KPIWidget key="kpi-workload" isEditable={isEditable} title="My Workload" value={kpis.myActive} icon={UserIcon} color="emerald" onClick={() => !isEditable && setFilterMine(true)} />
+            <KPIWidget key="kpi-critical" isEditable={isEditable} title="Critical Issues" value={kpis.critical} icon={AlertCircle} color="rose" onClick={() => !isEditable && setPriorityFilter('Critical')} />
 
-      <div 
-        className="flex flex-col flex-1 min-h-0"
-        style={{ gap: 'var(--layout-gap)' }}
-      >
-        {/* Toolbar */}
-        <div className="flex flex-col md:flex-row gap-2 shrink-0">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14}/>
-            <input 
-                className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-sm text-xs font-medium focus:ring-1 focus:ring-blue-600 outline-none" 
-                placeholder="Search case ID, title, or description..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <div className="flex gap-2">
-             {viewMode === 'list' && (
-                 <select 
-                    className="px-3 py-2 border border-slate-300 rounded-sm text-xs font-medium bg-white outline-none"
-                    value={statusFilter}
-                    onChange={e => setStatusFilter(e.target.value)}
-                 >
-                     <option value="All">All Status</option>
-                     {stages.map(s => <option key={s} value={s}>{s}</option>)}
-                 </select>
-             )}
-             <select 
-                className="px-3 py-2 border border-slate-300 rounded-sm text-xs font-medium bg-white outline-none"
-                value={priorityFilter}
-                onChange={e => setPriorityFilter(e.target.value)}
-             >
-                 <option value="All">All Priorities</option>
-                 <option value="Critical">Critical</option>
-                 <option value="High">High</option>
-                 <option value="Medium">Medium</option>
-                 <option value="Low">Low</option>
-             </select>
-             <button 
-                onClick={() => setFilterMine(!filterMine)}
-                className={`px-3 py-2 border rounded-sm text-[10px] font-bold uppercase flex items-center gap-2 transition-all ${filterMine ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-300 hover:text-slate-900'}`}
-             >
-                <Filter size={14}/> My Cases
-             </button>
-          </div>
-        </div>
-
-        {/* --- LIST VIEW --- */}
-        {viewMode === 'list' && (
-            <div className="grid gap-2 overflow-y-auto">
-            {cases.length === 0 ? (
-                <div className="p-12 text-center bg-white rounded-sm border border-slate-300">
-                <Briefcase size={32} className="mx-auto text-slate-300 mb-4"/>
-                <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Queue clear.</p>
-                </div>
-            ) : filteredCases.length === 0 ? (
-                <div className="p-12 text-center bg-white rounded-sm border border-dashed border-slate-300">
-                <SearchX size={32} className="mx-auto text-slate-300 mb-4"/>
-                <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">No cases match your filters.</p>
-                </div>
-            ) : (
-                filteredCases.map(c => {
-                const owner = getCaseOwner(c);
-                const progress = getCaseProgress(c.id);
-                const isClosed = c.status === 'Closed';
-
-                return (
-                    <div 
-                    key={c.id} 
-                    onClick={() => navigateTo('case-viewer', c.id)}
-                    className={`bg-white p-4 rounded-sm border border-slate-300 flex items-center justify-between group hover:border-blue-400 transition-all cursor-pointer shadow-sm ${isClosed ? 'opacity-75 bg-slate-50' : ''}`}
-                    >
-                    <div className="flex items-center gap-4 flex-1 min-w-0">
-                        <div className={`w-10 h-10 rounded-sm flex items-center justify-center border shrink-0 ${isClosed ? 'bg-slate-100 text-slate-400 border-slate-200' : (c.priority === 'Critical' ? 'bg-rose-50 text-rose-600 border-rose-200' : 'bg-blue-50 text-blue-600 border-blue-200')}`}>
-                            {isClosed ? <CheckCircle size={18}/> : <Briefcase size={18}/>}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 mb-0.5">
-                                <h4 className={`text-sm font-bold truncate ${isClosed ? 'text-slate-500 line-through' : 'text-slate-900'}`}>{c.title}</h4>
-                                {c.priority === 'Critical' && <AlertCircle size={12} className="text-rose-600 fill-rose-100"/>}
-                            </div>
-                            <div className="flex items-center gap-3">
-                            <span className="text-[10px] font-mono text-slate-400 font-medium">{c.id}</span>
-                            <span className="text-slate-300">•</span>
-                            <div className="flex items-center gap-1 text-[10px] font-medium text-slate-500">
-                                <Clock size={10}/> {new Date(c.createdAt).toLocaleDateString()}
-                            </div>
-                            {owner && (
-                                <div className="flex items-center gap-1 text-[10px] text-slate-600 bg-slate-100 px-1.5 rounded-full border border-slate-200">
-                                    <div className="w-3 h-3 rounded-full bg-slate-300 text-[8px] flex items-center justify-center font-bold">{owner.name[0]}</div>
-                                    <span className="truncate max-w-[80px]">{owner.name}</span>
-                                </div>
-                            )}
-                            </div>
-                        </div>
+            <NexCard key="main-content" dragHandle={isEditable} className="p-0 flex flex-col h-full">
+                {/* Toolbar inside Widget */}
+                <div className="p-3 border-b border-default bg-subtle flex flex-col md:flex-row gap-2">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary" size={14}/>
+                        <input 
+                            className="w-full pl-9 pr-4 py-1.5 bg-panel border border-default rounded-sm text-xs font-medium focus:ring-1 focus:ring-blue-600 outline-none text-primary" 
+                            placeholder="Search cases..."
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                        />
                     </div>
-                    
-                    <div className="flex items-center gap-6">
-                        <div className="hidden sm:flex flex-col items-end w-24">
-                            <div className="flex justify-between w-full text-[9px] font-bold text-slate-500 mb-1">
-                                <span>Progress</span>
-                                <span>{progress}%</span>
-                            </div>
-                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${progress}%` }}></div>
-                            </div>
+                    <div className="flex gap-2">
+                        <div className="flex bg-panel p-0.5 rounded-sm border border-default">
+                            <button onClick={() => setViewMode('list')} className={`p-1 rounded-sm transition-all ${viewMode === 'list' ? 'bg-subtle text-primary' : 'text-tertiary hover:text-secondary'}`}><ListIcon size={14}/></button>
+                            <button onClick={() => setViewMode('board')} className={`p-1 rounded-sm transition-all ${viewMode === 'board' ? 'bg-subtle text-primary' : 'text-tertiary hover:text-secondary'}`}><LayoutGrid size={14}/></button>
                         </div>
-                        <div className="hidden sm:flex flex-col items-end">
-                            <NexBadge variant={isClosed ? 'slate' : (c.priority === 'Critical' ? 'rose' : 'blue')}>{c.status}</NexBadge>
-                        </div>
-                        <ChevronRight size={16} className="text-slate-300 group-hover:text-slate-900 transition-colors"/>
+                        {viewMode === 'list' && (
+                            <select className="px-2 py-1 border border-default rounded-sm text-xs bg-panel text-primary" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+                                <option value="All">All Status</option>
+                                {stages.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                        )}
+                        <button onClick={() => setFilterMine(!filterMine)} className={`px-2 py-1 border rounded-sm text-[10px] font-bold uppercase transition-all ${filterMine ? 'bg-slate-800 text-white border-slate-800' : 'bg-panel text-secondary border-default'}`}>My Cases</button>
                     </div>
-                    </div>
-                );
-                })
-            )}
-            </div>
-        )}
+                </div>
 
-        {/* --- KANBAN BOARD VIEW --- */}
-        {viewMode === 'board' && (
-            <div className="flex-1 overflow-x-auto overflow-y-hidden">
-                <div className="flex h-full gap-4 pb-2">
-                    {stages.map(stage => {
-                        const casesInStage = filteredCases.filter(c => c.status === stage);
-                        return (
-                            <div 
-                                key={stage} 
-                                className="flex-1 min-w-[280px] bg-slate-100 rounded-md border border-slate-200 flex flex-col"
-                                onDragOver={(e) => e.preventDefault()}
-                                onDrop={(e) => handleDrop(e, stage)}
-                            >
-                                <div className="p-3 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-md">
-                                    <h3 className="text-xs font-bold text-slate-700 uppercase">{stage}</h3>
-                                    <span className="bg-white px-2 py-0.5 rounded-full text-[10px] font-bold text-slate-500 border border-slate-200">{casesInStage.length}</span>
-                                </div>
-                                <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                                    {casesInStage.map(c => {
-                                        const owner = getCaseOwner(c);
-                                        return (
-                                            <div 
-                                                key={c.id} 
-                                                className="bg-white p-3 rounded-sm border border-slate-200 shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group"
-                                                draggable
-                                                onDragStart={(e) => e.dataTransfer.setData('caseId', c.id)}
-                                                onClick={() => navigateTo('case-viewer', c.id)}
-                                            >
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${c.priority === 'Critical' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>{c.priority}</span>
-                                                    <button className="text-slate-300 hover:text-slate-600"><MoreHorizontal size={14}/></button>
-                                                </div>
-                                                <h4 className="text-xs font-bold text-slate-800 mb-1 leading-tight">{c.title}</h4>
-                                                <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-50">
-                                                    <span className="text-[9px] text-slate-400 font-mono">{c.id}</span>
-                                                    {owner && (
-                                                        <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-bold text-slate-600 border border-slate-200" title={owner.name}>
-                                                            {owner.name[0]}
-                                                        </div>
-                                                    )}
+                <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 bg-canvas min-h-0">
+                    {/* LIST VIEW */}
+                    {viewMode === 'list' && (
+                        <div className="space-y-2">
+                            {filteredCases.length === 0 ? <div className="text-center text-tertiary text-xs py-8 italic">No matching cases.</div> : 
+                            filteredCases.map(c => {
+                                const owner = getCaseOwner(c);
+                                const progress = getCaseProgress(c.id);
+                                return (
+                                    <div key={c.id} onClick={() => !isEditable && navigateTo('case-viewer', c.id)} className="flex items-center justify-between p-3 border border-default rounded-sm hover:border-active hover:shadow-sm transition-all cursor-pointer group bg-panel">
+                                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                                            <div className={`w-8 h-8 rounded-sm flex items-center justify-center border shrink-0 ${c.priority === 'Critical' ? 'bg-rose-50 text-rose-600 border-rose-200' : 'bg-subtle text-secondary border-default'}`}>
+                                                <Briefcase size={14}/>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <h4 className="text-sm font-bold text-primary truncate">{c.title}</h4>
+                                                <div className="flex items-center gap-2 text-[10px] text-secondary">
+                                                    <span className="font-mono text-tertiary">{c.id}</span>
+                                                    <span>• {new Date(c.createdAt).toLocaleDateString()}</span>
+                                                    {owner && <span className="bg-subtle px-1 rounded flex items-center gap-1"><UserIcon size={8}/> {owner.name}</span>}
                                                 </div>
                                             </div>
-                                        )
-                                    })}
-                                </div>
-                            </div>
-                        )
-                    })}
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <div className="hidden sm:block w-20">
+                                                <div className="h-1 bg-subtle rounded-full overflow-hidden"><div className="h-full bg-emerald-500" style={{ width: `${progress}%` }}></div></div>
+                                            </div>
+                                            <NexStatusBadge status={c.status} />
+                                            <ChevronRight size={14} className="text-tertiary group-hover:text-primary"/>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {/* BOARD VIEW */}
+                    {viewMode === 'board' && (
+                        <div className="flex h-full gap-3 overflow-x-auto pb-2">
+                            {stages.map(stage => {
+                                const casesInStage = filteredCases.filter(c => c.status === stage);
+                                return (
+                                    <div key={stage} className="flex-1 min-w-[240px] bg-subtle rounded-sm border border-default flex flex-col max-h-full" onDragOver={(e) => e.preventDefault()} onDrop={(e) => handleDrop(e, stage)}>
+                                        <div className="p-2 border-b border-default font-bold text-xs text-secondary uppercase flex justify-between">{stage} <span>{casesInStage.length}</span></div>
+                                        <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                                            {casesInStage.map(c => (
+                                                <div key={c.id} draggable onDragStart={(e) => e.dataTransfer.setData('caseId', c.id)} onClick={() => !isEditable && navigateTo('case-viewer', c.id)} className="p-3 bg-panel border border-default rounded-sm shadow-sm hover:shadow-md cursor-grab active:cursor-grabbing">
+                                                    <div className="flex justify-between mb-1"><NexBadge variant={c.priority === 'Critical' ? 'rose' : 'slate'}>{c.priority}</NexBadge></div>
+                                                    <div className="text-xs font-bold text-primary line-clamp-2 mb-2">{c.title}</div>
+                                                    <div className="text-[9px] text-tertiary font-mono">{c.id}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
-            </div>
-        )}
+            </NexCard>
+        </ResponsiveGridLayout>
       </div>
     </div>
   );

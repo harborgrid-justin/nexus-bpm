@@ -187,6 +187,13 @@ export interface StepMetrics {
   executionCount: number;
 }
 
+export interface SimulationConfig {
+  costPerExecution: number;
+  durationDistribution: 'fixed' | 'normal' | 'uniform';
+  durationParams: { mean?: number; stdDev?: number; min?: number; max?: number; fixed?: number };
+  resourceCount: number;
+}
+
 export interface ProcessStep {
   id: string;
   name: string;
@@ -204,6 +211,7 @@ export interface ProcessStep {
   
   // LOGIC WIRING
   businessRuleId?: string; // Bind a rule to run on entry
+  integrationId?: string; // Bind a JCA Adapter/Integration
   onEntryAction?: string; // Script or Action
   onExitAction?: string; // Script or Action
   
@@ -215,6 +223,7 @@ export interface ProcessStep {
   retryPolicy?: RetryPolicy;
   escalation?: EscalationRule; // Phase 3: SLA Escalation
   metrics?: StepMetrics;       // Phase 3: Analytics Overlay
+  simulation?: SimulationConfig; // Phase 4: What-If Simulation
   
   isMultiInstance?: boolean;
   formId?: string; // Phase 2: Form Binding

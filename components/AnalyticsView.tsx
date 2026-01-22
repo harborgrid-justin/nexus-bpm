@@ -34,12 +34,12 @@ const KPICard = React.forwardRef<HTMLDivElement, KPICardProps>(({ title, value, 
     };
     
     return (
-        <div ref={ref} onClick={onClick} style={style} className={`bg-white p-4 border rounded-sm shadow-sm cursor-pointer hover:shadow-md transition-all group relative overflow-hidden ${colors[color].replace('text-', 'hover:border-').split(' ')[2]} ${className}`} {...props}>
+        <div ref={ref} onClick={onClick} style={{ borderRadius: 'var(--radius-base)', ...style }} className={`bg-panel p-4 border rounded-sm shadow-sm cursor-pointer hover:shadow-md transition-all group relative overflow-hidden ${colors[color].replace('text-', 'hover:border-').split(' ')[2]} ${className}`} {...props}>
             <div className="flex justify-between items-start mb-2 relative z-10">
                 <div className={`p-1.5 rounded-sm ${colors[color]}`}>
                     <Icon size={16}/>
                 </div>
-                {isEditable && <div className="drag-handle absolute top-0 right-0 p-1 cursor-move text-slate-300 hover:text-slate-500"><GripVertical size={12}/></div>}
+                {isEditable && <div className="drag-handle absolute top-0 right-0 p-1 cursor-move text-tertiary hover:text-secondary"><GripVertical size={12}/></div>}
                 {change && !isEditable && (
                     <span className={`text-[10px] font-bold flex items-center px-1.5 py-0.5 rounded-sm ${trend === 'up' ? 'text-emerald-700 bg-emerald-50' : 'text-rose-700 bg-rose-50'}`}>
                         {trend === 'up' ? <ArrowUpRight size={10} className="mr-0.5"/> : <ArrowDownRight size={10} className="mr-0.5"/>}
@@ -47,8 +47,8 @@ const KPICard = React.forwardRef<HTMLDivElement, KPICardProps>(({ title, value, 
                     </span>
                 )}
             </div>
-            <p className="text-[11px] font-bold text-slate-500 uppercase relative z-10">{title}</p>
-            <h4 className="text-2xl font-bold text-slate-900 leading-tight relative z-10">{value}</h4>
+            <p className="text-[11px] font-bold text-secondary uppercase relative z-10">{title}</p>
+            <h4 className="text-2xl font-bold text-primary leading-tight relative z-10">{value}</h4>
             
             {/* Decorator Icon */}
             <Icon size={64} className={`absolute -right-4 -bottom-4 opacity-5 transition-transform group-hover:scale-110 ${colors[color].split(' ')[0]}`} />
@@ -214,18 +214,18 @@ export const AnalyticsView: React.FC = () => {
 
   return (
     <div className="animate-fade-in flex flex-col h-full overflow-hidden">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-300 pb-4 shrink-0 mb-2">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-default pb-4 shrink-0 mb-2">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Performance Analytics</h2>
-          <p className="text-xs text-slate-500 font-medium">Predictive modeling & operational telemetry.</p>
+          <h2 className="text-xl font-bold text-primary tracking-tight">Performance Analytics</h2>
+          <p className="text-xs text-secondary font-medium">Predictive modeling & operational telemetry.</p>
         </div>
         <div className="flex items-center gap-2 relative">
-            <div className="flex gap-1 bg-slate-100 p-1 rounded-sm border border-slate-200">
+            <div className="flex gap-1 bg-subtle p-1 rounded-sm border border-default">
                 {['24h', '7d', '30d', '90d'].map(r => (
                     <button 
                         key={r}
                         onClick={() => setTimeRange(r as any)}
-                        className={`px-3 py-1 text-[10px] font-bold uppercase transition-all rounded-sm ${timeRange === r ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                        className={`px-3 py-1 text-[10px] font-bold uppercase transition-all rounded-sm ${timeRange === r ? 'bg-panel text-blue-700 shadow-sm' : 'text-secondary hover:text-primary'}`}
                     >
                         {r}
                     </button>
@@ -234,8 +234,8 @@ export const AnalyticsView: React.FC = () => {
             <div className="relative">
                 <NexButton variant="secondary" icon={Filter} onClick={() => setShowFilter(!showFilter)} className="px-2">Filter</NexButton>
                 {showFilter && (
-                    <div className="absolute right-0 top-10 bg-white border border-slate-200 rounded-sm shadow-xl p-4 w-64 z-50 animate-slide-up">
-                        <h4 className="text-xs font-bold mb-3 uppercase">Date Range</h4>
+                    <div className="absolute right-0 top-10 bg-panel border border-default rounded-sm shadow-xl p-4 w-64 z-50 animate-slide-up">
+                        <h4 className="text-xs font-bold mb-3 uppercase text-secondary">Date Range</h4>
                         <div className="space-y-2">
                             <input type="date" className="prop-input text-xs" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
                             <input type="date" className="prop-input text-xs" value={dateTo} onChange={e => setDateTo(e.target.value)} />
@@ -274,16 +274,16 @@ export const AnalyticsView: React.FC = () => {
             </div>
 
             <NexCard key="chart-forecast" className="p-0 overflow-hidden flex flex-col h-full" dragHandle={isEditable}>
-                <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-                    <h3 className="text-xs font-bold text-slate-700 uppercase flex items-center gap-2">
+                <div className="px-4 py-3 border-b border-default bg-subtle flex items-center justify-between">
+                    <h3 className="text-xs font-bold text-secondary uppercase flex items-center gap-2">
                     <TrendingUp size={14} className="text-blue-500"/> Volume Forecast (Linear Projection)
                     </h3>
                     <div className="flex gap-4">
-                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 bg-blue-500 rounded-full"></div> <span className="text-[10px] font-bold text-slate-500">Actuals</span></div>
-                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 bg-indigo-400 rounded-full border border-white ring-1 ring-indigo-400"></div> <span className="text-[10px] font-bold text-slate-500">Predicted</span></div>
+                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 bg-blue-500 rounded-full"></div> <span className="text-[10px] font-bold text-secondary">Actuals</span></div>
+                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 bg-indigo-400 rounded-full border border-white ring-1 ring-indigo-400"></div> <span className="text-[10px] font-bold text-secondary">Predicted</span></div>
                     </div>
                 </div>
-                <div className="flex-1 p-4 bg-white">
+                <div className="flex-1 p-4 bg-panel">
                     <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart data={volumeForecast} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <defs>
@@ -312,30 +312,30 @@ export const AnalyticsView: React.FC = () => {
             </NexCard>
 
             <NexCard key="chart-bottleneck" className="p-0 overflow-hidden flex flex-col h-full" dragHandle={isEditable}>
-                <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-                    <h3 className="text-xs font-bold text-slate-700 uppercase flex items-center gap-2">
+                <div className="px-4 py-3 border-b border-default bg-subtle flex items-center justify-between">
+                    <h3 className="text-xs font-bold text-secondary uppercase flex items-center gap-2">
                     <Target size={14} className="text-rose-500"/> Process Friction
                     </h3>
                 </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-white">
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-panel">
                     {bottleneckData.length === 0 ? (
-                        <div className="text-center text-slate-400 text-xs italic mt-10">No process history data to analyze.</div>
+                        <div className="text-center text-tertiary text-xs italic mt-10">No process history data to analyze.</div>
                     ) : bottleneckData.map((b, i) => {
                         const variance = ((b.avgTime - b.sla) / b.sla) * 100;
                         return (
-                            <div key={i} className="space-y-1 group cursor-pointer hover:bg-slate-50 p-2 rounded-sm -mx-2 transition-colors">
+                            <div key={i} className="space-y-1 group cursor-pointer hover:bg-subtle p-2 rounded-sm -mx-2 transition-colors">
                                 <div className="flex justify-between items-center text-xs">
-                                    <span className="font-bold text-slate-700">{b.step}</span>
+                                    <span className="font-bold text-primary">{b.step}</span>
                                     <span className={`font-bold ${variance > 50 ? 'text-rose-600' : 'text-amber-600'}`}>+{variance.toFixed(0)}% var</span>
                                 </div>
-                                <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="relative h-2 bg-subtle rounded-full overflow-hidden border border-default">
                                     <div className="absolute top-0 bottom-0 left-0 bg-slate-300 w-1/2" title="SLA Baseline"></div>
                                     <div 
                                         className={`absolute top-0 bottom-0 left-0 h-full rounded-full ${b.impact === 'Critical' ? 'bg-rose-500' : b.impact === 'High' ? 'bg-orange-500' : 'bg-blue-500'}`} 
                                         style={{ width: `${Math.min(100, (b.avgTime / 5) * 100)}%` }}
                                     ></div>
                                 </div>
-                                <div className="flex justify-between text-[10px] text-slate-400">
+                                <div className="flex justify-between text-[10px] text-tertiary">
                                     <span>Avg: {b.avgTime}d</span>
                                     <span>SLA: {b.sla}d</span>
                                 </div>

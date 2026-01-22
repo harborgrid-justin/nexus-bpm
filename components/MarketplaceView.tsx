@@ -1,13 +1,17 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useBPM } from '../contexts/BPMContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { 
   Search, Cloud, Database, MessageSquare, Briefcase, Sparkles, 
   Settings, Download, CheckCircle, ExternalLink, ShieldCheck, 
-  CreditCard, Server, Box, Star, Info, Lock, Zap, Globe
+  CreditCard, Server, Box, Star, Info, Lock, Zap, Globe, GripVertical
 } from 'lucide-react';
-import { NexButton, NexBadge, NexModal, NexFormGroup } from './shared/NexUI';
+import { NexButton, NexBadge, NexModal, NexFormGroup, NexCard } from './shared/NexUI';
 import { Integration } from '../types';
+import { Responsive, WidthProvider } from 'react-grid-layout';
+
+const ResponsiveGridLayout = WidthProvider(Responsive);
 
 const CATEGORIES = [
     { id: 'All', icon: Box },
@@ -34,40 +38,40 @@ const IntegrationDetails: React.FC<{ integration: Integration, onInstall: () => 
                     <Icon size={40} className={integration.isInstalled ? 'text-emerald-600' : 'text-blue-600'}/>
                 </div>
                 <div>
-                    <h2 className="text-xl font-bold text-slate-900">{integration.name}</h2>
-                    <p className="text-sm text-slate-500 mb-2">{integration.provider} • v{integration.version}</p>
+                    <h2 className="text-xl font-bold text-primary">{integration.name}</h2>
+                    <p className="text-sm text-secondary mb-2">{integration.provider} • v{integration.version}</p>
                     <div className="flex items-center gap-2">
                         {integration.isInstalled ? (
                             <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center gap-1"><CheckCircle size={12}/> Installed</span>
                         ) : (
                             <NexButton size="sm" variant="primary" onClick={onInstall}>Install Now</NexButton>
                         )}
-                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium border border-slate-200">Enterprise Ready</span>
+                        <span className="px-2 py-0.5 rounded-full bg-subtle text-secondary text-xs font-medium border border-default">Enterprise Ready</span>
                     </div>
                 </div>
             </div>
 
-            <div className="flex border-b border-slate-200 mb-4">
+            <div className="flex border-b border-default mb-4">
                 {['overview', 'permissions', 'reviews'].map(tab => (
-                    <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-4 py-2 text-xs font-bold uppercase border-b-2 transition-all ${activeTab === tab ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>{tab}</button>
+                    <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-4 py-2 text-xs font-bold uppercase border-b-2 transition-all ${activeTab === tab ? 'border-blue-600 text-blue-600' : 'border-transparent text-secondary hover:text-primary'}`}>{tab}</button>
                 ))}
             </div>
 
             <div className="flex-1 overflow-y-auto pr-2">
                 {activeTab === 'overview' && (
-                    <div className="space-y-4 text-sm text-slate-600">
+                    <div className="space-y-4 text-sm text-secondary">
                         <p>{integration.description}</p>
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="p-3 bg-slate-50 rounded border border-slate-100">
-                                <h4 className="font-bold text-slate-800 mb-1 flex items-center gap-2"><Zap size={14}/> Triggers</h4>
+                            <div className="p-3 bg-subtle rounded border border-default">
+                                <h4 className="font-bold text-primary mb-1 flex items-center gap-2"><Zap size={14}/> Triggers</h4>
                                 <ul className="list-disc list-inside text-xs space-y-1">
                                     <li>Record Created</li>
                                     <li>Status Updated</li>
                                     <li>Webhook Received</li>
                                 </ul>
                             </div>
-                            <div className="p-3 bg-slate-50 rounded border border-slate-100">
-                                <h4 className="font-bold text-slate-800 mb-1 flex items-center gap-2"><Server size={14}/> Actions</h4>
+                            <div className="p-3 bg-subtle rounded border border-default">
+                                <h4 className="font-bold text-primary mb-1 flex items-center gap-2"><Server size={14}/> Actions</h4>
                                 <ul className="list-disc list-inside text-xs space-y-1">
                                     <li>Create Record</li>
                                     <li>Sync Data</li>
@@ -79,24 +83,24 @@ const IntegrationDetails: React.FC<{ integration: Integration, onInstall: () => 
                 )}
                 {activeTab === 'permissions' && (
                     <div className="space-y-3">
-                        <div className="flex items-center gap-3 p-3 border border-slate-200 rounded-sm">
+                        <div className="flex items-center gap-3 p-3 border border-default rounded-sm">
                             <ShieldCheck size={20} className="text-emerald-500"/>
                             <div>
-                                <h4 className="text-sm font-bold text-slate-800">Data Access</h4>
-                                <p className="text-xs text-slate-500">Read/Write access to process variables and case data.</p>
+                                <h4 className="text-sm font-bold text-primary">Data Access</h4>
+                                <p className="text-xs text-secondary">Read/Write access to process variables and case data.</p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-3 p-3 border border-slate-200 rounded-sm">
+                        <div className="flex items-center gap-3 p-3 border border-default rounded-sm">
                             <Globe size={20} className="text-blue-500"/>
                             <div>
-                                <h4 className="text-sm font-bold text-slate-800">External Connectivity</h4>
-                                <p className="text-xs text-slate-500">Outbound HTTPS traffic to provider endpoints.</p>
+                                <h4 className="text-sm font-bold text-primary">External Connectivity</h4>
+                                <p className="text-xs text-secondary">Outbound HTTPS traffic to provider endpoints.</p>
                             </div>
                         </div>
                     </div>
                 )}
                 {activeTab === 'reviews' && (
-                    <div className="text-center py-8 text-slate-400 text-xs italic">
+                    <div className="text-center py-8 text-tertiary text-xs italic">
                         <Star size={24} className="mx-auto mb-2 text-amber-400 fill-amber-400"/>
                         4.9/5 Average Rating (Enterprise Customers)
                     </div>
@@ -107,7 +111,8 @@ const IntegrationDetails: React.FC<{ integration: Integration, onInstall: () => 
 };
 
 export const MarketplaceView: React.FC = () => {
-  const { integrations, installIntegration, uninstallIntegration } = useBPM();
+  const { integrations, installIntegration, uninstallIntegration, setToolbarConfig } = useBPM();
+  const { gridConfig } = useTheme();
   const [activeCat, setActiveCat] = useState('All');
   const [search, setSearch] = useState('');
   const [selectedIntegration, setSelectedIntegration] = useState<Integration | null>(null);
@@ -115,6 +120,28 @@ export const MarketplaceView: React.FC = () => {
   const [isConfiguring, setIsConfiguring] = useState(false);
   const [configValues, setConfigValues] = useState<Record<string, string>>({});
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isEditable, setIsEditable] = useState(false);
+
+  const defaultLayouts = {
+      lg: [
+          { i: 'header', x: 0, y: 0, w: 12, h: 4 },
+          { i: 'grid', x: 0, y: 4, w: 12, h: 20 }
+      ],
+      md: [
+          { i: 'header', x: 0, y: 0, w: 10, h: 4 },
+          { i: 'grid', x: 0, y: 4, w: 10, h: 20 }
+      ]
+  };
+  const [layouts, setLayouts] = useState(defaultLayouts);
+
+  useEffect(() => {
+      setToolbarConfig({
+          view: [
+              { label: isEditable ? 'Lock Layout' : 'Edit Layout', action: () => setIsEditable(!isEditable), icon: Settings },
+              { label: 'Reset Layout', action: () => setLayouts(defaultLayouts) }
+          ]
+      });
+  }, [setToolbarConfig, isEditable]);
 
   const filteredIntegrations = integrations.filter(i => 
       (activeCat === 'All' || i.category === activeCat) &&
@@ -122,15 +149,15 @@ export const MarketplaceView: React.FC = () => {
   );
 
   const handleOpen = (integration: Integration) => {
+      if (isEditable) return;
       setSelectedIntegration(integration);
       setConfigValues(integration.config || {});
-      setIsConfiguring(integration.isInstalled); // If installed, go straight to config
+      setIsConfiguring(integration.isInstalled);
       setModalOpen(true);
   };
 
   const handleConnect = async () => {
       setIsConnecting(true);
-      // Simulate OAuth Popup
       await new Promise(r => setTimeout(r, 2000));
       setIsConnecting(false);
       setConfigValues(prev => ({ ...prev, _connected: 'true', _account: 'demo@nexflow.io' }));
@@ -143,136 +170,49 @@ export const MarketplaceView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in pb-20">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-300 pb-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Connector Marketplace</h2>
-          <p className="text-xs text-slate-500 font-medium">Extend platform capabilities with enterprise integrations.</p>
-        </div>
-        <div className="relative w-full md:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14}/>
-            <input 
-                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-sm text-xs font-medium focus:ring-1 focus:ring-blue-600 outline-none" 
-                placeholder="Search connectors..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-            />
-        </div>
-      </header>
+    <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 -mx-4 px-4 pb-10">
+        <ResponsiveGridLayout className="layout" layouts={layouts} breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }} cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }} rowHeight={gridConfig.rowHeight} margin={gridConfig.margin} isDraggable={isEditable} isResizable={isEditable} draggableHandle=".drag-handle" onLayoutChange={(curr, all) => setLayouts(all)}>
+            <NexCard key="header" dragHandle={isEditable} className="p-4 flex flex-col justify-between">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-bold text-primary">Connector Marketplace</h2>
+                    <div className="relative w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary" size={14}/><input className="w-full pl-9 pr-3 py-1.5 bg-subtle border border-default rounded-sm text-xs outline-none text-primary" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)}/></div>
+                </div>
+                <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                    {CATEGORIES.map(cat => <button key={cat.id} onClick={() => setActiveCat(cat.id)} className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold transition-all whitespace-nowrap ${activeCat === cat.id ? 'bg-slate-800 text-white border-slate-800' : 'bg-panel text-secondary border-default hover:border-slate-400'}`}><cat.icon size={12}/> {cat.id}</button>)}
+                </div>
+            </NexCard>
 
-      {/* Category Tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-          {CATEGORIES.map(cat => (
-              <button 
-                key={cat.id} 
-                onClick={() => setActiveCat(cat.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full border text-xs font-bold transition-all whitespace-nowrap ${activeCat === cat.id ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'}`}
-              >
-                  <cat.icon size={14}/> {cat.id}
-              </button>
-          ))}
-      </div>
+            <div key="grid" className="overflow-y-auto p-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {filteredIntegrations.map(int => {
+                        const Icon = ICONS[int.iconName] || Box;
+                        return (
+                            <div key={int.id} onClick={() => handleOpen(int)} className="bg-panel border border-default rounded-lg p-5 shadow-sm hover:shadow-md hover:border-active transition-all flex flex-col group h-64 cursor-pointer">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className={`p-3 rounded-lg ${int.isInstalled ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-subtle text-secondary border border-default'}`}><Icon size={24}/></div>
+                                    {int.isInstalled && <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold border border-emerald-200 flex items-center gap-1"><CheckCircle size={10}/> Installed</span>}
+                                </div>
+                                <div className="flex-1"><h3 className="font-bold text-primary text-sm mb-1 group-hover:text-blue-600 transition-colors">{int.name}</h3><p className="text-xs text-secondary leading-snug line-clamp-3">{int.description}</p></div>
+                                <div className="pt-4 border-t border-default flex items-center justify-between mt-2"><div className="text-[10px] text-tertiary font-medium">v{int.version} • {int.provider}</div>{int.isInstalled ? <Settings size={16} className="text-tertiary group-hover:text-blue-600 transition-colors"/> : <div className="flex items-center gap-1 text-[10px] font-bold text-blue-600 uppercase tracking-wide opacity-0 group-hover:opacity-100 transition-opacity">Get <Download size={12}/></div>}</div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        </ResponsiveGridLayout>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredIntegrations.map(int => {
-              const Icon = ICONS[int.iconName] || Box;
-              return (
-                  <div key={int.id} onClick={() => handleOpen(int)} className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm hover:shadow-md hover:border-blue-300 transition-all flex flex-col group h-64 cursor-pointer">
-                      <div className="flex justify-between items-start mb-4">
-                          <div className={`p-3 rounded-lg ${int.isInstalled ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-50 text-slate-500 border border-slate-100'}`}>
-                              <Icon size={24}/>
-                          </div>
-                          {int.isInstalled && <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold border border-emerald-200 flex items-center gap-1"><CheckCircle size={10}/> Installed</span>}
-                      </div>
-                      
-                      <div className="flex-1">
-                          <h3 className="font-bold text-slate-900 text-sm mb-1 group-hover:text-blue-600 transition-colors">{int.name}</h3>
-                          <p className="text-xs text-slate-500 leading-snug line-clamp-3">{int.description}</p>
-                      </div>
-
-                      <div className="pt-4 border-t border-slate-100 flex items-center justify-between mt-2">
-                          <div className="text-[10px] text-slate-400 font-medium">v{int.version} • {int.provider}</div>
-                          {int.isInstalled ? (
-                              <Settings size={16} className="text-slate-300 group-hover:text-blue-600 transition-colors"/>
-                          ) : (
-                              <div className="flex items-center gap-1 text-[10px] font-bold text-blue-600 uppercase tracking-wide opacity-0 group-hover:opacity-100 transition-opacity">
-                                  Get <Download size={12}/>
-                              </div>
-                          )}
-                      </div>
-                  </div>
-              );
-          })}
-      </div>
-
-      {selectedIntegration && (
-          <NexModal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Connector Details" size="lg">
-              {!isConfiguring ? (
-                  <IntegrationDetails 
-                    integration={selectedIntegration} 
-                    onInstall={() => setIsConfiguring(true)} 
-                    isConfiguring={isConfiguring}
-                  />
-              ) : (
-                  <div className="space-y-6">
-                      <div className="bg-slate-50 p-4 rounded-sm border border-slate-200 flex items-center gap-4">
-                          {React.createElement(ICONS[selectedIntegration.iconName] || Box, { size: 32, className: 'text-slate-600' })}
-                          <div>
-                              <h3 className="text-lg font-bold text-slate-900">Configure {selectedIntegration.name}</h3>
-                              <p className="text-sm text-slate-500">Provide authentication credentials to enable this connector.</p>
-                          </div>
-                      </div>
-
-                      <div className="space-y-4">
-                          <h4 className="text-xs font-bold text-slate-900 uppercase border-b border-slate-100 pb-2">Authentication</h4>
-                          
-                          {/* OAuth Simulator */}
-                          {['int-salesforce', 'int-slack', 'int-jira'].includes(selectedIntegration.id) ? (
-                              <div className="p-6 border border-slate-200 rounded-sm bg-white text-center">
-                                  {configValues._connected ? (
-                                      <div className="text-emerald-600 flex flex-col items-center gap-2">
-                                          <CheckCircle size={32}/>
-                                          <p className="font-bold">Connected as {configValues._account}</p>
-                                          <button onClick={() => setConfigValues({...configValues, _connected: ''})} className="text-xs text-slate-400 hover:text-rose-600 underline">Disconnect</button>
-                                      </div>
-                                  ) : (
-                                      <NexButton variant="primary" onClick={handleConnect} disabled={isConnecting} className="mx-auto">
-                                          {isConnecting ? 'Connecting...' : `Connect ${selectedIntegration.name} Account`}
-                                      </NexButton>
-                                  )}
-                              </div>
-                          ) : selectedIntegration.id === 'int-openai' ? (
-                              <NexFormGroup label="API Key">
-                                    <input className="prop-input" type="password" placeholder="sk-..." value={configValues['apiKey'] || ''} onChange={e => setConfigValues({...configValues, apiKey: e.target.value})} />
-                              </NexFormGroup>
-                          ) : (
-                              <div className="grid grid-cols-2 gap-4">
-                                  <NexFormGroup label="Username"><input className="prop-input" /></NexFormGroup>
-                                  <NexFormGroup label="Password"><input className="prop-input" type="password" /></NexFormGroup>
-                              </div>
-                          )}
-
-                          {/* Specific Configs */}
-                          {selectedIntegration.id === 'int-salesforce' && (
-                            <NexFormGroup label="Instance URL">
-                                <input className="prop-input" placeholder="https://na1.salesforce.com" value={configValues['instanceUrl'] || ''} onChange={e => setConfigValues({...configValues, instanceUrl: e.target.value})} />
-                            </NexFormGroup>
-                          )}
-                      </div>
-
-                      <div className="flex justify-between pt-4 border-t border-slate-100">
-                          <button onClick={() => setIsConfiguring(false)} className="text-slate-500 text-sm hover:underline">Back to Details</button>
-                          <div className="flex gap-3">
-                            {selectedIntegration.isInstalled && (
-                                <NexButton variant="danger" onClick={() => { uninstallIntegration(selectedIntegration.id); setModalOpen(false); }}>Uninstall</NexButton>
-                            )}
-                            <NexButton variant="primary" onClick={handleInstall}>{selectedIntegration.isInstalled ? 'Save Changes' : 'Complete Installation'}</NexButton>
-                          </div>
-                      </div>
-                  </div>
-              )}
-          </NexModal>
-      )}
+        {selectedIntegration && (
+            <NexModal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Connector Details" size="lg">
+                {!isConfiguring ? <IntegrationDetails integration={selectedIntegration} onInstall={() => setIsConfiguring(true)} isConfiguring={isConfiguring} /> : 
+                <div className="space-y-6">
+                    <div className="bg-subtle p-4 rounded-sm border border-default flex items-center gap-4">{React.createElement(ICONS[selectedIntegration.iconName] || Box, { size: 32, className: 'text-secondary' })}<div><h3 className="text-lg font-bold text-primary">Configure {selectedIntegration.name}</h3><p className="text-sm text-secondary">Provide authentication credentials.</p></div></div>
+                    <div className="space-y-4"><h4 className="text-xs font-bold text-primary uppercase border-b border-default pb-2">Authentication</h4>
+                        {['int-salesforce', 'int-slack', 'int-jira'].includes(selectedIntegration.id) ? (<div className="p-6 border border-default rounded-sm bg-panel text-center">{configValues._connected ? <div className="text-emerald-600 flex flex-col items-center gap-2"><CheckCircle size={32}/><p className="font-bold">Connected as {configValues._account}</p><button onClick={() => setConfigValues({...configValues, _connected: ''})} className="text-xs text-slate-400 hover:text-rose-600 underline">Disconnect</button></div> : <NexButton variant="primary" onClick={handleConnect} disabled={isConnecting} className="mx-auto">{isConnecting ? 'Connecting...' : `Connect ${selectedIntegration.name} Account`}</NexButton>}</div>) : <div className="grid grid-cols-2 gap-4"><NexFormGroup label="Username"><input className="prop-input" /></NexFormGroup><NexFormGroup label="Password"><input className="prop-input" type="password" /></NexFormGroup></div>}
+                    </div>
+                    <div className="flex justify-between pt-4 border-t border-default"><button onClick={() => setIsConfiguring(false)} className="text-secondary text-sm hover:underline">Back to Details</button><div className="flex gap-3">{selectedIntegration.isInstalled && <NexButton variant="danger" onClick={() => { uninstallIntegration(selectedIntegration.id); setModalOpen(false); }}>Uninstall</NexButton>}<NexButton variant="primary" onClick={handleInstall}>{selectedIntegration.isInstalled ? 'Save Changes' : 'Complete Installation'}</NexButton></div></div>
+                </div>}
+            </NexModal>
+        )}
     </div>
   );
 };

@@ -1,59 +1,64 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useBPM } from '../../contexts/BPMContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { FormPageLayout } from '../shared/PageTemplates';
-import { NexFormGroup, NexSwitch } from '../shared/NexUI';
+import { NexFormGroup, NexSwitch, NexCard } from '../shared/NexUI';
 import { TaskPriority } from '../../types';
 import { 
   Briefcase, ShieldAlert, Globe, DollarSign, Calendar, User, Building, 
   MapPin, Tag, Flag, AlertTriangle, Scale, Lock, Clock, BookOpen, 
   Layers, HardDrive, Filter, Target, Zap, ShieldCheck, FileSearch, UserCheck,
-  Hash,
-  Plus
+  Hash, Plus, Settings
 } from 'lucide-react';
+import { Responsive, WidthProvider } from 'react-grid-layout';
+
+const ResponsiveGridLayout = WidthProvider(Responsive);
 
 export const CaseCreateView = () => {
-  const { navigateTo, createCase, groups, users, currentUser } = useBPM();
+  const { navigateTo, createCase, groups, users, currentUser, setToolbarConfig } = useBPM();
+  const { gridConfig } = useTheme();
   
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    type: 'Incident',
-    priority: TaskPriority.MEDIUM,
-    status: 'Open',
-    departmentId: '',
-    ownerId: currentUser?.id || '',
-    requesterName: currentUser?.name || '',
-    requesterEmail: currentUser?.email || '',
-    source: 'Internal Portal',
-    strategicPillar: 'Operational Excellence',
-    businessUnit: 'Global Operations',
-    riskLevel: 'Low',
-    compliance: 'None',
-    jurisdiction: 'United States',
-    isConfidential: false,
-    legalHold: false,
-    gdprImpact: false,
-    dpiasRequired: false,
-    costCenter: '',
-    budgetCode: '',
-    impactAmount: 0,
-    currency: 'USD',
-    capitalized: false,
-    targetDate: '',
-    incidentDate: new Date().toISOString().split('T')[0],
-    site: 'Remote',
-    region: 'Global',
-    complexity: 'Medium',
-    externalRef: '',
-    parentCaseId: '',
-    rootCause: 'TBD',
-    isVendorInvolved: false,
-    vendorName: '',
-    tags: '',
-    autoStart: false,
-    evidenceRequirement: 'Standard'
+    title: '', description: '', type: 'Incident', priority: TaskPriority.MEDIUM,
+    status: 'Open', departmentId: '', ownerId: currentUser?.id || '',
+    strategicPillar: 'Operational Excellence', businessUnit: 'Global Operations',
+    riskLevel: 'Low', compliance: 'None', isConfidential: false,
+    costCenter: '', impactAmount: 0, currency: 'USD',
+    incidentDate: new Date().toISOString().split('T')[0], targetDate: '',
+    site: 'Remote', region: 'Global', autoStart: false,
+    tags: ''
   });
+
+  const [isEditable, setIsEditable] = useState(false);
+
+  // Layouts
+  const defaultLayouts = {
+      lg: [
+          { i: 'card-identity', x: 0, y: 0, w: 8, h: 14 },
+          { i: 'card-org', x: 8, y: 0, w: 4, h: 14 },
+          { i: 'card-risk', x: 0, y: 14, w: 4, h: 12 },
+          { i: 'card-finance', x: 4, y: 14, w: 4, h: 12 },
+          { i: 'card-auto', x: 8, y: 14, w: 4, h: 12 }
+      ],
+      md: [
+          { i: 'card-identity', x: 0, y: 0, w: 6, h: 14 },
+          { i: 'card-org', x: 6, y: 0, w: 4, h: 14 },
+          { i: 'card-risk', x: 0, y: 14, w: 5, h: 12 },
+          { i: 'card-finance', x: 5, y: 14, w: 5, h: 12 },
+          { i: 'card-auto', x: 0, y: 26, w: 10, h: 8 }
+      ]
+  };
+  const [layouts, setLayouts] = useState(defaultLayouts);
+
+  useEffect(() => {
+      setToolbarConfig({
+          view: [
+              { label: isEditable ? 'Lock Layout' : 'Customize Form Layout', action: () => setIsEditable(!isEditable), icon: Settings },
+              { label: 'Reset Layout', action: () => setLayouts(defaultLayouts) }
+          ]
+      });
+  }, [setToolbarConfig, isEditable]);
 
   const handleChange = (key: string, value: any) => {
     setFormData(prev => ({ ...prev, [key]: value }));
@@ -61,7 +66,6 @@ export const CaseCreateView = () => {
 
   const handleSave = async () => {
     if (!formData.title) return;
-    
     const newId = await createCase(formData.title, formData.description, {
         priority: formData.priority as TaskPriority,
         ownerId: formData.ownerId,
@@ -76,293 +80,114 @@ export const CaseCreateView = () => {
   return (
     <FormPageLayout 
         title="Initiate Enterprise Case" 
-        subtitle="Provision a high-context operational record for audit and automation." 
+        subtitle="Provision a high-context operational record." 
         onBack={() => navigateTo('cases')} 
         onSave={handleSave} 
         saveLabel="Initialize Record"
         fullWidth
     >
-      <div className="max-w-[1100px] mx-auto p-10 pb-32 space-y-10">
-        
-        {/* SECTION 1: IDENTITY & STRATEGY */}
-        <section className="section-card">
-            <div className="section-header">
-                <Target size={16} className="text-blue-600" />
-                <h3 className="section-title">Identity & Strategy</h3>
-            </div>
-            <div className="grid grid-cols-12 gap-x-6 gap-y-8">
-                <div className="col-span-12 lg:col-span-8">
-                    <NexFormGroup label="Primary Case Title" required helpText="A concise, authoritative name for this record.">
-                        <input className="prop-input !text-[16px] !font-bold" placeholder="e.g. Q4 Regional Compliance Audit - EMEA" value={formData.title} onChange={e => handleChange('title', e.target.value)} />
-                    </NexFormGroup>
-                </div>
-                <div className="col-span-12 lg:col-span-4">
-                    <NexFormGroup label="Case Category" icon={Layers}>
+      <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 px-4 pb-10">
+        <ResponsiveGridLayout
+            className="layout"
+            layouts={layouts}
+            breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+            cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
+            rowHeight={gridConfig.rowHeight}
+            margin={gridConfig.margin}
+            isDraggable={isEditable}
+            isResizable={isEditable}
+            draggableHandle=".drag-handle"
+            onLayoutChange={(curr, all) => setLayouts(all)}
+        >
+            <NexCard key="card-identity" dragHandle={isEditable} title="Identity & Strategy" className="p-6">
+                <div className="grid grid-cols-2 gap-6">
+                    <div className="col-span-2">
+                        <NexFormGroup label="Primary Case Title" required>
+                            <input className="prop-input !text-[16px] !font-bold" placeholder="e.g. Q4 Regional Compliance Audit" value={formData.title} onChange={e => handleChange('title', e.target.value)} />
+                        </NexFormGroup>
+                    </div>
+                    <NexFormGroup label="Category">
                         <select className="prop-input" value={formData.type} onChange={e => handleChange('type', e.target.value)}>
-                            <option>Incident</option>
-                            <option>Strategic Project</option>
-                            <option>Service Request</option>
-                            <option>Regulatory Investigation</option>
-                            <option>Audit Engagement</option>
-                            <option>Security Event</option>
+                            <option>Incident</option><option>Strategic Project</option><option>Service Request</option><option>Investigation</option>
                         </select>
                     </NexFormGroup>
-                </div>
-
-                <div className="col-span-12 lg:col-span-4">
-                    <NexFormGroup label="Priority Matrix" icon={Flag}>
+                    <NexFormGroup label="Priority">
                         <select className="prop-input font-bold" value={formData.priority} onChange={e => handleChange('priority', e.target.value)}>
-                            <option value="Critical" className="text-red-600 font-bold">Critical (SLA: 2h)</option>
-                            <option value="High" className="text-orange-600 font-bold">High (SLA: 1d)</option>
-                            <option value="Medium" className="text-blue-600 font-bold">Medium (SLA: 3d)</option>
-                            <option value="Low" className="text-slate-600 font-bold">Low (SLA: 7d)</option>
+                            <option value="Critical">Critical (2h)</option><option value="High">High (1d)</option><option value="Medium">Medium (3d)</option><option value="Low">Low (7d)</option>
                         </select>
                     </NexFormGroup>
-                </div>
-                <div className="col-span-12 lg:col-span-4">
-                    <NexFormGroup label="Strategic Pillar" icon={Target}>
-                        <select className="prop-input" value={formData.strategicPillar} onChange={e => handleChange('strategicPillar', e.target.value)}>
-                            <option>Operational Excellence</option>
-                            <option>Growth & Expansion</option>
-                            <option>Regulatory Compliance</option>
-                            <option>Digital Transformation</option>
-                            <option>Sustainability (ESG)</option>
-                        </select>
-                    </NexFormGroup>
-                </div>
-                <div className="col-span-12 lg:col-span-4">
-                    <NexFormGroup label="Resource Complexity" icon={Zap}>
-                        <select className="prop-input" value={formData.complexity} onChange={e => handleChange('complexity', e.target.value)}>
-                            <option>Low (L1)</option>
-                            <option>Medium (L2)</option>
-                            <option>High (L3)</option>
-                        </select>
-                    </NexFormGroup>
-                </div>
-
-                <div className="col-span-12">
-                    <NexFormGroup label="Executive Summary / Context" icon={BookOpen}>
-                        <textarea className="prop-input h-24 py-3 resize-none" placeholder="Explain the business context, objectives, and any immediate risks..." value={formData.description} onChange={e => handleChange('description', e.target.value)} />
-                    </NexFormGroup>
-                </div>
-            </div>
-        </section>
-
-        {/* SECTION 2: PLACEMENT & OWNERSHIP */}
-        <section className="section-card">
-            <div className="section-header">
-                <Building size={16} className="text-indigo-600" />
-                <h3 className="section-title">Organizational Placement</h3>
-            </div>
-            <div className="grid grid-cols-12 gap-x-6 gap-y-8">
-                <div className="col-span-12 lg:col-span-6">
-                    <NexFormGroup label="Reporting Department" icon={Building} required>
-                        <div className="flex gap-1">
-                            <select className="prop-input flex-1" value={formData.departmentId} onChange={e => handleChange('departmentId', e.target.value)}>
-                                <option value="">-- Select Organizational Unit --</option>
-                                {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-                            </select>
-                            <button type="button" onClick={() => navigateTo('create-group')} className="w-10 h-10 flex items-center justify-center bg-slate-50 border border-slate-200 rounded-sm hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition-all" title="Add Unit">
-                                <Plus size={16}/>
-                            </button>
-                        </div>
-                    </NexFormGroup>
-                </div>
-                <div className="col-span-12 lg:col-span-6">
-                    <NexFormGroup label="Assigned Principal Owner" icon={UserCheck} required>
-                        <div className="flex gap-1">
-                            <select className="prop-input flex-1" value={formData.ownerId} onChange={e => handleChange('ownerId', e.target.value)}>
-                                <option value="">-- Select Accountable Person --</option>
-                                {users.map(u => <option key={u.id} value={u.id}>{u.name} ({u.location})</option>)}
-                            </select>
-                            <button type="button" onClick={() => navigateTo('create-user')} className="w-10 h-10 flex items-center justify-center bg-slate-50 border border-slate-200 rounded-sm hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition-all" title="Provision User">
-                                <Plus size={16}/>
-                            </button>
-                        </div>
-                    </NexFormGroup>
-                </div>
-
-                <div className="col-span-12 lg:col-span-3">
-                    <NexFormGroup label="Business Unit" icon={Globe}>
-                        <select className="prop-input" value={formData.businessUnit} onChange={e => handleChange('businessUnit', e.target.value)}>
-                            <option>Global Operations</option>
-                            <option>Shared Services</option>
-                            <option>Product & Engineering</option>
-                            <option>Sales & Marketing</option>
-                            <option>Legal & HR</option>
-                        </select>
-                    </NexFormGroup>
-                </div>
-                <div className="col-span-12 lg:col-span-3">
-                    <NexFormGroup label="Resource Region" icon={MapPin}>
-                        <select className="prop-input" value={formData.region} onChange={e => handleChange('region', e.target.value)}>
-                            <option>NA (North America)</option>
-                            <option>EMEA Central</option>
-                            <option>APAC (Asia Pacific)</option>
-                            <option>LATAM</option>
-                        </select>
-                    </NexFormGroup>
-                </div>
-                <div className="col-span-12 lg:col-span-3">
-                    <NexFormGroup label="Operational Site" icon={Building}>
-                        <select className="prop-input" value={formData.site} onChange={e => handleChange('site', e.target.value)}>
-                            <option>Remote</option>
-                            <option>London HQ</option>
-                            <option>New York Tech Hub</option>
-                            <option>Singapore DC</option>
-                        </select>
-                    </NexFormGroup>
-                </div>
-                <div className="col-span-12 lg:col-span-3">
-                    <NexFormGroup label="Inbound Source" icon={Filter}>
-                        <select className="prop-input" value={formData.source} onChange={e => handleChange('source', e.target.value)}>
-                            <option>System Trigger</option>
-                            <option>Employee Portal</option>
-                            <option>Executive Intake</option>
-                            <option>External API</option>
-                        </select>
-                    </NexFormGroup>
-                </div>
-            </div>
-        </section>
-
-        {/* SECTION 3: GOVERNANCE & COMPLIANCE */}
-        <section className="section-card border-l-4 border-l-rose-500">
-            <div className="section-header">
-                <ShieldAlert size={16} className="text-rose-600" />
-                <h3 className="section-title text-rose-700">Governance & Compliance</h3>
-            </div>
-            <div className="grid grid-cols-12 gap-x-6 gap-y-8">
-                <div className="col-span-12 lg:col-span-4">
-                    <NexFormGroup label="Inherent Risk Rating" icon={AlertTriangle}>
-                        <select className="prop-input !border-rose-100 bg-rose-50/20" value={formData.riskLevel} onChange={e => handleChange('riskLevel', e.target.value)}>
-                            <option>Low - Minimal</option>
-                            <option>Medium - Moderate</option>
-                            <option>High - Significant</option>
-                            <option>Critical - Threat</option>
-                        </select>
-                    </NexFormGroup>
-                </div>
-                <div className="col-span-12 lg:col-span-4">
-                    <NexFormGroup label="Regulatory Framework" icon={Scale}>
-                        <select className="prop-input" value={formData.compliance} onChange={e => handleChange('compliance', e.target.value)}>
-                            <option value="None">Non-Regulated</option>
-                            <option>GDPR / Privacy</option>
-                            <option>SOX / Financial</option>
-                            <option>HIPAA / Health</option>
-                            <option>SOC2 / Security</option>
-                        </select>
-                    </NexFormGroup>
-                </div>
-                <div className="col-span-12 lg:col-span-4">
-                    <NexFormGroup label="Evidence Requirement" icon={FileSearch}>
-                        <select className="prop-input" value={formData.evidenceRequirement} onChange={e => handleChange('evidenceRequirement', e.target.value)}>
-                            <option>Standard (Internal)</option>
-                            <option>High (Audit Ready)</option>
-                            <option>Maximum (Forensic)</option>
-                        </select>
-                    </NexFormGroup>
-                </div>
-
-                <div className="col-span-12 lg:col-span-6">
-                   <div className="space-y-3 p-4 bg-slate-50 border border-slate-200 rounded-sm">
-                        <NexSwitch label="Confidential / Restricted Access" checked={formData.isConfidential} onChange={v => handleChange('isConfidential', v)} icon={Lock} />
-                        <NexSwitch label="Active Legal Hold Engaged" checked={formData.legalHold} onChange={v => handleChange('legalHold', v)} icon={Scale} />
-                   </div>
-                </div>
-                <div className="col-span-12 lg:col-span-6">
-                   <div className="space-y-3 p-4 bg-slate-50 border border-slate-200 rounded-sm">
-                        <NexSwitch label="GDPR Article 30 Impact" checked={formData.gdprImpact} onChange={v => handleChange('gdprImpact', v)} icon={ShieldCheck} />
-                        <NexSwitch label="DPIA Required" checked={formData.dpiasRequired} onChange={v => handleChange('dpiasRequired', v)} icon={FileSearch} />
-                   </div>
-                </div>
-            </div>
-        </section>
-
-        {/* SECTION 4: FINANCIALS & LOGISTICS */}
-        <section className="section-card">
-            <div className="section-header">
-                <DollarSign size={16} className="text-emerald-600" />
-                <h3 className="section-title">Financial Exposure & Logistics</h3>
-            </div>
-            <div className="grid grid-cols-12 gap-x-6 gap-y-8">
-                <div className="col-span-12 lg:col-span-4">
-                    <NexFormGroup label="Cost Center" icon={Building}>
-                        <input className="prop-input font-mono" placeholder="CC-000-00" value={formData.costCenter} onChange={e => handleChange('costCenter', e.target.value)} />
-                    </NexFormGroup>
-                </div>
-                <div className="col-span-12 lg:col-span-4">
-                    <NexFormGroup label="Budget / GL Code" icon={Hash}>
-                        <input className="prop-input font-mono" placeholder="e.g. 500201" value={formData.budgetCode} onChange={e => handleChange('budgetCode', e.target.value)} />
-                    </NexFormGroup>
-                </div>
-                <div className="col-span-12 lg:col-span-4">
-                    <NexFormGroup label="Estimated Amount" icon={DollarSign}>
-                        <div className="flex gap-1">
-                            <input type="number" className="prop-input flex-1" value={formData.impactAmount} onChange={e => handleChange('impactAmount', Number(e.target.value))} />
-                            <select className="prop-input w-24" value={formData.currency} onChange={e => handleChange('currency', e.target.value)}>
-                                <option>USD</option><option>EUR</option><option>GBP</option>
-                            </select>
-                        </div>
-                    </NexFormGroup>
-                </div>
-
-                <div className="col-span-12 lg:col-span-4">
-                    <NexFormGroup label="Incident / Start Date" icon={Calendar}>
-                        <input type="date" className="prop-input" value={formData.incidentDate} onChange={e => handleChange('incidentDate', e.target.value)} />
-                    </NexFormGroup>
-                </div>
-                <div className="col-span-12 lg:col-span-4">
-                    <NexFormGroup label="Target Resolution" icon={Clock}>
-                        <input type="date" className="prop-input" value={formData.targetDate} onChange={e => handleChange('targetDate', e.target.value)} />
-                    </NexFormGroup>
-                </div>
-                <div className="col-span-12 lg:col-span-4 flex items-end pb-1.5">
-                    <NexSwitch label="Capital Expenditure (CAPEX)" checked={formData.capitalized} onChange={v => handleChange('capitalized', v)} icon={DollarSign} />
-                </div>
-            </div>
-        </section>
-
-        {/* SECTION 5: AUTOMATION & META */}
-        <section className="section-card border-l-4 border-l-amber-500">
-            <div className="section-header">
-                <Zap size={16} className="text-amber-500" />
-                <h3 className="section-title">Automation & Meta</h3>
-            </div>
-            <div className="grid grid-cols-12 gap-x-6 gap-y-8">
-                <div className="col-span-12 lg:col-span-4">
-                    <NexFormGroup label="Parent Engagement ID" icon={Briefcase}>
-                        <input className="prop-input font-mono" placeholder="CASE-XXXXX" value={formData.parentCaseId} onChange={e => handleChange('parentCaseId', e.target.value)} />
-                    </NexFormGroup>
-                </div>
-                <div className="col-span-12 lg:col-span-4">
-                    <NexFormGroup label="External ERP/CRM Ref" icon={HardDrive}>
-                        <input className="prop-input" placeholder="e.g. SFDC-99212" value={formData.externalRef} onChange={e => handleChange('externalRef', e.target.value)} />
-                    </NexFormGroup>
-                </div>
-                <div className="col-span-12 lg:col-span-4">
-                    <NexFormGroup label="Search Tags" icon={Tag}>
-                        <input className="prop-input" placeholder="urgent, q4, audit..." value={formData.tags} onChange={e => handleChange('tags', e.target.value)} />
-                    </NexFormGroup>
-                </div>
-
-                <div className="col-span-12">
-                    <div className="p-5 bg-blue-50 border border-blue-100 rounded-sm flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-blue-600 text-white rounded-full shadow-sm">
-                                <Zap size={20}/>
-                            </div>
-                            <div>
-                                <h4 className="text-sm font-bold text-blue-900">Adaptive Workflow Initiation</h4>
-                                <p className="text-xs text-blue-700">Enable automatic process matching based on Case Category and Risk Rating.</p>
-                            </div>
-                        </div>
-                        <NexSwitch label="" checked={formData.autoStart} onChange={v => handleChange('autoStart', v)} />
+                    <div className="col-span-2">
+                        <NexFormGroup label="Executive Summary">
+                            <textarea className="prop-input h-24 py-3 resize-none" placeholder="Context and objectives..." value={formData.description} onChange={e => handleChange('description', e.target.value)} />
+                        </NexFormGroup>
                     </div>
                 </div>
-            </div>
-        </section>
+            </NexCard>
 
+            <NexCard key="card-org" dragHandle={isEditable} title="Placement" className="p-6">
+                <div className="space-y-4">
+                    <NexFormGroup label="Department" required>
+                        <select className="prop-input" value={formData.departmentId} onChange={e => handleChange('departmentId', e.target.value)}>
+                            <option value="">Select Unit...</option>
+                            {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                        </select>
+                    </NexFormGroup>
+                    <NexFormGroup label="Owner" required>
+                        <select className="prop-input" value={formData.ownerId} onChange={e => handleChange('ownerId', e.target.value)}>
+                            <option value="">Select Owner...</option>
+                            {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                        </select>
+                    </NexFormGroup>
+                    <NexFormGroup label="Region">
+                        <select className="prop-input" value={formData.region} onChange={e => handleChange('region', e.target.value)}>
+                            <option>NA</option><option>EMEA</option><option>APAC</option><option>LATAM</option>
+                        </select>
+                    </NexFormGroup>
+                </div>
+            </NexCard>
+
+            <NexCard key="card-risk" dragHandle={isEditable} title="Governance" className="p-6 border-l-4 border-l-rose-500">
+                <div className="space-y-4">
+                    <NexFormGroup label="Risk Rating">
+                        <select className="prop-input bg-rose-50/20" value={formData.riskLevel} onChange={e => handleChange('riskLevel', e.target.value)}>
+                            <option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
+                        </select>
+                    </NexFormGroup>
+                    <NexFormGroup label="Compliance Framework">
+                        <select className="prop-input" value={formData.compliance} onChange={e => handleChange('compliance', e.target.value)}>
+                            <option value="None">None</option><option>GDPR</option><option>SOX</option><option>HIPAA</option>
+                        </select>
+                    </NexFormGroup>
+                    <NexSwitch label="Confidential" checked={formData.isConfidential} onChange={v => handleChange('isConfidential', v)} />
+                </div>
+            </NexCard>
+
+            <NexCard key="card-finance" dragHandle={isEditable} title="Financials" className="p-6">
+                <div className="space-y-4">
+                    <NexFormGroup label="Cost Center">
+                        <input className="prop-input font-mono" placeholder="CC-000" value={formData.costCenter} onChange={e => handleChange('costCenter', e.target.value)} />
+                    </NexFormGroup>
+                    <NexFormGroup label="Est. Impact">
+                        <div className="flex gap-1">
+                            <input type="number" className="prop-input flex-1" value={formData.impactAmount} onChange={e => handleChange('impactAmount', Number(e.target.value))} />
+                            <select className="prop-input w-20" value={formData.currency} onChange={e => handleChange('currency', e.target.value)}><option>USD</option><option>EUR</option></select>
+                        </div>
+                    </NexFormGroup>
+                </div>
+            </NexCard>
+
+            <NexCard key="card-auto" dragHandle={isEditable} title="Automation" className="p-6 border-l-4 border-l-amber-500">
+                <div className="space-y-4">
+                    <NexFormGroup label="Tags (CSV)">
+                        <input className="prop-input" placeholder="audit, urgent..." value={formData.tags} onChange={e => handleChange('tags', e.target.value)} />
+                    </NexFormGroup>
+                    <div className="p-4 bg-blue-50 border border-blue-100 rounded-sm">
+                        <NexSwitch label="Auto-Start Workflow" checked={formData.autoStart} onChange={v => handleChange('autoStart', v)} />
+                        <p className="text-[10px] text-blue-600 mt-2">Will trigger process based on category.</p>
+                    </div>
+                </div>
+            </NexCard>
+        </ResponsiveGridLayout>
       </div>
     </FormPageLayout>
   );

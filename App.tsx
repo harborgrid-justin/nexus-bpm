@@ -154,7 +154,7 @@ const Breadcrumbs = ({ nav }: { nav: { view: ViewState, selectedId?: string } })
 
     return (
         <div 
-          className="flex items-center gap-2 py-2 bg-subtle border-b border-default text-xs text-secondary"
+          className="flex items-center gap-2 py-2 bg-subtle border-b border-default text-xs text-secondary shrink-0"
           style={{ paddingLeft: 'var(--layout-padding)', paddingRight: 'var(--layout-padding)' }}
         >
             <Home size={12} className="text-tertiary"/>
@@ -231,6 +231,9 @@ const AppContent: React.FC = () => {
       default: return <Dashboard />;
     }
   }
+
+  // Define views that should take full width and height without constrained padding
+  const isFullCanvasView = ['designer', 'form-designer', 'resource-planner'].includes(nav.view);
 
   if (loading) {
     return (
@@ -397,15 +400,23 @@ const AppContent: React.FC = () => {
 
         {/* Content Canvas */}
         <main 
-          className="flex-1 overflow-y-auto bg-app" 
-          style={{ padding: 'var(--layout-padding)' }}
+          className="flex-1 overflow-y-auto bg-app relative" 
+          style={{ padding: isFullCanvasView ? '0' : 'var(--layout-padding)' }}
         >
-          <div 
-            className="max-w-[1600px] mx-auto h-full flex flex-col"
-            style={{ gap: 'var(--layout-gap)' }}
-          >
-            {renderCurrentView()}
-          </div>
+          {isFullCanvasView ? (
+             // Edge-to-edge container for canvas tools
+             <div className="h-full w-full flex flex-col">
+                {renderCurrentView()}
+             </div>
+          ) : (
+             // Centered container for standard pages
+             <div 
+               className="max-w-[1600px] mx-auto h-full flex flex-col"
+               style={{ gap: 'var(--layout-gap)' }}
+             >
+               {renderCurrentView()}
+             </div>
+          )}
         </main>
       </div>
 

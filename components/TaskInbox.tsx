@@ -2,17 +2,21 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Task, TaskStatus, TaskPriority, ChecklistItem, SavedView } from '../types';
 import { useBPM } from '../contexts/BPMContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { 
   Search, CheckSquare, Layers, Clock, AlertCircle, UserPlus, Settings,
   CheckCircle, XCircle, Paperclip, LayoutGrid, List as ListIcon, 
   User, Calendar, Star, PauseCircle, ArrowDown, ArrowUp, X,
   Table as TableIcon, Download, Plus, Send, ChevronLeft, FormInput, Sparkles, BrainCircuit, ListChecks, Award, Trash2, Printer,
-  Filter, Save, Eye
+  Filter, Save, Eye, GripVertical, MessageSquare, ListTodo
 } from 'lucide-react';
-import { NexBadge, NexButton, NexHistoryFeed, NexDebouncedInput, NexUserDisplay, NexVirtualList } from './shared/NexUI';
+import { NexBadge, NexButton, NexHistoryFeed, NexDebouncedInput, NexUserDisplay, NexVirtualList, NexCard } from './shared/NexUI';
 import { FormRenderer } from './shared/FormRenderer';
 import { validateForm, createFilterPredicate, calculateSLA } from '../utils';
 import { summarizeTaskContext } from '../services/geminiService';
+import { Responsive, WidthProvider } from 'react-grid-layout';
+
+const ResponsiveGridLayout = WidthProvider(Responsive);
 
 // --- SLA Visual Component ---
 const SLACountdown = ({ dueDate }: { dueDate: string }) => {
@@ -53,7 +57,7 @@ const TaskListItem: React.FC<TaskListProps> = ({ task, isSelected, isChecked, is
   return (
     <div 
       onClick={() => onClick(task)}
-      className={`border-b border-subtle cursor-pointer hover:bg-subtle transition-colors group flex items-start gap-3 relative ${isSelected ? 'bg-active border-l-4 border-l-blue-600 pl-2' : 'border-l-4 border-l-transparent pl-3'}`}
+      className={`border-b border-default cursor-pointer hover:bg-subtle transition-colors group flex items-start gap-3 relative ${isSelected ? 'bg-active border-l-4 border-l-blue-600 pl-2' : 'border-l-4 border-l-transparent pl-3 bg-panel'}`}
       style={{ padding: isCompact ? 'calc(var(--space-base) * 0.75)' : 'var(--space-base)', height: '80px' }}
     >
       <div className="pt-1 flex flex-col gap-2 items-center" onClick={e => e.stopPropagation()}>
@@ -90,47 +94,14 @@ const TaskListItem: React.FC<TaskListProps> = ({ task, isSelected, isChecked, is
   );
 };
 
-interface KanbanProps {
-    task: Task;
-    onClick: (task: Task) => void;
-    onStar: (id: string) => void;
-}
-
-// --- Kanban Card ---
-const KanbanCard: React.FC<KanbanProps> = ({ task, onClick, onStar }) => {
-    return (
-        <div 
-            onClick={() => onClick(task)} 
-            className="bg-panel border border-default rounded-base shadow-sm hover:shadow-md hover:border-active cursor-pointer transition-all flex flex-col gap-2 group relative"
-            style={{ padding: 'var(--space-base)' }}
-        >
-            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => { e.stopPropagation(); onStar(task.id); }}>
-                <Star size={12} className={task.isStarred ? "fill-amber-400 text-amber-400 opacity-100" : "text-tertiary"} />
-            </div>
-            <div className="flex justify-between items-start pr-4">
-                <span className="text-sm font-bold text-primary line-clamp-2">{task.title}</span>
-            </div>
-            <div className="flex justify-between items-center mt-1">
-                <span className="text-xs text-secondary truncate max-w-[100px]">{task.processName}</span>
-                <NexBadge variant={task.priority === 'Critical' ? 'rose' : 'slate'}>{task.priority}</NexBadge>
-            </div>
-            <div className="pt-2 border-t border-subtle flex items-center justify-between text-xs text-tertiary">
-                <SLACountdown dueDate={task.dueDate} />
-                <div className="flex items-center gap-1">
-                    <NexUserDisplay userId={task.assignee} size="sm" />
-                </div>
-            </div>
-        </div>
-    );
-};
-
 export const TaskInbox: React.FC = () => {
   const { 
       tasks, completeTask, claimTask, releaseTask, addTaskComment, bulkCompleteTasks, updateTaskChecklist,
       currentUser, delegations, navigateTo, openInstanceViewer, nav, 
       toggleTaskStar, snoozeTask, createAdHocTask, forms, addNotification,
-      savedViews, saveView, deleteView
+      savedViews, saveView, deleteView, setToolbarConfig, auditLogs
   } = useBPM();
+  const { gridConfig, layoutBreakpoints, layoutCols } = useTheme();
   
   // -- Selection State --
   const selectedTask = useMemo(() => tasks.find(t => t.id === nav.selectedId) || null, [tasks, nav.selectedId]);
@@ -142,7 +113,32 @@ export const TaskInbox: React.FC = () => {
   const [density, setDensity] = useState<'compact' | 'comfy'>('comfy');
   const [sortConfig, setSortConfig] = useState<{ key: keyof Task, dir: 'asc' | 'desc' }>({ key: 'dueDate', dir: 'asc' });
   const [localSearch, setLocalSearch] = useState('');
+  const [isEditable, setIsEditable] = useState(false);
   
+  // -- Layouts --
+  const defaultLayouts = {
+      lg: [
+          { i: 'list', x: 0, y: 0, w: 4, h: 20 },
+          { i: 'detail', x: 4, y: 0, w: 8, h: 20 },
+          { i: 'stats', x: 0, y: 20, w: 12, h: 4 }
+      ],
+      md: [
+          { i: 'list', x: 0, y: 0, w: 4, h: 20 },
+          { i: 'detail', x: 4, y: 0, w: 6, h: 20 },
+          { i: 'stats', x: 0, y: 20, w: 10, h: 4 }
+      ]
+  };
+  const [layouts, setLayouts] = useState(defaultLayouts);
+
+  useEffect(() => {
+      setToolbarConfig({
+          view: [
+              { label: isEditable ? 'Lock Layout' : 'Edit Layout', action: () => setIsEditable(!isEditable), icon: Settings },
+              { label: 'Reset Layout', action: () => setLayouts(defaultLayouts) }
+          ]
+      });
+  }, [setToolbarConfig, isEditable]);
+
   // -- Saved View State --
   const [activeSavedView, setActiveSavedView] = useState<string | null>(null);
   const [showSaveViewInput, setShowSaveViewInput] = useState(false);
@@ -181,7 +177,6 @@ export const TaskInbox: React.FC = () => {
       setActiveSavedView(view.id);
       if (view.filters.status) setQuickFilter(view.filters.status); // Simplified mapping
       if (view.filters.search) setLocalSearch(view.filters.search);
-      // More filter logic would go here
   };
 
   const handleSaveCurrentView = async () => {
@@ -235,25 +230,13 @@ export const TaskInbox: React.FC = () => {
       setSelectedIds(newSet);
   };
   
-  const handleBulkAction = async (action: 'complete' | 'claim' | 'release' | 'priority') => {
-      const ids = Array.from(selectedIds);
-      if (action === 'complete') await bulkCompleteTasks(ids, 'approve');
-      if (action === 'claim') for (const id of ids) await claimTask(id);
-      if (action === 'release') for (const id of ids) await releaseTask(id);
-      setSelectedIds(new Set());
-  };
   const handleQuickCreate = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!quickTaskTitle.trim()) return;
       await createAdHocTask(quickTaskTitle);
       setQuickTaskTitle('');
   };
-  const handleSnooze = (taskId: string) => {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(9, 0, 0, 0);
-      snoozeTask(taskId, tomorrow.toISOString());
-  };
+  
   const handleAiSummary = async (task: Task) => {
       setLoadingAi(true);
       try {
@@ -266,8 +249,6 @@ export const TaskInbox: React.FC = () => {
   
   const handleSubmit = async () => { 
       if (!selectedTask) return;
-      
-      // Validation Logic (Rule 15 Applied)
       if (activeForm) {
           const errors = validateForm(activeForm, formData);
           if (Object.keys(errors).length > 0) {
@@ -276,185 +257,182 @@ export const TaskInbox: React.FC = () => {
               return;
           }
       }
-
       await completeTask(selectedTask.id, 'completed', commentText, formData);
       addNotification('success', 'Task completed successfully');
       setSelectedTask(null);
   };
 
-  const handleExportCSV = () => {
-      const headers = ['ID', 'Title', 'Process', 'Status', 'Priority', 'Due Date', 'Assignee'];
-      const rows = filteredTasks.map(t => [
-          t.id, t.title, t.processName, t.status, t.priority, new Date(t.dueDate).toLocaleDateString(), t.assignee
-      ].join(','));
-      const csv = [headers.join(','), ...rows].join('\n');
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `tasks_export_${new Date().toISOString().split('T')[0]}.csv`;
-      a.click();
+  const handlePostComment = async () => {
+      if (!selectedTask || !commentText.trim()) return;
+      await addTaskComment(selectedTask.id, commentText);
+      setCommentText('');
+  };
+
+  const handleToggleCheck = async (itemId: string, checked: boolean) => {
+      if (!selectedTask?.checklist) return;
+      const updated = selectedTask.checklist.map(i => i.id === itemId ? { ...i, completed: checked } : i);
+      await updateTaskChecklist(selectedTask.id, updated);
   };
 
   return (
-    <div 
-        className="flex h-content-area bg-canvas border border-default shadow-sm overflow-hidden animate-fade-in"
-        style={{ borderRadius: 'var(--radius-base)' }}
-    >
-      {/* ENTERPRISE SIDEBAR: Saved Views */}
-      <div className="w-48 border-r border-default bg-subtle hidden lg:flex flex-col">
-          <div className="p-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-default bg-panel">Smart Views</div>
-          <div className="flex-1 overflow-y-auto p-2 space-y-1">
-              {savedViews.filter(v => v.type === 'Task').map(view => (
-                  <button 
-                    key={view.id}
-                    onClick={() => handleApplySavedView(view)}
-                    className={`w-full text-left px-3 py-2 text-xs rounded-sm flex items-center justify-between group ${activeSavedView === view.id ? 'bg-blue-100 text-blue-800 font-bold' : 'hover:bg-slate-200 text-slate-700'}`}
-                  >
-                      <span className="truncate">{view.name}</span>
-                      <X size={12} className="opacity-0 group-hover:opacity-100 hover:text-rose-600" onClick={(e) => { e.stopPropagation(); deleteView(view.id); }}/>
-                  </button>
-              ))}
-              {savedViews.length === 0 && <div className="text-center text-slate-400 text-xs italic py-4">No saved views</div>}
-          </div>
-          
-          <div className="p-2 border-t border-default">
-              {showSaveViewInput ? (
-                  <div className="flex gap-1">
-                      <input className="prop-input py-1 h-7 text-xs" value={newViewName} onChange={e => setNewViewName(e.target.value)} placeholder="View Name" autoFocus onKeyDown={e => e.key === 'Enter' && handleSaveCurrentView()} />
-                      <button onClick={handleSaveCurrentView} className="bg-blue-600 text-white p-1 rounded-sm"><CheckCircle size={14}/></button>
-                  </div>
-              ) : (
-                  <button onClick={() => setShowSaveViewInput(true)} className="w-full flex items-center gap-2 justify-center py-1 text-xs text-blue-600 font-bold hover:bg-blue-50 rounded-sm">
-                      <Save size={12}/> Save Current Filter
-                  </button>
-              )}
-          </div>
-      </div>
-      
-      {/* LEFT PANE: TASK LIST */}
-      <div className={`flex flex-col border-r border-default bg-panel transition-all duration-300 ${selectedTask ? 'w-inbox-list shrink-0 hidden xl:flex' : 'flex-1'}`}>
-        
-        {/* Header */}
-        <div className="pt-3 px-3 bg-panel border-b border-subtle">
-            <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-bold text-primary flex items-center gap-2"><CheckSquare size={18} className="text-blue-600"/> Task Inbox</h2>
-                <div className="flex gap-1">
-                    <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-base ${viewMode === 'list' ? 'bg-active text-blue-600' : 'text-tertiary hover:text-secondary'}`}><ListIcon size={16}/></button>
-                    <button onClick={() => setViewMode('kanban')} className={`p-1.5 rounded-base ${viewMode === 'kanban' ? 'bg-active text-blue-600' : 'text-tertiary hover:text-secondary'}`}><LayoutGrid size={16}/></button>
-                    <div className="w-px h-6 bg-slate-200 mx-1"></div>
-                    <button onClick={handleExportCSV} className="p-1.5 rounded-base text-tertiary hover:text-blue-600" title="Export CSV"><Download size={16}/></button>
-                </div>
-            </div>
-            
-            <div className="flex gap-6 text-xs font-bold text-secondary uppercase tracking-wide">
-                {[ { id: 'my', label: 'My Work' }, { id: 'team', label: 'Team Queue' }, { id: 'starred', label: 'Starred' }, { id: 'snoozed', label: 'Snoozed' } ].map(tab => (
-                    <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`pb-2 border-b-2 transition-colors ${activeTab === tab.id ? 'border-active text-blue-600' : 'border-transparent hover:text-primary'}`}>{tab.label}</button>
-                ))}
-            </div>
-        </div>
-
-        {/* Toolbar */}
-        <div className="p-2 bg-subtle border-b border-subtle space-y-2">
-            <form onSubmit={handleQuickCreate} className="relative">
-                <Plus size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-tertiary"/>
-                <input className="w-full pl-8 pr-3 py-1.5 text-xs border border-default rounded-base focus:ring-1 focus:ring-blue-500 outline-none" placeholder="Quick add personal task..." value={quickTaskTitle} onChange={e => setQuickTaskTitle(e.target.value)} />
-            </form>
-            <div className="flex gap-2">
-                <div className="relative flex-1">
-                    <NexDebouncedInput 
-                        value={localSearch} 
-                        onChange={setLocalSearch} 
-                        placeholder="Search..."
-                        className="w-full pr-3 py-1.5 bg-panel border border-default rounded-base outline-none text-xs"
-                        icon={Search}
-                    />
-                </div>
-                <button onClick={() => setQuickFilter(f => f === 'Critical' ? null : 'Critical')} className={`px-2 py-1 rounded-base text-xs font-bold border ${quickFilter === 'Critical' ? 'bg-rose-100 text-rose-700 border-rose-200' : 'bg-panel text-secondary border-default'}`}>Critical</button>
-            </div>
-        </div>
-
-        {/* Task List */}
-        <div className="flex-1 overflow-y-hidden bg-panel min-h-0">
-            {viewMode === 'list' && (
-                <NexVirtualList 
-                    items={filteredTasks}
-                    itemHeight={80} // Height of TaskListItem
-                    renderItem={(t: Task, idx) => (
-                        <TaskListItem key={t.id} task={t} isSelected={selectedTask?.id === t.id} isChecked={selectedIds.has(t.id)} isCompact={density === 'compact'} onCheck={toggleSelection} onClick={setSelectedTask} onStar={toggleTaskStar} />
-                    )}
-                />
-            )}
-            {viewMode === 'kanban' && (
-                <div className="flex gap-4 p-4 h-full overflow-x-auto bg-canvas">
-                    {[TaskStatus.PENDING, TaskStatus.CLAIMED, TaskStatus.IN_PROGRESS].map(status => (
-                        <div key={status} className="flex-1 min-w-[200px] flex flex-col h-full">
-                            <h4 className="text-xs font-bold text-secondary uppercase mb-2 flex justify-between bg-subtle px-2 py-1 rounded-base border border-subtle">
-                                {status} <span className="bg-panel px-1.5 rounded-full text-primary border border-default">{filteredTasks.filter(t => t.status === status).length}</span>
-                            </h4>
-                            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-                                {filteredTasks.filter(t => t.status === status).map(t => <KanbanCard key={t.id} task={t} onClick={setSelectedTask} onStar={toggleTaskStar} />)}
+    <div className="h-full flex flex-col animate-fade-in overflow-hidden">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 -mx-4 px-4 pb-10">
+            <ResponsiveGridLayout
+                className="layout"
+                layouts={layouts}
+                breakpoints={layoutBreakpoints}
+                cols={layoutCols}
+                rowHeight={gridConfig.rowHeight}
+                margin={gridConfig.margin}
+                isDraggable={isEditable}
+                isResizable={isEditable}
+                draggableHandle=".drag-handle"
+                onLayoutChange={(curr, all) => setLayouts(all)}
+            >
+                {/* --- TASK LIST WIDGET --- */}
+                <NexCard key="list" dragHandle={isEditable} className="flex flex-col h-full p-0">
+                    <div className="pt-3 px-3 bg-panel border-b border-default">
+                        <div className="flex items-center justify-between mb-3">
+                            <h2 className="text-lg font-bold text-primary flex items-center gap-2"><CheckSquare size={18} className="text-blue-600"/> Task Inbox</h2>
+                            <div className="flex gap-1">
+                                <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-base ${viewMode === 'list' ? 'bg-active text-blue-600' : 'text-tertiary hover:text-secondary'}`}><ListIcon size={16}/></button>
+                                <button onClick={() => setViewMode('kanban')} className={`p-1.5 rounded-base ${viewMode === 'kanban' ? 'bg-active text-blue-600' : 'text-tertiary hover:text-secondary'}`}><LayoutGrid size={16}/></button>
                             </div>
                         </div>
-                    ))}
-                </div>
-            )}
+                        <div className="flex gap-4 text-xs font-bold text-secondary uppercase tracking-wide overflow-x-auto no-scrollbar">
+                            {[ { id: 'my', label: 'My Work' }, { id: 'team', label: 'Team' }, { id: 'starred', label: 'Starred' } ].map(tab => (
+                                <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`pb-2 border-b-2 whitespace-nowrap transition-colors ${activeTab === tab.id ? 'border-active text-blue-600' : 'border-transparent hover:text-primary'}`}>{tab.label}</button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="p-2 bg-subtle border-b border-default space-y-2">
+                        <form onSubmit={handleQuickCreate} className="relative">
+                            <Plus size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-tertiary"/>
+                            <input className="w-full pl-8 pr-3 py-1.5 text-xs border border-default rounded-base focus:ring-1 focus:ring-blue-500 outline-none bg-panel text-primary" placeholder="Quick add..." value={quickTaskTitle} onChange={e => setQuickTaskTitle(e.target.value)} />
+                        </form>
+                        <NexDebouncedInput value={localSearch} onChange={setLocalSearch} placeholder="Search..." className="w-full pr-3 py-1.5 bg-panel border border-default rounded-base outline-none text-xs text-primary" icon={Search} />
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto bg-panel min-h-0">
+                        <NexVirtualList 
+                            items={filteredTasks}
+                            itemHeight={80} 
+                            renderItem={(t: Task, idx) => (
+                                <TaskListItem key={t.id} task={t} isSelected={selectedTask?.id === t.id} isChecked={selectedIds.has(t.id)} isCompact={density === 'compact'} onCheck={toggleSelection} onClick={setSelectedTask} onStar={toggleTaskStar} />
+                            )}
+                        />
+                    </div>
+                </NexCard>
+
+                {/* --- TASK DETAIL WIDGET --- */}
+                <NexCard key="detail" dragHandle={isEditable} className="flex flex-col h-full p-0">
+                    {selectedTask ? (
+                        <>
+                            <div className="h-12 bg-panel border-b border-default flex items-center justify-between px-4 shadow-sm shrink-0">
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => setSelectedTask(null)} className="xl:hidden mr-2 text-secondary"><ChevronLeft size={18}/></button>
+                                    <NexBadge variant={selectedTask.priority === 'Critical' ? 'rose' : 'blue'}>{selectedTask.priority}</NexBadge>
+                                    <span className="text-xs text-tertiary font-mono">{selectedTask.id}</span>
+                                </div>
+                                <button onClick={() => setSelectedTask(null)} className="p-1.5 hover:bg-subtle rounded-base text-secondary"><X size={16}/></button>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-canvas">
+                                <div className="bg-panel rounded-base border border-default shadow-sm p-6 mb-4">
+                                    <h2 className="text-lg font-bold text-primary mb-2 leading-tight">{selectedTask.title}</h2>
+                                    <div className="flex items-center gap-4 text-xs text-secondary mb-4 pb-4 border-b border-default">
+                                        <span className="flex items-center gap-1"><Layers size={12}/> {selectedTask.processName}</span>
+                                        <span className="flex items-center gap-1"><NexUserDisplay userId={selectedTask.assignee} size="sm" showEmail={false} /></span>
+                                    </div>
+                                    <p className="text-base text-primary leading-relaxed mb-4">{selectedTask.description || "No description provided."}</p>
+                                    
+                                    {/* Checklist */}
+                                    {selectedTask.checklist && selectedTask.checklist.length > 0 && (
+                                        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-sm">
+                                            <h4 className="text-xs font-bold text-amber-800 uppercase mb-2 flex items-center gap-2"><ListTodo size={14}/> Sub-tasks</h4>
+                                            <div className="space-y-1">
+                                                {selectedTask.checklist.map(item => (
+                                                    <label key={item.id} className="flex items-center gap-2 cursor-pointer hover:bg-amber-100/50 p-1 rounded-sm">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={item.completed} 
+                                                            onChange={e => handleToggleCheck(item.id, e.target.checked)} 
+                                                            className="rounded-sm text-amber-600 focus:ring-amber-500" 
+                                                        />
+                                                        <span className={`text-xs ${item.completed ? 'line-through text-slate-400' : 'text-slate-700'}`}>{item.text}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {activeForm && selectedTask.status !== TaskStatus.COMPLETED && (
+                                        <div className="mb-6 p-4 bg-subtle border border-blue-200 rounded-sm">
+                                            <div className="flex items-center gap-2 mb-4 text-blue-700">
+                                                <FormInput size={16}/>
+                                                <h4 className="text-sm font-bold uppercase">{activeForm.name}</h4>
+                                            </div>
+                                            <FormRenderer form={activeForm} data={formData} onChange={(k, v) => setFormData(prev => ({ ...prev, [k]: v }))} errors={formErrors} />
+                                        </div>
+                                    )}
+
+                                    <div className="flex gap-2 mb-6">
+                                        <NexButton variant="primary" onClick={handleSubmit} icon={CheckCircle}>Complete Task</NexButton>
+                                    </div>
+
+                                    {/* Comments & History */}
+                                    <div className="border-t border-default pt-6">
+                                        <h4 className="text-xs font-bold text-secondary uppercase mb-4 flex items-center gap-2"><MessageSquare size={14}/> Collaboration</h4>
+                                        <div className="bg-subtle p-3 rounded-sm border border-default mb-4">
+                                            <div className="flex gap-2">
+                                                <input 
+                                                    className="flex-1 bg-transparent text-sm outline-none placeholder:text-tertiary text-primary" 
+                                                    placeholder="Write a comment..." 
+                                                    value={commentText}
+                                                    onChange={e => setCommentText(e.target.value)}
+                                                    onKeyDown={e => e.key === 'Enter' && handlePostComment()}
+                                                />
+                                                <button onClick={handlePostComment} disabled={!commentText.trim()} className="text-blue-600 font-bold text-xs hover:text-blue-800 disabled:opacity-50">Post</button>
+                                            </div>
+                                        </div>
+                                        <NexHistoryFeed history={[...(selectedTask.comments || []).map(c => ({...c, description: c.text})), ...(auditLogs.filter(l => l.entityId === selectedTask.id).map(l => ({...l, author: l.userId, description: `${l.action}: ${l.details}`})))].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())} />
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="flex-1 flex flex-col items-center justify-center text-tertiary p-8 text-center bg-subtle">
+                            <LayoutGrid size={48} className="opacity-20 mb-4"/>
+                            <p className="text-sm font-medium">Select a task to view details</p>
+                        </div>
+                    )}
+                </NexCard>
+
+                {/* --- STATS WIDGET --- */}
+                <NexCard key="stats" dragHandle={isEditable} className="flex flex-row items-center justify-between p-4 h-full">
+                    <div className="flex items-center gap-4">
+                        <div>
+                            <div className="text-xs text-secondary uppercase font-bold">Total</div>
+                            <div className="text-xl font-black text-primary">{tasks.length}</div>
+                        </div>
+                        <div className="w-px h-8 bg-default"></div>
+                        <div>
+                            <div className="text-xs text-secondary uppercase font-bold">My Open</div>
+                            <div className="text-xl font-black text-blue-600">{tasks.filter(t => t.assignee === currentUser?.id && t.status !== 'Completed').length}</div>
+                        </div>
+                        <div className="w-px h-8 bg-default"></div>
+                        <div>
+                            <div className="text-xs text-secondary uppercase font-bold">Critical</div>
+                            <div className="text-xl font-black text-rose-600">{tasks.filter(t => t.priority === TaskPriority.CRITICAL).length}</div>
+                        </div>
+                    </div>
+                    {!isEditable && (
+                        <NexButton variant="secondary" size="sm" onClick={() => addNotification('info', 'Refreshing task queue...')}>Sync</NexButton>
+                    )}
+                </NexCard>
+            </ResponsiveGridLayout>
         </div>
-      </div>
-
-      {/* RIGHT PANE: PREVIEW */}
-      <div className={`flex-1 bg-subtle flex flex-col border-l border-default transition-all duration-300 ${!selectedTask ? 'hidden xl:hidden' : 'flex'}`}>
-        {selectedTask ? (
-          <>
-            <div className="h-12 bg-panel border-b border-subtle flex items-center justify-between px-4 shadow-sm shrink-0">
-               <div className="flex items-center gap-2">
-                   <button onClick={() => setSelectedTask(null)} className="xl:hidden mr-2"><ChevronLeft size={18}/></button>
-                   <NexBadge variant={selectedTask.priority === 'Critical' ? 'rose' : 'blue'}>{selectedTask.priority}</NexBadge>
-                   <span className="text-xs text-tertiary font-mono">{selectedTask.id}</span>
-               </div>
-               <div className="flex items-center gap-1">
-                   <button onClick={() => navigateTo('task-reassign', selectedTask.id)} className="p-1.5 hover:bg-subtle rounded-base text-secondary"><UserPlus size={16}/></button>
-                   <div className="h-4 w-px bg-default mx-1"></div>
-                   <button onClick={() => setSelectedTask(null)} className="p-1.5 hover:bg-subtle rounded-base text-secondary"><X size={16}/></button>
-               </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto" style={{ padding: 'var(--layout-padding)' }}>
-               <div 
-                 className="bg-panel rounded-base border border-default shadow-sm mb-4"
-                 style={{ padding: 'var(--card-padding)' }}
-               >
-                   <h2 className="text-lg font-bold text-primary mb-2 leading-tight">{selectedTask.title}</h2>
-                   <div className="flex items-center gap-4 text-xs text-secondary mb-4 pb-4 border-b border-subtle">
-                       <span className="flex items-center gap-1"><Layers size={12}/> {selectedTask.processName}</span>
-                       <span className="flex items-center gap-1"><NexUserDisplay userId={selectedTask.assignee} size="sm" showEmail={false} /></span>
-                   </div>
-                   <p className="text-base text-primary leading-relaxed mb-4">{selectedTask.description || "No description provided."}</p>
-                   
-                   {/* Form Renderer Placeholder */}
-                   {activeForm && selectedTask.status !== TaskStatus.COMPLETED && (
-                       <div className="mb-6 p-4 bg-slate-50 border border-blue-200 rounded-sm">
-                           <div className="flex items-center gap-2 mb-4 text-blue-700">
-                               <FormInput size={16}/>
-                               <h4 className="text-sm font-bold uppercase">{activeForm.name}</h4>
-                           </div>
-                           <FormRenderer form={activeForm} data={formData} onChange={(k, v) => setFormData(prev => ({ ...prev, [k]: v }))} errors={formErrors} />
-                       </div>
-                   )}
-
-                   <div className="flex gap-2 print:hidden">
-                       <NexButton variant="primary" onClick={handleSubmit} icon={CheckCircle}>Complete</NexButton>
-                   </div>
-               </div>
-            </div>
-          </>
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-tertiary">
-             <LayoutGrid size={32} className="opacity-50 mb-4"/>
-             <p className="text-sm font-medium">Select a task to view details</p>
-          </div>
-        )}
-      </div>
     </div>
   );
 };

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Activity, Clock, AlertCircle, ShieldCheck, Briefcase, Sparkles, ListChecks, DollarSign, GripVertical, Settings } from 'lucide-react';
 import { useBPM } from '../contexts/BPMContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { NexCard, NexButton } from './shared/NexUI';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { getProcessInsights } from '../services/geminiService';
@@ -48,6 +49,8 @@ const MetricPanel = React.forwardRef<HTMLDivElement, any>(({ label, value, sub, 
 
 export const Dashboard: React.FC = () => {
   const { tasks, cases, auditLogs, navigateTo, setToolbarConfig, addNotification } = useBPM();
+  const { gridConfig, layoutBreakpoints, layoutCols } = useTheme();
+  
   const [activeTab, setActiveTab] = useState('Overview');
   const [aiInsight, setAiInsight] = useState("Analyzing operational telemetry...");
   const [isEditable, setIsEditable] = useState(false);
@@ -190,14 +193,14 @@ export const Dashboard: React.FC = () => {
         <ResponsiveGridLayout
             className="layout"
             layouts={layouts}
-            breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-            cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
-            rowHeight={30}
+            breakpoints={layoutBreakpoints}
+            cols={layoutCols}
+            rowHeight={gridConfig.rowHeight}
+            margin={gridConfig.margin}
             isDraggable={isEditable}
             isResizable={isEditable}
             draggableHandle=".drag-handle"
             onLayoutChange={handleLayoutChange}
-            margin={[16, 16]}
         >
             <div key="metric-progress">
                 <MetricPanel 

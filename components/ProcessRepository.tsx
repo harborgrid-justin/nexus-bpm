@@ -1,68 +1,67 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useBPM } from '../contexts/BPMContext';
-import { Play, FileText, Layers, Plus, Edit, MoreVertical, Copy, Trash2, PauseCircle, StopCircle, Search, History, BookOpen, Globe, Upload, BarChart3, AlertCircle } from 'lucide-react';
-import { NexBadge, NexModal, NexButton } from './shared/NexUI';
+import { useTheme } from '../contexts/ThemeContext';
+import { Play, FileText, Layers, Plus, Edit, MoreVertical, Copy, Trash2, PauseCircle, StopCircle, Search, History, BookOpen, Globe, Upload, BarChart3, AlertCircle, Settings, GripVertical, CheckCircle } from 'lucide-react';
+import { NexBadge, NexModal, NexButton, NexCard, NexStatusBadge, NexEmptyState } from './shared/NexUI';
 import { ProcessDiffViewer } from './governance/ProcessDiffViewer';
 import { ProcessDefinition } from '../types';
 import { generateProcessDocumentation } from '../services/geminiService';
 import { ProcessHeatmap } from './process/ProcessHeatmap';
+import { Responsive, WidthProvider } from 'react-grid-layout';
+
+const ResponsiveGridLayout = WidthProvider(Responsive);
 
 export const ProcessRepository: React.FC = () => {
-  const { processes, instances, startProcess, openInstanceViewer, deployProcess, deleteProcess, toggleProcessState, suspendInstance, terminateInstance, navigateTo, addNotification } = useBPM();
-  const [activeTab, setActiveTab] = useState<'definitions' | 'instances'>('definitions');
+  const { processes, instances, startProcess, openInstanceViewer, deployProcess, deleteProcess, toggleProcessState, suspendInstance, terminateInstance, navigateTo, addNotification, setToolbarConfig } = useBPM();
+  const { gridConfig, layoutBreakpoints, layoutCols } = useTheme();
+  
   const [filterQuery, setFilterQuery] = useState('');
-  const [showArchived, setShowArchived] = useState(false);
+  const [isEditable, setIsEditable] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Instance Bulk Selection
-  const [selectedInstanceIds, setSelectedInstanceIds] = useState<Set<string>>(new Set());
-
-  // History Modal State
+  // Modals
   const [selectedHistoryProc, setSelectedHistoryProc] = useState<ProcessDefinition | null>(null);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
-
-  // Docs Modal State
   const [docContent, setDocContent] = useState('');
   const [docModalOpen, setDocModalOpen] = useState(false);
-  const [, setGeneratingDocs] = useState(false);
-
-  // Heatmap Modal State
   const [heatmapProc, setHeatmapProc] = useState<ProcessDefinition | null>(null);
   const [heatmapMode, setHeatmapMode] = useState<'traffic' | 'errors'>('traffic');
 
-  const handleStart = (id: string) => {
-    startProcess(id, { summary: `Automated initiation via Registry` });
+  // Layouts
+  const defaultLayouts = {
+      lg: [
+          { i: 'stats-defs', x: 0, y: 0, w: 4, h: 3 },
+          { i: 'stats-active', x: 4, y: 0, w: 4, h: 3 },
+          { i: 'stats-errors', x: 8, y: 0, w: 4, h: 3 },
+          { i: 'defs-list', x: 0, y: 3, w: 12, h: 10 },
+          { i: 'inst-list', x: 0, y: 13, w: 12, h: 10 }
+      ],
+      md: [
+          { i: 'stats-defs', x: 0, y: 0, w: 3, h: 3 },
+          { i: 'stats-active', x: 3, y: 0, w: 3, h: 3 },
+          { i: 'stats-errors', x: 6, y: 0, w: 4, h: 3 },
+          { i: 'defs-list', x: 0, y: 3, w: 10, h: 8 },
+          { i: 'inst-list', x: 0, y: 11, w: 10, h: 8 }
+      ]
   };
+  const [layouts, setLayouts] = useState(defaultLayouts);
 
-  const handleDuplicate = async (proc: ProcessDefinition) => {
-      const newProc: Partial<ProcessDefinition> = { ...proc, id: undefined, name: `${proc.name} (Copy)`, version: 1, history: [] };
-      await deployProcess(newProc);
-  };
+  useEffect(() => {
+      setToolbarConfig({
+          view: [
+              { label: isEditable ? 'Lock Layout' : 'Edit Layout', action: () => setIsEditable(!isEditable), icon: Settings },
+              { label: 'Reset Layout', action: () => setLayouts(defaultLayouts) }
+          ]
+      });
+  }, [setToolbarConfig, isEditable]);
 
-  const handleViewHistory = (proc: ProcessDefinition) => {
-      setSelectedHistoryProc(proc);
-      setHistoryModalOpen(true);
-  };
-
-  const handleGenerateDocs = async (proc: ProcessDefinition) => {
-      setGeneratingDocs(true);
-      setDocModalOpen(true);
-      setDocContent('<div class="p-8 text-center"><p>Generating documentation...</p></div>');
-      try {
-          const html = await generateProcessDocumentation(proc);
-          setDocContent(html);
-      } catch (e) {
-          setDocContent('<p>Error generating documentation.</p>');
-      } finally {
-          setGeneratingDocs(false);
-      }
-  };
-
-  const handleImportClick = () => {
-      fileInputRef.current?.click();
-  };
-
+  // Handlers
+  const handleStart = (id: string) => { startProcess(id, { summary: `Automated initiation via Registry` }); };
+  const handleDuplicate = async (proc: ProcessDefinition) => { const newProc = { ...proc, id: undefined, name: `${proc.name} (Copy)`, version: 1, history: [] }; await deployProcess(newProc); };
+  const handleViewHistory = (proc: ProcessDefinition) => { setSelectedHistoryProc(proc); setHistoryModalOpen(true); };
+  const handleGenerateDocs = async (proc: ProcessDefinition) => { setDocModalOpen(true); setDocContent('<p>Generating...</p>'); try { const html = await generateProcessDocumentation(proc); setDocContent(html); } catch(e) { setDocContent('Error'); } };
+  
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
@@ -70,275 +69,138 @@ export const ProcessRepository: React.FC = () => {
       reader.onload = async (evt) => {
           try {
               const content = JSON.parse(evt.target?.result as string);
-              // Basic validation
-              if (!content.name || !content.steps) throw new Error("Invalid Process Definition");
-              
-              const newProc = { ...content, id: undefined, version: 1, history: [], createdAt: new Date().toISOString() };
-              await deployProcess(newProc);
-              addNotification('success', `Imported "${newProc.name}" successfully`);
-          } catch(err) {
-              addNotification('error', 'Failed to import process. Invalid JSON.');
-          }
+              if (!content.name) throw new Error();
+              await deployProcess({ ...content, id: undefined, version: 1, history: [], createdAt: new Date().toISOString() });
+              addNotification('success', 'Imported successfully');
+          } catch(err) { addNotification('error', 'Invalid JSON'); }
       };
       reader.readAsText(file);
-      e.target.value = ''; // Reset
+      e.target.value = '';
   };
 
-  const filteredProcesses = processes.filter(p => 
-      (p.name.toLowerCase().includes(filterQuery.toLowerCase()) || p.description.toLowerCase().includes(filterQuery.toLowerCase())) &&
-      (showArchived ? true : p.isActive)
-  );
+  // Metrics
+  const activeInstances = instances.filter(i => i.status === 'Active');
+  const errorInstances = instances.filter(i => i.history.some(h => h.action.toLowerCase().includes('error')));
 
-  const filteredInstances = instances.filter(i => 
-      i.definitionName.toLowerCase().includes(filterQuery.toLowerCase()) || 
-      i.id.includes(filterQuery)
-  );
-
-  const toggleInstanceSelection = (id: string) => {
-      const newSet = new Set(selectedInstanceIds);
-      if (newSet.has(id)) newSet.delete(id); else newSet.add(id);
-      setSelectedInstanceIds(newSet);
-  };
-
-  const toggleSelectAllInstances = () => {
-      if (selectedInstanceIds.size === filteredInstances.length) setSelectedInstanceIds(new Set());
-      else setSelectedInstanceIds(new Set(filteredInstances.map(i => i.id)));
-  };
-
-  const handleBulkInstanceAction = async (action: 'suspend' | 'terminate') => {
-      const ids = Array.from(selectedInstanceIds);
-      if (!window.confirm(`${action === 'suspend' ? 'Suspend' : 'Terminate'} ${ids.length} instances?`)) return;
-      
-      for (const id of ids) {
-          if (action === 'suspend') await suspendInstance(id);
-          else await terminateInstance(id);
-      }
-      setSelectedInstanceIds(new Set());
-  };
+  const filteredProcesses = processes.filter(p => p.name.toLowerCase().includes(filterQuery.toLowerCase()));
+  const filteredInstances = instances.filter(i => i.definitionName.toLowerCase().includes(filterQuery.toLowerCase()));
 
   return (
-    <div 
-      className="animate-fade-in pb-20 flex flex-col"
-      style={{ gap: 'var(--section-gap)' }}
-    >
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-300 pb-4">
+    <div className="animate-fade-in flex flex-col h-full overflow-hidden">
+      <header className="flex items-center justify-between border-b border-slate-300 pb-4 shrink-0 mb-2">
         <div>
           <h2 className="text-xl font-bold text-slate-800 tracking-tight">Process Registry</h2>
           <p className="text-xs text-slate-500 font-medium">Authoritative source for deployed models and runtimes.</p>
         </div>
-        <div className="flex bg-slate-100 p-1 rounded-sm border border-slate-200">
-           <button 
-             onClick={() => setActiveTab('definitions')}
-             className={`px-4 py-1.5 rounded-sm text-xs font-semibold transition-all ${activeTab === 'definitions' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-           >
-             Definitions
-           </button>
-           <button 
-             onClick={() => setActiveTab('instances')}
-             className={`px-4 py-1.5 rounded-sm text-xs font-semibold transition-all ${activeTab === 'instances' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-           >
-             Active Runtimes ({instances.filter(i => i.status === 'Active').length})
-           </button>
+        <div className="flex gap-2">
+            <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleImportFile} />
+            <NexButton variant="secondary" onClick={() => fileInputRef.current?.click()} icon={Upload}>Import</NexButton>
+            <NexButton variant="primary" icon={Plus} onClick={() => navigateTo('designer')}>New Model</NexButton>
         </div>
       </header>
 
-      {/* Filter Bar */}
-      <div className="flex gap-4 items-center">
-          <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14}/>
-              <input 
-                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-sm text-xs font-medium focus:ring-1 focus:ring-blue-600 outline-none" 
-                placeholder={activeTab === 'definitions' ? "Search definitions..." : "Search instances..."}
-                value={filterQuery}
-                onChange={e => setFilterQuery(e.target.value)}
-              />
-          </div>
-          {activeTab === 'definitions' && (
-              <>
-                <label className="flex items-center gap-2 text-xs text-slate-600 font-medium cursor-pointer select-none">
-                    <input type="checkbox" checked={showArchived} onChange={e => setShowArchived(e.target.value)} className="rounded-sm border-slate-300 text-blue-600 focus:ring-blue-500"/>
-                    Show Archived
-                </label>
-                <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleImportFile} />
-                <NexButton size="sm" variant="secondary" onClick={handleImportClick} icon={Upload}>Import</NexButton>
-              </>
-          )}
-          {activeTab === 'instances' && selectedInstanceIds.size > 0 && (
-              <div className="flex items-center gap-2 animate-fade-in">
-                  <span className="text-xs font-bold text-slate-600">{selectedInstanceIds.size} Selected</span>
-                  <NexButton size="sm" variant="secondary" onClick={() => handleBulkInstanceAction('suspend')} icon={PauseCircle}>Suspend</NexButton>
-                  <NexButton size="sm" variant="danger" onClick={() => handleBulkInstanceAction('terminate')} icon={StopCircle}>Terminate</NexButton>
-              </div>
-          )}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 -mx-4 px-4 pb-10">
+        <ResponsiveGridLayout
+            className="layout"
+            layouts={layouts}
+            breakpoints={layoutBreakpoints}
+            cols={layoutCols}
+            rowHeight={gridConfig.rowHeight}
+            margin={gridConfig.margin}
+            isDraggable={isEditable}
+            isResizable={isEditable}
+            draggableHandle=".drag-handle"
+            onLayoutChange={(curr, all) => setLayouts(all)}
+        >
+            <div key="stats-defs" className="bg-white border border-slate-200 rounded-sm p-4 flex items-center justify-between shadow-sm">
+                <div>
+                    <div className="text-2xl font-bold text-slate-900">{processes.length}</div>
+                    <div className="text-[10px] font-bold text-slate-500 uppercase">Total Definitions</div>
+                </div>
+                {isEditable && <GripVertical size={14} className="drag-handle text-slate-300"/>}
+                <div className="p-2 bg-blue-50 text-blue-600 rounded-full"><Layers size={20}/></div>
+            </div>
+            <div key="stats-active" className="bg-white border border-slate-200 rounded-sm p-4 flex items-center justify-between shadow-sm">
+                <div>
+                    <div className="text-2xl font-bold text-emerald-600">{activeInstances.length}</div>
+                    <div className="text-[10px] font-bold text-slate-500 uppercase">Active Runtimes</div>
+                </div>
+                {isEditable && <GripVertical size={14} className="drag-handle text-slate-300"/>}
+                <div className="p-2 bg-emerald-50 text-emerald-600 rounded-full"><Play size={20}/></div>
+            </div>
+            <div key="stats-errors" className="bg-white border border-slate-200 rounded-sm p-4 flex items-center justify-between shadow-sm">
+                <div>
+                    <div className="text-2xl font-bold text-rose-600">{errorInstances.length}</div>
+                    <div className="text-[10px] font-bold text-slate-500 uppercase">Failures (24h)</div>
+                </div>
+                {isEditable && <GripVertical size={14} className="drag-handle text-slate-300"/>}
+                <div className="p-2 bg-rose-50 text-rose-600 rounded-full"><AlertCircle size={20}/></div>
+            </div>
+
+            <NexCard key="defs-list" dragHandle={isEditable} title="Definitions" className="p-0 overflow-hidden flex flex-col h-full"
+                actions={<div className="relative w-48"><Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400"/><input className="w-full pl-6 pr-2 py-1 bg-slate-100 border border-slate-200 rounded-sm text-xs outline-none" placeholder="Filter..." value={filterQuery} onChange={e => setFilterQuery(e.target.value)}/></div>}
+            >
+                <div className="flex-1 overflow-y-auto p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredProcesses.map(p => (
+                        <div key={p.id} className="bg-white border border-slate-200 rounded-sm p-3 hover:shadow-md transition-shadow relative group">
+                            <div className="flex justify-between items-start mb-2">
+                                <h4 className="font-bold text-sm text-slate-800">{p.name}</h4>
+                                <button onClick={() => !isEditable && navigateTo('designer', p.id)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-slate-100 rounded text-slate-500"><Edit size={12}/></button>
+                            </div>
+                            <div className="flex gap-2 mb-3">
+                                <span className="text-[9px] font-mono bg-slate-100 px-1 rounded">v{p.version}</span>
+                                <NexBadge variant={p.isActive ? 'emerald' : 'slate'}>{p.isActive ? 'Active' : 'Archived'}</NexBadge>
+                            </div>
+                            <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-100">
+                                <button onClick={() => !isEditable && setHeatmapProc(p)} className="text-[10px] text-blue-600 hover:underline flex items-center gap-1"><BarChart3 size={10}/> Analytics</button>
+                                <button onClick={() => !isEditable && handleStart(p.id)} className="bg-blue-600 text-white rounded-full p-1.5 hover:bg-blue-700 shadow-sm"><Play size={10} fill="currentColor"/></button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </NexCard>
+
+            <NexCard key="inst-list" dragHandle={isEditable} title="Active Instances" className="p-0 overflow-hidden flex flex-col h-full">
+                <div className="flex-1 overflow-y-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead className="bg-slate-50 border-b border-slate-200">
+                            <tr className="text-[10px] font-bold text-slate-500 uppercase">
+                                <th className="px-4 py-2">ID</th>
+                                <th className="px-4 py-2">Definition</th>
+                                <th className="px-4 py-2">Status</th>
+                                <th className="px-4 py-2 text-right">Started</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {filteredInstances.slice(0, 20).map(inst => (
+                                <tr key={inst.id} onClick={() => !isEditable && openInstanceViewer(inst.id)} className="hover:bg-slate-50 cursor-pointer text-xs group">
+                                    <td className="px-4 py-2 font-mono text-slate-500">{inst.id.split('-').pop()}</td>
+                                    <td className="px-4 py-2 font-bold text-slate-800">{inst.definitionName}</td>
+                                    <td className="px-4 py-2"><NexStatusBadge status={inst.status}/></td>
+                                    <td className="px-4 py-2 text-right text-slate-500">{new Date(inst.startDate).toLocaleDateString()}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </NexCard>
+        </ResponsiveGridLayout>
       </div>
 
-      {activeTab === 'definitions' ? (
-        <div 
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
-          style={{ gap: 'var(--layout-gap)' }}
-        >
-          <button onClick={() => navigateTo('designer')} className="group border border-dashed border-slate-300 rounded-sm p-6 flex flex-col items-center justify-center text-slate-400 hover:border-blue-500 hover:bg-blue-50 transition-all min-h-[200px]">
-             <Plus size={24} className="mb-2 group-hover:text-blue-600"/>
-             <span className="text-xs font-bold uppercase tracking-wider group-hover:text-blue-700">Deploy New Model</span>
-          </button>
-
-          {filteredProcesses.map(process => (
-            <div 
-              key={process.id} 
-              className="bg-white rounded-sm border border-slate-300 shadow-sm flex flex-col hover:border-blue-400 transition-all group relative"
-              style={{ padding: 'var(--card-padding)' }}
-            >
-              <div className="flex items-start justify-between mb-4">
-                 <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-sm transition-colors ${process.isActive ? 'bg-slate-100 text-slate-600 group-hover:bg-blue-600 group-hover:text-white' : 'bg-slate-100 text-slate-400'}`}>
-                        <Layers size={18} />
-                    </div>
-                    <div>
-                        <h3 className={`text-sm font-bold ${process.isActive ? 'text-slate-800' : 'text-slate-500 line-through'}`}>{process.name}</h3>
-                        <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[10px] font-mono text-slate-500">v{process.version}.0</span>
-                            {process.isActive ? <NexBadge variant="emerald">Active</NexBadge> : <NexBadge variant="slate">Archived</NexBadge>}
-                        </div>
-                    </div>
-                 </div>
-                 
-                 {/* Definition Actions Menu */}
-                 <div className="relative group/menu">
-                    <button className="p-1 hover:bg-slate-100 rounded-sm text-slate-400"><MoreVertical size={16}/></button>
-                    <div className="absolute right-0 top-6 w-40 bg-white border border-slate-200 shadow-xl rounded-sm z-20 hidden group-hover/menu:block py-1">
-                        <button onClick={() => navigateTo('designer', process.id)} className="w-full text-left px-3 py-2 text-[10px] hover:bg-slate-50 flex items-center gap-2 text-slate-700 font-bold"><Edit size={12} className="text-blue-600"/> Edit Model</button>
-                        <button onClick={() => setHeatmapProc(process)} className="w-full text-left px-3 py-2 text-[10px] hover:bg-slate-50 flex items-center gap-2 text-slate-700"><BarChart3 size={12}/> Analytics</button>
-                        <button onClick={() => handleGenerateDocs(process)} className="w-full text-left px-3 py-2 text-[10px] hover:bg-slate-50 flex items-center gap-2 text-slate-700"><BookOpen size={12}/> Generate Docs</button>
-                        <button onClick={() => handleViewHistory(process)} className="w-full text-left px-3 py-2 text-[10px] hover:bg-slate-50 flex items-center gap-2 text-slate-700"><History size={12}/> Version History</button>
-                        <div className="h-px bg-slate-100 my-1"></div>
-                        <button onClick={() => handleDuplicate(process)} className="w-full text-left px-3 py-2 text-[10px] hover:bg-slate-50 flex items-center gap-2 text-slate-700"><Copy size={12}/> Duplicate</button>
-                        <button onClick={() => toggleProcessState(process.id)} className="w-full text-left px-3 py-2 text-[10px] hover:bg-slate-50 flex items-center gap-2 text-slate-700"><PauseCircle size={12}/> {process.isActive ? 'Archive' : 'Activate'}</button>
-                        <div className="h-px bg-slate-100 my-1"></div>
-                        <button onClick={() => deleteProcess(process.id)} className="w-full text-left px-3 py-2 text-[10px] hover:bg-rose-50 flex items-center gap-2 text-rose-600"><Trash2 size={12}/> Delete</button>
-                    </div>
-                 </div>
-              </div>
-              
-              <p className="text-xs text-slate-600 leading-relaxed mb-4 flex-1 line-clamp-3">
-                {process.description || 'Enterprise grade workflow optimized for high-throughput and strict compliance adherence.'}
-              </p>
-              
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                <div className="flex items-center gap-3 text-[10px] font-bold text-slate-400">
-                  <div className="flex items-center gap-1"><FileText size={12}/> {process.steps.length} Steps</div>
-                  <div className="flex items-center gap-1"><Globe size={12}/> Global</div>
-                </div>
-                
-                {process.isActive && (
-                    <button 
-                    onClick={() => handleStart(process.id)}
-                    className="p-2 bg-slate-50 text-slate-600 border border-slate-200 rounded-sm hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all"
-                    >
-                    <Play size={14} fill="currentColor" />
-                    </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="bg-white rounded-sm border border-slate-300 shadow-sm overflow-hidden">
-          <table className="w-full text-left border-collapse">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr className="text-[11px] font-bold text-slate-500 uppercase">
-                  <th className="px-3 py-3 border-r border-slate-200 w-10 text-center"><input type="checkbox" onChange={toggleSelectAllInstances} checked={selectedInstanceIds.size === filteredInstances.length && filteredInstances.length > 0} className="rounded-sm text-blue-600"/></th>
-                  <th className="px-6 py-3 border-r border-slate-200">Instance ID</th>
-                  <th className="px-6 py-3 border-r border-slate-200">Definition</th>
-                  <th className="px-6 py-3 border-r border-slate-200">Status</th>
-                  <th className="px-6 py-3 border-r border-slate-200">Started</th>
-                  <th className="px-6 py-3 text-right">Control</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredInstances.length === 0 ? (
-                    <tr><td colSpan={6} className="p-8 text-center text-xs text-slate-500 italic">No active runtimes matching criteria.</td></tr>
-                ) : filteredInstances.map(inst => (
-                    <tr key={inst.id} className={`hover:bg-slate-50 transition-colors text-xs group ${selectedInstanceIds.has(inst.id) ? 'bg-blue-50' : ''}`}>
-                      <td className="px-3 py-3 text-center border-r border-slate-100">
-                          <input type="checkbox" checked={selectedInstanceIds.has(inst.id)} onChange={() => toggleInstanceSelection(inst.id)} className="rounded-sm text-blue-600"/>
-                      </td>
-                      <td className="px-6 py-3 font-mono text-slate-700 font-medium cursor-pointer hover:text-blue-600 underline" onClick={() => openInstanceViewer(inst.id)}>{inst.id}</td>
-                      <td className="px-6 py-3 font-bold text-slate-800">{inst.definitionName}</td>
-                      <td className="px-6 py-3">
-                          <span className={`px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase border ${
-                            inst.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                            inst.status === 'Suspended' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                            inst.status === 'Terminated' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                            'bg-slate-100 text-slate-700 border-slate-200'
-                          }`}>
-                            {inst.status}
-                          </span>
-                      </td>
-                      <td className="px-6 py-3 text-slate-600">
-                          {new Date(inst.startDate).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-3 text-right">
-                          <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                              {inst.status === 'Active' && <button onClick={() => suspendInstance(inst.id)} title="Suspend" className="p-1 hover:bg-amber-100 text-amber-600 rounded"><PauseCircle size={14}/></button>}
-                              {inst.status === 'Suspended' && <button onClick={() => suspendInstance(inst.id)} title="Resume" className="p-1 hover:bg-emerald-100 text-emerald-600 rounded"><Play size={14}/></button>}
-                              {inst.status !== 'Terminated' && inst.status !== 'Completed' && <button onClick={() => terminateInstance(inst.id)} title="Terminate" className="p-1 hover:bg-rose-100 text-rose-600 rounded"><StopCircle size={14}/></button>}
-                              <button onClick={() => openInstanceViewer(inst.id)} title="View" className="p-1 hover:bg-blue-100 text-blue-600 rounded"><Edit size={14}/></button>
-                          </div>
-                      </td>
-                    </tr>
-                ))}
-              </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Version History Modal */}
+      {/* Modals */}
       {selectedHistoryProc && (
           <NexModal isOpen={historyModalOpen} onClose={() => setHistoryModalOpen(false)} title={`History: ${selectedHistoryProc.name}`} size="xl">
-              <div className="space-y-4">
-                  {(!selectedHistoryProc.history || selectedHistoryProc.history.length === 0) ? (
-                      <div className="p-8 text-center text-slate-400 italic">No previous versions available.</div>
-                  ) : (
-                      selectedHistoryProc.history.sort((a,b) => b.version - a.version).map(snap => (
-                          <div key={snap.version} className="border border-slate-200 rounded-sm overflow-hidden mb-4">
-                              <div className="p-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-                                  <div>
-                                      <span className="font-bold text-sm text-slate-800">Version {snap.version}.0</span>
-                                      <span className="text-xs text-slate-500 ml-2">Deployed by {snap.author} on {new Date(snap.timestamp).toLocaleDateString()}</span>
-                                  </div>
-                                  <button className="text-xs font-bold text-blue-600 hover:underline">Revert to V{snap.version}</button>
-                              </div>
-                              <div className="h-64 relative">
-                                  <ProcessDiffViewer oldVer={snap.definition as ProcessDefinition} newVer={selectedHistoryProc} />
-                              </div>
-                          </div>
-                      ))
-                  )}
-              </div>
+              <div className="h-96 relative"><ProcessDiffViewer oldVer={selectedHistoryProc} newVer={selectedHistoryProc} /></div>
           </NexModal>
       )}
-
-      {/* Documentation Modal */}
-      <NexModal isOpen={docModalOpen} onClose={() => setDocModalOpen(false)} title="Process Documentation" size="xl">
+      <NexModal isOpen={docModalOpen} onClose={() => setDocModalOpen(false)} title="Documentation" size="xl">
           <div className="prose prose-sm max-w-none p-4" dangerouslySetInnerHTML={{ __html: docContent }} />
       </NexModal>
-
-      {/* Analytics Heatmap Modal */}
-      <NexModal isOpen={!!heatmapProc} onClose={() => setHeatmapProc(null)} title={`Operational Heatmap: ${heatmapProc?.name}`} size="xl">
+      <NexModal isOpen={!!heatmapProc} onClose={() => setHeatmapProc(null)} title={`Heatmap: ${heatmapProc?.name}`} size="xl">
           <div className="h-[600px] flex flex-col">
               <div className="flex gap-4 mb-4 border-b border-slate-100 pb-2">
-                  <button 
-                    onClick={() => setHeatmapMode('traffic')} 
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${heatmapMode === 'traffic' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}
-                  >
-                      <Layers size={14}/> Traffic Volume
-                  </button>
-                  <button 
-                    onClick={() => setHeatmapMode('errors')} 
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${heatmapMode === 'errors' ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-600'}`}
-                  >
-                      <AlertCircle size={14}/> Error Hotspots
-                  </button>
+                  <button onClick={() => setHeatmapMode('traffic')} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${heatmapMode === 'traffic' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}><Layers size={14}/> Volume</button>
+                  <button onClick={() => setHeatmapMode('errors')} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${heatmapMode === 'errors' ? 'bg-rose-600 text-white' : 'bg-slate-100 text-slate-600'}`}><AlertCircle size={14}/> Errors</button>
               </div>
               <div className="flex-1 bg-slate-50 border border-slate-200 rounded-sm relative overflow-hidden">
                   {heatmapProc && <ProcessHeatmap process={heatmapProc} mode={heatmapMode} />}

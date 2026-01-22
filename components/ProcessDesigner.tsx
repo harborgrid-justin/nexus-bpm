@@ -1,29 +1,14 @@
 
 import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import ReactFlow, { 
-  Node, 
-  Edge, 
-  Controls, 
-  Background, 
-  MiniMap,
-  Connection,
-  addEdge,
-  MarkerType,
-  BackgroundVariant,
-  NodeChange,
-  EdgeChange,
-  Panel,
-  ReactFlowProvider,
-  useReactFlow,
-  applyNodeChanges,
-  applyEdgeChanges
+  Node, Edge, Controls, Background, MiniMap, Connection, addEdge, MarkerType, BackgroundVariant, NodeChange, EdgeChange, Panel, ReactFlowProvider, applyNodeChanges, applyEdgeChanges
 } from 'reactflow';
 import dagre from 'dagre';
 import { ProcessStep, ProcessLink, ProcessStepType, ProcessDefinition, Swimlane, UserRole } from '../types';
 import { useBPM } from '../contexts/BPMContext';
 import { 
   Save, LayoutPanelLeft, Trash2, Layout, Settings, PanelRight, X, Layers, Plus, AlertTriangle, ShieldAlert,
-  Undo, Redo, PlayCircle, StopCircle, StickyNote, MousePointer, Hand
+  Undo, Redo, PlayCircle, StopCircle, StickyNote, MousePointer, Hand, Code, Forward, RefreshCw, AlertCircle, CheckCircle
 } from 'lucide-react';
 import { PaletteSidebar } from './designer/PaletteSidebar';
 import { NodeComponent } from './designer/NodeComponent';
@@ -77,7 +62,7 @@ const ProcessSettingsPanel: React.FC<{
     const removeLane = (id: string) => { onChange({ lanes: (meta.lanes || []).filter(l => l.id !== id) }); };
 
     return (
-        <aside className="w-[320px] h-full bg-white border-l border-slate-300 flex flex-col shadow-xl z-20">
+        <aside className="w-full h-full bg-white flex flex-col">
             <div className="flex items-center justify-between border-b border-slate-300 bg-slate-50" style={{ height: 'var(--header-height)', padding: '0 var(--space-base)' }}>
                 <div className="flex items-center gap-2">
                     <Settings size={14} className="text-slate-500"/>
@@ -120,7 +105,6 @@ const ProcessSettingsPanel: React.FC<{
     );
 };
 
-// --- Inner Flow Component (For Context Access) ---
 const DesignerFlow = ({ 
     nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeClick, onPaneClick, onContextMenu, onDrop, onDragOver, onLayout, isValidConnection, lanes,
     simulationActive, activeSimNodeId, viewMode, setViewMode, selectionMode, setSelectionMode 
@@ -162,24 +146,10 @@ const DesignerFlow = ({
                     zoomable
                     pannable
                 />
-                
-                {/* Canvas Toolbar */}
                 <Panel position="top-right" className="flex flex-col gap-2">
                     <div className="bg-white p-1 rounded-sm shadow-sm border border-slate-200 flex gap-1">
-                        <button 
-                            onClick={() => setSelectionMode('pan')} 
-                            className={`p-1.5 rounded transition-colors ${selectionMode === 'pan' ? 'bg-blue-100 text-blue-700' : 'hover:bg-slate-100 text-slate-500'}`} 
-                            title="Pan Tool (Space)"
-                        >
-                            <Hand size={16}/>
-                        </button>
-                        <button 
-                            onClick={() => setSelectionMode('select')} 
-                            className={`p-1.5 rounded transition-colors ${selectionMode === 'select' ? 'bg-blue-100 text-blue-700' : 'hover:bg-slate-100 text-slate-500'}`} 
-                            title="Selection Tool (V)"
-                        >
-                            <MousePointer size={16}/>
-                        </button>
+                        <button onClick={() => setSelectionMode('pan')} className={`p-1.5 rounded transition-colors ${selectionMode === 'pan' ? 'bg-blue-100 text-blue-700' : 'hover:bg-slate-100 text-slate-500'}`} title="Pan Tool (Space)"><Hand size={16}/></button>
+                        <button onClick={() => setSelectionMode('select')} className={`p-1.5 rounded transition-colors ${selectionMode === 'select' ? 'bg-blue-100 text-blue-700' : 'hover:bg-slate-100 text-slate-500'}`} title="Selection Tool (V)"><MousePointer size={16}/></button>
                     </div>
                     <div className="bg-white p-1 rounded-sm shadow-sm border border-slate-200 flex gap-1">
                         <button onClick={() => onLayout('TB')} className="p-1.5 hover:bg-slate-100 rounded text-slate-500" title="Vertical Layout"><Layout size={16} className="rotate-90"/></button>
@@ -195,7 +165,6 @@ export const ProcessDesigner: React.FC = () => {
   const { deployProcess, roles, addNotification, designerDraft, setDesignerDraft, nav, currentUser, processes, setToolbarConfig } = useBPM();
   const isMobile = useMediaQuery(BREAKPOINTS.mobile);
   
-  // --- Undo/Redo & State ---
   const { state: flowState, set: setFlowState, undo, redo, canUndo, canRedo } = useUndoRedo({ nodes: [] as Node[], edges: [] as Edge[] });
   const { nodes, edges } = flowState;
 
@@ -207,31 +176,33 @@ export const ProcessDesigner: React.FC = () => {
   const [viewMode, setViewMode] = useState<'canvas' | 'hierarchy'>('canvas');
   const [selectionMode, setSelectionMode] = useState<'pan' | 'select'>('pan');
   const [clipboard, setClipboard] = useState<ProcessStep | null>(null);
+  const [showXmlModal, setShowXmlModal] = useState(false);
+  const [bpmnXml, setBpmnXml] = useState('');
   
-  // Validation & Simulation
+  // Validation State
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [showValidationModal, setShowValidationModal] = useState(false);
+  const [showValidationPanel, setShowValidationPanel] = useState(true);
+  
+  // Simulation Controls
   const [simulationActive, setSimulationActive] = useState(false);
-  const [simStepIndex, setSimStepIndex] = useState(0);
+  const [simStepId, setSimStepId] = useState<string | null>(null);
 
-  // --- Auto-Save Effect Ref ---
   const flowStateRef = useRef(flowState);
   const processMetaRef = useRef(processMeta);
+  const deployProcessRef = useRef(deployProcess);
+  const addNotificationRef = useRef(addNotification);
   
-  // Responsive Init
-  useEffect(() => {
-      if (isMobile) {
-          setLeftOpen(false);
-          setRightOpen(false);
-      }
-  }, [isMobile]);
-
   useEffect(() => {
       flowStateRef.current = flowState;
       processMetaRef.current = processMeta;
-  }, [flowState, processMeta]);
+      deployProcessRef.current = deployProcess;
+      addNotificationRef.current = addNotification;
+  }, [flowState, processMeta, deployProcess, addNotification]);
 
-  // --- Auto-Save Effect ---
+  useEffect(() => {
+      if (isMobile) { setLeftOpen(false); setRightOpen(false); }
+  }, [isMobile]);
+
   useEffect(() => {
       const handler = setTimeout(() => {
           const { nodes: curNodes, edges: curEdges } = flowStateRef.current;
@@ -244,9 +215,8 @@ export const ProcessDesigner: React.FC = () => {
           localStorage.setItem('nexflow_draft', JSON.stringify({ steps, links, meta }));
       }, 2000);
       return () => clearTimeout(handler);
-  }, [setDesignerDraft]);
+  }, [setDesignerDraft, nodes, edges, processMeta]);
 
-  // --- Initial Load ---
   useEffect(() => {
       if (nav.selectedId && nav.view === 'designer') {
           const existing = processes.find(p => p.id === nav.selectedId);
@@ -259,7 +229,6 @@ export const ProcessDesigner: React.FC = () => {
               return; 
           }
       }
-      // Load draft or new
       const saved = localStorage.getItem('nexflow_draft');
       if (saved && !nav.selectedId) {
           const parsed = JSON.parse(saved);
@@ -271,154 +240,8 @@ export const ProcessDesigner: React.FC = () => {
       }
   }, [nav.selectedId, processes, setFlowState, nav.view]);
 
-  // --- Handlers Defined Early for Toolbar ---
-  const handleDeploy = async () => {
-    const errors = validateGraph();
-    if (errors.length > 0) {
-        setValidationErrors(errors);
-        setShowValidationModal(true);
-        return;
-    }
-    const steps: ProcessStep[] = nodes.map(n => ({ ...n.data.step, position: n.position, nextStepIds: edges.filter(e => e.source === n.id).map(e => e.target) }));
-    const links: ProcessLink[] = edges.map(e => ({ id: e.id, sourceId: e.source, targetId: e.target, label: e.label as string }));
-    await deployProcess({ ...processMeta, steps, links, isActive: true, version: (processMeta.version || 1) + 1 });
-    addNotification('success', `Process ${processMeta.name} deployed successfully.`);
-  };
-
-  const handleClear = () => {
-      if(window.confirm('Clear canvas?')) { setFlowState({ nodes: [], edges: [] }); }
-  };
-
-  const handleLayout = (direction: 'LR' | 'TB') => {
-      const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges, direction);
-      setFlowState({ nodes: layoutedNodes, edges: layoutedEdges });
-  };
-
-  const toggleSimulation = () => {
-      if (simulationActive) {
-          setSimulationActive(false);
-          setSimStepIndex(0);
-      } else {
-          const startNode = nodes.find(n => n.data.step.type === 'start');
-          if (!startNode) { addNotification('error', 'No Start node found'); return; }
-          setSimulationActive(true);
-          // Simple traversal simulation
-          let currentId = startNode.id;
-          let stepsCount = 0;
-          
-          const interval = setInterval(() => {
-              if (stepsCount > 20) { clearInterval(interval); setSimulationActive(false); return; } // Safety break
-              
-              const outgoing = edges.filter(e => e.source === currentId);
-              if (outgoing.length === 0) {
-                  clearInterval(interval);
-                  setTimeout(() => setSimulationActive(false), 1000);
-              } else {
-                  // Pick random path for simulation
-                  const nextEdge = outgoing[Math.floor(Math.random() * outgoing.length)];
-                  currentId = nextEdge.target;
-                  // Update UI to highlight this node
-                  setSelectedNodeId(currentId);
-              }
-              stepsCount++;
-          }, 1000);
-      }
-  };
-
-  // --- Register Toolbar Actions ---
+  // Real-time Validation
   useEffect(() => {
-      setToolbarConfig({
-          file: [
-              { label: 'Save Draft', action: () => addNotification('info', 'Draft saved locally.') },
-              { label: 'Deploy Process', action: handleDeploy, shortcut: 'Ctrl+S' },
-              { label: 'Clear Canvas', action: handleClear, divider: true },
-          ],
-          edit: [
-              { label: 'Undo', action: undo, disabled: !canUndo, shortcut: 'Ctrl+Z' },
-              { label: 'Redo', action: redo, disabled: !canRedo, shortcut: 'Ctrl+Y' },
-          ],
-          view: [
-              { label: 'Auto Layout (Horizontal)', action: () => handleLayout('LR') },
-              { label: 'Auto Layout (Vertical)', action: () => handleLayout('TB') },
-              { label: 'Toggle Hierarchy View', action: () => setViewMode(m => m === 'canvas' ? 'hierarchy' : 'canvas') }
-          ],
-          tools: [
-              { label: simulationActive ? 'Stop Simulation' : 'Run Simulation', action: toggleSimulation },
-              { label: 'Validate Integrity', action: () => { const errs = validateGraph(); if(errs.length > 0) { setValidationErrors(errs); setShowValidationModal(true); } else { addNotification('success', 'Validation Passed'); } } }
-          ]
-      });
-  }, [setToolbarConfig, handleDeploy, undo, redo, canUndo, canRedo, simulationActive]);
-
-  // --- Shortcuts ---
-  useEffect(() => {
-      const handleKeyDown = (e: KeyboardEvent) => {
-          if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); undo(); }
-          if ((e.metaKey || e.ctrlKey) && e.key === 'y') { e.preventDefault(); redo(); }
-          if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); handleDeploy(); }
-          if (e.key === 'v') setSelectionMode('select');
-          if (e.key === ' ') setSelectionMode('pan');
-          if (e.key === 'Delete' && selectedNodeId) deleteNode(selectedNodeId);
-      };
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo, selectedNodeId]);
-
-  // --- Node Operations ---
-  const onNodesChange = useCallback((changes: NodeChange[]) => {
-      setFlowState({ 
-          nodes: applyNodeChanges(changes, nodes), 
-          edges 
-      });
-  }, [nodes, edges, setFlowState]);
-
-  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
-      setFlowState({
-          nodes,
-          edges: applyEdgeChanges(changes, edges)
-      });
-  }, [nodes, edges, setFlowState]);
-
-  const addNode = useCallback((type: ProcessStepType | 'note', position?: { x: number, y: number }) => {
-    const metadata = getStepTypeMetadata(type);
-    const id = `node-${Date.now()}`;
-    const newNode: Node = { 
-        id, 
-        type: 'custom', 
-        position: position || { x: 250, y: 250 }, 
-        data: { step: { id, name: metadata.defaultName, type: type as ProcessStepType, description: '', requiredSkills: metadata.defaultSkills || [], data: {} } } 
-    };
-    setFlowState({ nodes: [...nodes, newNode], edges });
-    setSelectedNodeId(id);
-    if (!rightOpen && type !== 'note') setRightOpen(true);
-    if (isMobile) setLeftOpen(false); // Close palette on mobile after add
-  }, [nodes, edges, rightOpen, setFlowState, isMobile]);
-
-  const deleteNode = useCallback((id: string) => {
-      setFlowState({
-          nodes: nodes.filter((n) => n.id !== id),
-          edges: edges.filter((e) => e.source !== id && e.target !== id)
-      });
-      setSelectedNodeId(null);
-  }, [nodes, edges, setFlowState]);
-
-  const onConnect = useCallback((params: Connection) => {
-      const newEdge = { 
-          ...params, 
-          id: `e-${Date.now()}`, 
-          type: 'custom', 
-          markerEnd: { type: MarkerType.ArrowClosed } 
-      };
-      setFlowState({ nodes, edges: addEdge(newEdge, edges) });
-  }, [nodes, edges, setFlowState]);
-
-  // --- Layout ---
-  const onLayout = useCallback((direction: 'LR' | 'TB') => {
-      const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges, direction);
-      setFlowState({ nodes: layoutedNodes, edges: layoutedEdges });
-  }, [nodes, edges, setFlowState]);
-
-  // --- Validation ---
-  const validateGraph = () => {
       const errors: string[] = [];
       const startNodes = nodes.filter(n => n.data.step.type === 'start');
       const endNodes = nodes.filter(n => n.data.step.type === 'end' || n.data.step.type === 'terminate-end');
@@ -431,7 +254,7 @@ export const ProcessDesigner: React.FC = () => {
 
       nodes.forEach(node => {
           const type = node.data.step.type;
-          if (type === 'note') return; // Skip notes
+          if (type === 'note') return; 
           
           if (type !== 'end' && type !== 'terminate-end' && !sourceIds.has(node.id)) {
               errors.push(`Step '${node.data.step.name}' has no outgoing connections (Dead End).`);
@@ -439,21 +262,131 @@ export const ProcessDesigner: React.FC = () => {
           if (type !== 'start' && !targetIds.has(node.id)) {
               errors.push(`Step '${node.data.step.name}' is unreachable (Orphan).`);
           }
-          if (!validateStepConfiguration(type, node.data.step.data)) {
-              errors.push(`Step '${node.data.step.name}' has invalid configuration.`);
-          }
       });
-      return errors;
+      setValidationErrors(errors);
+  }, [nodes, edges]);
+
+  const handleDeploy = useCallback(async () => {
+    if (validationErrors.length > 0) {
+        addNotificationRef.current('error', 'Please resolve validation issues before deploying.');
+        return;
+    }
+    const { nodes, edges } = flowStateRef.current;
+    const meta = processMetaRef.current;
+
+    const steps: ProcessStep[] = nodes.map(n => ({ ...n.data.step, position: n.position, nextStepIds: edges.filter(e => e.source === n.id).map(e => e.target) }));
+    const links: ProcessLink[] = edges.map(e => ({ id: e.id, sourceId: e.source, targetId: e.target, label: e.label as string }));
+    
+    try {
+        await deployProcessRef.current({ ...meta, steps, links, isActive: true, version: (meta.version || 1) + 1 });
+        addNotificationRef.current('success', `Process ${meta.name} deployed successfully.`);
+    } catch (e: any) {
+        addNotificationRef.current('error', e.message || 'Deployment failed');
+    }
+  }, [validationErrors]);
+
+  const handleClear = useCallback(() => { if(window.confirm('Clear canvas?')) { setFlowState({ nodes: [], edges: [] }); } }, [setFlowState]);
+  const handleLayout = useCallback((direction: 'LR' | 'TB') => {
+      const { nodes, edges } = flowStateRef.current;
+      const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges, direction);
+      setFlowState({ nodes: layoutedNodes, edges: layoutedEdges });
+  }, [setFlowState]);
+
+  const handleSyncIDE = useCallback(() => {
+      // Round-Trip Engineering Sim
+      addNotification('info', 'Syncing from JDeveloper / Git...');
+      setTimeout(() => {
+          // Simulate slight change
+          setProcessMeta(p => ({ ...p, version: (p.version || 1) + 0.1 }));
+          addNotification('success', 'Changes pulled from IDE.');
+      }, 1500);
+  }, [addNotification]);
+
+  const startSimulation = () => {
+      const startNode = nodes.find(n => n.data.step.type === 'start');
+      if (startNode) {
+          setSimStepId(startNode.id);
+          setSimulationActive(true);
+      } else {
+          addNotification('error', 'No Start Node found.');
+      }
   };
 
-  // --- Handlers ---
+  const stopSimulation = () => {
+      setSimulationActive(false);
+      setSimStepId(null);
+  };
+
+  const stepSimulation = () => {
+      if (!simStepId) return;
+      const outgoing = edges.filter(e => e.source === simStepId);
+      if (outgoing.length === 0) {
+          addNotification('info', 'Simulation End Reached');
+          stopSimulation();
+      } else {
+          const next = outgoing[Math.floor(Math.random() * outgoing.length)].target;
+          setSimStepId(next);
+      }
+  };
+
+  const generateBPMN = () => {
+      let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<bpmn:definitions>\n  <bpmn:process id="${processMeta.id || 'proc_1'}" isExecutable="true">\n`;
+      nodes.forEach(n => {
+          xml += `    <bpmn:task id="${n.id}" name="${n.data.step.name}" />\n`;
+      });
+      edges.forEach(e => {
+          xml += `    <bpmn:sequenceFlow id="${e.id}" sourceRef="${e.source}" targetRef="${e.target}" />\n`;
+      });
+      xml += `  </bpmn:process>\n</bpmn:definitions>`;
+      setBpmnXml(xml);
+      setShowXmlModal(true);
+  };
+
+  useEffect(() => {
+      setToolbarConfig({
+          file: [
+              { label: 'Save Draft', action: () => addNotificationRef.current('info', 'Draft saved locally.') },
+              { label: 'Sync from IDE', action: handleSyncIDE, icon: RefreshCw },
+              { label: 'Deploy Process', action: handleDeploy, shortcut: 'Ctrl+S' },
+              { label: 'Clear Canvas', action: handleClear, divider: true },
+          ],
+          edit: [
+              { label: 'Undo', action: undo, disabled: !canUndo, shortcut: 'Ctrl+Z' },
+              { label: 'Redo', action: redo, disabled: !canRedo, shortcut: 'Ctrl+Y' },
+          ],
+          view: [
+              { label: 'Auto Layout (Horizontal)', action: () => handleLayout('LR') },
+              { label: 'Auto Layout (Vertical)', action: () => handleLayout('TB') },
+              { label: 'Toggle Hierarchy View', action: () => setViewMode(m => m === 'canvas' ? 'hierarchy' : 'canvas') },
+              { label: 'View BPMN XML', action: generateBPMN }
+          ],
+          tools: [
+              { label: 'Validate Integrity', action: () => setShowValidationPanel(true) }
+          ]
+      });
+  }, [setToolbarConfig, handleDeploy, handleClear, handleLayout, undo, redo, canUndo, canRedo, handleSyncIDE]);
+
+  // --- Node Operations ---
+  const onNodesChange = useCallback((changes: NodeChange[]) => setFlowState({ nodes: applyNodeChanges(changes, nodes), edges }), [nodes, edges, setFlowState]);
+  const onEdgesChange = useCallback((changes: EdgeChange[]) => setFlowState({ nodes, edges: applyEdgeChanges(changes, edges) }), [nodes, edges, setFlowState]);
+  const addNode = useCallback((type: ProcessStepType | 'note', position?: { x: number, y: number }) => {
+    const metadata = getStepTypeMetadata(type);
+    const id = `node-${Date.now()}`;
+    const newNode: Node = { id, type: 'custom', position: position || { x: 250, y: 250 }, data: { step: { id, name: metadata.defaultName, type: type as ProcessStepType, description: '', requiredSkills: metadata.defaultSkills || [], data: {} } } };
+    setFlowState({ nodes: [...nodes, newNode], edges });
+    setSelectedNodeId(id);
+    if (!rightOpen && type !== 'note') setRightOpen(true);
+    if (isMobile) setLeftOpen(false);
+  }, [nodes, edges, rightOpen, setFlowState, isMobile]);
+
+  const deleteNode = useCallback((id: string) => { setFlowState({ nodes: nodes.filter((n) => n.id !== id), edges: edges.filter((e) => e.source !== id && e.target !== id) }); setSelectedNodeId(null); }, [nodes, edges, setFlowState]);
+  const onConnect = useCallback((params: Connection) => { const newEdge = { ...params, id: `e-${Date.now()}`, type: 'custom', markerEnd: { type: MarkerType.ArrowClosed } }; setFlowState({ nodes, edges: addEdge(newEdge, edges) }); }, [nodes, edges, setFlowState]);
+
   const handleMenuAction = (action: string, payload?: unknown) => {
     if (!contextMenu) return;
     const { targetId } = contextMenu;
     switch (action) {
-      case 'delete':
-        if (targetId) deleteNode(targetId);
-        break;
+      case 'delete': if (targetId) deleteNode(targetId); break;
       case 'duplicate': 
         if (targetId) {
             const original = nodes.find(n => n.id === targetId);
@@ -464,42 +397,11 @@ export const ProcessDesigner: React.FC = () => {
             }
         }
         break;
-      case 'copy':
-        if (targetId) {
-            const node = nodes.find(n => n.id === targetId);
-            if (node) {
-                setClipboard(node.data.step);
-                addNotification('info', 'Copied to clipboard');
-            }
-        }
-        break;
-      case 'paste':
-        if (clipboard) {
-             const id = `node-${Date.now()}`;
-             const newStep = { ...clipboard, id, name: `${clipboard.name} (Copy)` };
-             const newNode = {
-                 id,
-                 type: 'custom',
-                 position: { x: contextMenu.position.x, y: contextMenu.position.y },
-                 data: { step: newStep }
-             };
-             setFlowState({ nodes: [...nodes, newNode], edges });
-        }
-        break;
-      case 'disconnect':
-        if (targetId) {
-            setFlowState({
-                nodes,
-                edges: edges.filter(e => e.source !== targetId && e.target !== targetId)
-            });
-        }
-        break;
-      case 'add-node': 
-        addNode(payload as ProcessStepType, { x: contextMenu.position.x, y: contextMenu.position.y }); 
-        break;
-      case 'clear-canvas': 
-        handleClear();
-        break;
+      case 'copy': if (targetId) { const node = nodes.find(n => n.id === targetId); if (node) { setClipboard(node.data.step); addNotification('info', 'Copied to clipboard'); } } break;
+      case 'paste': if (clipboard) { const id = `node-${Date.now()}`; const newStep = { ...clipboard, id, name: `${clipboard.name} (Copy)` }; const newNode = { id, type: 'custom', position: { x: contextMenu.position.x, y: contextMenu.position.y }, data: { step: newStep } }; setFlowState({ nodes: [...nodes, newNode], edges }); } break;
+      case 'disconnect': if (targetId) setFlowState({ nodes, edges: edges.filter(e => e.source !== targetId && e.target !== targetId) }); break;
+      case 'add-node': addNode(payload as ProcessStepType, { x: contextMenu.position.x, y: contextMenu.position.y }); break;
+      case 'clear-canvas': handleClear(); break;
     }
     setContextMenu(null);
   };
@@ -508,34 +410,23 @@ export const ProcessDesigner: React.FC = () => {
       event.preventDefault();
       const type = event.dataTransfer.getData('application/reactflow');
       if (!type) return;
-      // Get exact coordinates
       const reactFlowBounds = event.currentTarget.getBoundingClientRect();
       const position = { x: event.clientX - reactFlowBounds.left - 100, y: event.clientY - reactFlowBounds.top - 40 };
       addNode(type as ProcessStepType | 'note', position);
   }, [addNode]);
 
-  const updateSelectedStep = useCallback((updatedStep: ProcessStep) => { 
-      setFlowState({ 
-          nodes: nodes.map((n) => { if (n.id === updatedStep.id) { return { ...n, data: { ...n.data, step: updatedStep } }; } return n; }), 
-          edges 
-      }); 
-  }, [nodes, edges, setFlowState]);
-
+  const updateSelectedStep = useCallback((updatedStep: ProcessStep) => { setFlowState({ nodes: nodes.map((n) => { if (n.id === updatedStep.id) { return { ...n, data: { ...n.data, step: updatedStep } }; } return n; }), edges }); }, [nodes, edges, setFlowState]);
   const selectedStep = useMemo(() => { const node = nodes.find(n => n.id === selectedNodeId); return node ? node.data.step : undefined; }, [selectedNodeId, nodes]);
 
   return (
       <ReactFlowProvider>
-      <div 
-        className="flex flex-col bg-panel border border-default rounded-base shadow-sm overflow-hidden"
-        style={{ height: 'calc(100vh - 140px)', borderRadius: 'var(--radius-base)' }}
-      >
+      <div className="flex flex-col bg-panel border border-default rounded-base shadow-sm overflow-hidden h-full">
         <div className="bg-subtle border-b border-default flex items-center justify-between shrink-0" style={{ height: 'var(--header-height)', padding: '0 var(--layout-padding)' }}>
            <div className="flex items-center" style={{ gap: 'var(--space-base)' }}>
               <button onClick={() => setLeftOpen(!leftOpen)} className={`p-1 rounded-base hover:bg-white border border-transparent hover:border-subtle ${leftOpen ? 'text-blue-600' : 'text-secondary'}`}><LayoutPanelLeft size={16}/></button>
               <div className="h-4 w-px bg-default"></div>
               <input className="bg-transparent text-sm font-bold text-primary w-24 md:w-48 outline-none truncate" value={processMeta.name} onChange={e => setProcessMeta(p => ({ ...p, name: e.target.value }))} />
               
-              {/* Undo Redo Controls */}
               <div className="hidden md:flex items-center gap-1 ml-4 bg-slate-100 p-1 rounded-sm">
                   <button onClick={undo} disabled={!canUndo} className="p-1 text-slate-500 hover:text-slate-800 disabled:opacity-30"><Undo size={14}/></button>
                   <button onClick={redo} disabled={!canRedo} className="p-1 text-slate-500 hover:text-slate-800 disabled:opacity-30"><Redo size={14}/></button>
@@ -543,16 +434,19 @@ export const ProcessDesigner: React.FC = () => {
            </div>
            
            <div className="flex items-center" style={{ gap: 'var(--space-base)' }}>
-              <button 
-                onClick={toggleSimulation}
-                className={`hidden md:flex items-center gap-2 px-3 py-1 rounded-sm text-xs font-bold border transition-all ${simulationActive ? 'bg-amber-100 text-amber-700 border-amber-300 animate-pulse' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}`}
-              >
-                  {simulationActive ? <StopCircle size={14}/> : <PlayCircle size={14}/>}
-                  {simulationActive ? 'Running...' : 'Test Run'}
-              </button>
-
+              {!simulationActive ? (
+                  <button onClick={startSimulation} className="hidden md:flex items-center gap-2 px-3 py-1 rounded-sm text-xs font-bold border bg-white text-slate-600 border-slate-300 hover:bg-slate-50">
+                      <PlayCircle size={14}/> Test Run
+                  </button>
+              ) : (
+                  <div className="flex bg-slate-800 text-white rounded-sm p-1 gap-1">
+                      <button onClick={stepSimulation} className="p-1 hover:bg-white/20 rounded" title="Step Forward"><Forward size={14}/></button>
+                      <button onClick={stopSimulation} className="p-1 hover:bg-rose-500 rounded" title="Stop"><StopCircle size={14}/></button>
+                  </div>
+              )}
               <div className="h-4 w-px bg-default mx-1 hidden md:block"></div>
-              
+              <button onClick={generateBPMN} className="p-1 text-secondary hover:text-blue-600 hidden md:block" title="View XML"><Code size={16}/></button>
+              <button onClick={handleSyncIDE} className="p-1 text-secondary hover:text-blue-600 hidden md:block" title="Sync IDE"><RefreshCw size={16}/></button>
               <button onClick={() => setFlowState({nodes:[], edges:[]})} className="p-1 text-secondary hover:text-rose-600 hidden md:block"><Trash2 size={16}/></button>
               <button onClick={handleDeploy} className="flex items-center gap-1 px-3 py-1 bg-brand-slate text-white rounded-base text-xs hover:bg-slate-900 shadow-sm"><Save size={14}/> <span className="hidden md:inline">Save</span></button>
               <button onClick={() => setRightOpen(!rightOpen)} className={`p-1 rounded-base hover:bg-white ${rightOpen ? 'text-blue-600' : 'text-secondary'}`}><PanelRight size={16}/></button>
@@ -564,32 +458,63 @@ export const ProcessDesigner: React.FC = () => {
              <PaletteSidebar onAddNode={(type) => addNode(type)} />
           </div>
 
-          <div className="flex-1 h-full relative z-0" onContextMenu={(e) => { e.preventDefault(); setContextMenu({ position: { x: e.clientX, y: e.clientY }, targetId: null }); }}>
-             {viewMode === 'canvas' ? (
-                <DesignerFlow 
-                    nodes={nodes} 
-                    edges={edges} 
-                    onNodesChange={onNodesChange} 
-                    onEdgesChange={onEdgesChange} 
-                    onConnect={onConnect} 
-                    onNodeClick={(e: any, node: Node) => { setSelectedNodeId(node.id); }} 
-                    onPaneClick={() => setSelectedNodeId(null)} 
-                    onContextMenu={(e: any, node?: Node) => { e.preventDefault(); setContextMenu({ position: { x: e.clientX, y: e.clientY }, targetId: node ? node.id : null }); }} 
-                    onDrop={onDrop} 
-                    onDragOver={(e: any) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }} 
-                    onLayout={onLayout} 
-                    isValidConnection={(c: any) => true} 
-                    lanes={processMeta.lanes}
-                    simulationActive={simulationActive}
-                    activeSimNodeId={selectedNodeId} 
-                    viewMode={viewMode}
-                    setViewMode={setViewMode}
-                    selectionMode={selectionMode}
-                    setSelectionMode={setSelectionMode}
-                />
-             ) : (
-                <HierarchyView nodes={nodes} edges={edges} onSelectNode={setSelectedNodeId} selectedNodeId={selectedNodeId} />
+          <div className="flex-1 h-full relative z-0 flex flex-col" onContextMenu={(e) => { e.preventDefault(); setContextMenu({ position: { x: e.clientX, y: e.clientY }, targetId: null }); }}>
+             <div className="flex-1 relative">
+                {viewMode === 'canvas' ? (
+                    <DesignerFlow 
+                        nodes={nodes} 
+                        edges={edges} 
+                        onNodesChange={onNodesChange} 
+                        onEdgesChange={onEdgesChange} 
+                        onConnect={onConnect} 
+                        onNodeClick={(e: any, node: Node) => { setSelectedNodeId(node.id); }} 
+                        onPaneClick={() => setSelectedNodeId(null)} 
+                        onContextMenu={(e: any, node?: Node) => { e.preventDefault(); setContextMenu({ position: { x: e.clientX, y: e.clientY }, targetId: node ? node.id : null }); }} 
+                        onDrop={onDrop} 
+                        onDragOver={(e: any) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }} 
+                        onLayout={handleLayout} 
+                        isValidConnection={(c: any) => true} 
+                        lanes={processMeta.lanes}
+                        simulationActive={simulationActive}
+                        activeSimNodeId={simStepId} 
+                        viewMode={viewMode}
+                        setViewMode={setViewMode}
+                        selectionMode={selectionMode}
+                        setSelectionMode={setSelectionMode}
+                    />
+                ) : (
+                    <HierarchyView nodes={nodes} edges={edges} onSelectNode={setSelectedNodeId} selectedNodeId={selectedNodeId} />
+                )}
+             </div>
+             
+             {/* --- Validation Footer --- */}
+             {showValidationPanel && (
+                 <div className="bg-white border-t border-slate-200 h-32 flex flex-col transition-all">
+                     <div className="flex items-center justify-between px-3 py-1 bg-slate-50 border-b border-slate-200">
+                         <div className="flex items-center gap-2 text-xs font-bold uppercase text-slate-500">
+                             {validationErrors.length > 0 ? <AlertCircle size={12} className="text-rose-500"/> : <CheckCircle size={12} className="text-emerald-500"/>}
+                             Validation Output
+                         </div>
+                         <button onClick={() => setShowValidationPanel(false)}><X size={12} className="text-slate-400 hover:text-slate-600"/></button>
+                     </div>
+                     <div className="flex-1 overflow-y-auto p-2">
+                         {validationErrors.length === 0 ? (
+                             <div className="text-emerald-600 text-xs flex items-center gap-2 font-medium">
+                                 <CheckCircle size={14}/> No issues detected. Model is compliant.
+                             </div>
+                         ) : (
+                             <ul className="space-y-1">
+                                 {validationErrors.map((err, i) => (
+                                     <li key={i} className="text-xs text-rose-700 flex items-start gap-2 bg-rose-50/50 p-1 rounded-sm">
+                                         <AlertTriangle size={12} className="shrink-0 mt-0.5"/> {err}
+                                     </li>
+                                 ))}
+                             </ul>
+                         )}
+                     </div>
+                 </div>
              )}
+
              <CanvasContextMenu position={contextMenu ? contextMenu.position : null} targetId={contextMenu ? contextMenu.targetId : null} onClose={() => setContextMenu(null)} onAction={handleMenuAction} />
           </div>
 
@@ -602,30 +527,8 @@ export const ProcessDesigner: React.FC = () => {
           </div>
         </div>
 
-        <NexModal isOpen={showValidationModal} onClose={() => setShowValidationModal(false)} title="Validation Failed" size="md">
-            <div className="space-y-4">
-                <div className="bg-rose-50 border border-rose-200 rounded-sm p-4 flex items-start gap-3">
-                    <ShieldAlert size={20} className="text-rose-600 shrink-0 mt-0.5"/>
-                    <div>
-                        <h4 className="text-sm font-bold text-rose-800 mb-1">Cannot Deploy Process</h4>
-                        <p className="text-xs text-rose-700">The workflow topology contains critical errors that must be resolved before activation.</p>
-                    </div>
-                </div>
-                <div className="border border-slate-200 rounded-sm overflow-hidden">
-                    <div className="bg-slate-50 p-2 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">Issues Found ({validationErrors.length})</div>
-                    <ul className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
-                        {validationErrors.map((err, i) => (
-                            <li key={i} className="p-3 text-xs text-slate-700 flex items-start gap-2">
-                                <AlertTriangle size={14} className="text-amber-500 shrink-0 mt-0.5"/>
-                                {err}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-                <div className="flex justify-end">
-                    <NexButton variant="secondary" onClick={() => setShowValidationModal(false)}>Return to Editor</NexButton>
-                </div>
-            </div>
+        <NexModal isOpen={showXmlModal} onClose={() => setShowXmlModal(false)} title="BPMN 2.0 XML (Read-Only)" size="lg">
+            <textarea className="w-full h-96 p-4 font-mono text-xs bg-slate-900 text-green-400 rounded" value={bpmnXml} readOnly />
         </NexModal>
       </div>
       </ReactFlowProvider>
