@@ -12,7 +12,7 @@ import { NexButton, NexModal } from './shared/NexUI';
 
 // --- SUB-COMPONENTS ---
 
-const SignaturePad: React.FC<{ onSave: (data: string) => void; onCancel: () => void }> = ({ onSave, onCancel }) => {
+const SignaturePad: React.FC<{ onSave: (data: string) => void }> = ({ onSave }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [isDrawing, setIsDrawing] = useState(false);
 
@@ -54,12 +54,8 @@ const SignaturePad: React.FC<{ onSave: (data: string) => void; onCancel: () => v
     };
 
     return (
-        <div className="bg-panel border-t border-default p-4 fixed bottom-0 left-0 right-0 z-[60] shadow-[0_-4px_20px_rgba(0,0,0,0.1)] pb-safe animate-slide-up">
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-primary">Customer Sign-off</h3>
-                <button onClick={onCancel}><X size={20} className="text-tertiary hover:text-primary"/></button>
-            </div>
-            <div className="bg-white border border-default rounded-base mb-4 touch-none overflow-hidden">
+        <div className="flex flex-col gap-4">
+            <div className="bg-white border border-default rounded-base touch-none overflow-hidden shadow-inner">
                 <canvas 
                     ref={canvasRef}
                     onMouseDown={start} onMouseUp={end} onMouseMove={draw}
@@ -67,7 +63,7 @@ const SignaturePad: React.FC<{ onSave: (data: string) => void; onCancel: () => v
                     className="w-full h-[200px]"
                 />
             </div>
-            <p className="text-xs text-tertiary mb-4 text-center">By signing above, you accept the service completion terms.</p>
+            <p className="text-xs text-tertiary text-center">By signing above, you accept the service completion terms.</p>
             <NexButton variant="primary" onClick={handleSave} className="w-full justify-center py-3 text-lg">Confirm Signature</NexButton>
         </div>
     );
@@ -273,7 +269,9 @@ export const MobileFieldView: React.FC = () => {
             )}
         </div>
 
-        {showSignature && <><div className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm" onClick={() => setShowSignature(false)}></div><SignaturePad onSave={handleCompleteFlow} onCancel={() => setShowSignature(false)} /></>}
+        <NexModal isOpen={showSignature} onClose={() => setShowSignature(false)} title="Customer Sign-off" size="sm">
+            <SignaturePad onSave={handleCompleteFlow} />
+        </NexModal>
 
         <div className="h-16 bg-panel border-t border-default flex justify-around items-center shrink-0 pb-safe z-40">
             <button onClick={() => { setActiveTab('tasks'); setSelectedTaskId(null); }} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'tasks' ? 'text-blue-600' : 'text-tertiary'}`}><List size={20} strokeWidth={activeTab === 'tasks' ? 3 : 2}/><span className="text-[10px] font-bold">Tasks</span></button>

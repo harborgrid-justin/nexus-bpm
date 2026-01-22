@@ -10,7 +10,7 @@ import {
   Table as TableIcon, Download, Plus, Send, ChevronLeft, FormInput, Sparkles, BrainCircuit, ListChecks, Award, Trash2, Printer,
   Filter, Save, Eye, GripVertical, MessageSquare, ListTodo
 } from 'lucide-react';
-import { NexBadge, NexButton, NexHistoryFeed, NexDebouncedInput, NexUserDisplay, NexVirtualList, NexCard } from './shared/NexUI';
+import { NexBadge, NexButton, NexHistoryFeed, NexDebouncedInput, NexUserDisplay, NexVirtualList, NexCard, NexListItem } from './shared/NexUI';
 import { FormRenderer } from './shared/FormRenderer';
 import { validateForm, calculateSLA } from '../utils';
 import { summarizeTaskContext } from '../services/geminiService';
@@ -42,58 +42,6 @@ const SLACountdown = ({ dueDate }: { dueDate: string }) => {
             {sla.timeLeft}
         </span>
     );
-};
-
-interface TaskListProps {
-    task: Task;
-    isSelected: boolean;
-    isChecked: boolean;
-    isCompact: boolean;
-    onCheck: (id: string) => void;
-    onClick: (task: Task) => void;
-    onStar: (id: string) => void;
-}
-
-// --- Task List Item Component ---
-const TaskListItem: React.FC<TaskListProps> = ({ task, isSelected, isChecked, isCompact, onCheck, onClick, onStar }) => {
-  return (
-    <div 
-      onClick={() => onClick(task)}
-      className={`border-b border-default cursor-pointer hover:bg-subtle transition-colors group flex items-start gap-3 relative ${isSelected ? 'bg-active border-l-4 border-l-blue-600 pl-2' : 'border-l-4 border-l-transparent pl-3 bg-panel'}`}
-      style={{ padding: isCompact ? 'calc(var(--space-base) * 0.75)' : 'var(--space-base)', height: '80px' }}
-    >
-      <div className="pt-1 flex flex-col gap-2 items-center" onClick={e => e.stopPropagation()}>
-          <input type="checkbox" checked={isChecked} onChange={() => onCheck(task.id)} className="rounded-base border-default text-blue-600 focus:ring-blue-500" />
-          <button onClick={() => onStar(task.id)} className="opacity-0 group-hover:opacity-100 transition-opacity">
-             <Star size={12} className={task.isStarred ? "fill-amber-400 text-amber-400 opacity-100" : "text-tertiary"} />
-          </button>
-      </div>
-      
-      <div className="flex-1 min-w-0">
-        <div className="flex justify-between items-start mb-0.5">
-            <div className="flex items-center gap-2">
-                <span className={`font-bold truncate pr-2 ${isCompact ? 'text-base' : 'text-sm'} ${isSelected ? 'text-blue-800' : 'text-primary'}`}>
-                    {task.title}
-                </span>
-                {task.isAdHoc && <span className="bg-amber-100 text-amber-700 text-xs px-1 rounded-base font-bold">ADHOC</span>}
-                {task.tags?.map((t: string) => <span key={t} className="bg-subtle text-secondary text-xs px-1 rounded-base border border-default">{t}</span>)}
-            </div>
-            <div className="flex items-center gap-1">
-               <SLACountdown dueDate={task.dueDate} />
-               {(task.attachments?.length ?? 0) > 0 && <Paperclip size={12} className="text-tertiary"/>}
-               {task.priority === TaskPriority.CRITICAL && <AlertCircle size={14} className="text-rose-600 shrink-0"/>}
-            </div>
-        </div>
-        
-        <div className="flex justify-between items-center text-xs text-secondary">
-            <span className="truncate max-w-[150px] flex items-center gap-1"><Layers size={10}/> {task.processName}</span>
-            <div className="flex items-center gap-2">
-                <span className="bg-subtle px-1.5 py-0.5 rounded-base text-secondary font-medium border border-default">{task.status}</span>
-            </div>
-        </div>
-      </div>
-    </div>
-  );
 };
 
 export const TaskInbox: React.FC = () => {
@@ -272,7 +220,28 @@ export const TaskInbox: React.FC = () => {
                             items={filteredTasks}
                             itemHeight={80} 
                             renderItem={(t: Task, idx) => (
-                                <TaskListItem key={t.id} task={t} isSelected={selectedTask?.id === t.id} isChecked={selectedIds.has(t.id)} isCompact={density === 'compact'} onCheck={toggleSelection} onClick={setSelectedTask} onStar={toggleTaskStar} />
+                                <NexListItem 
+                                    key={t.id} 
+                                    title={
+                                        <div className="flex items-center gap-2">
+                                            {t.isAdHoc && <span className="bg-amber-100 text-amber-700 text-[9px] px-1 rounded font-bold">ADHOC</span>}
+                                            {t.title}
+                                        </div>
+                                    }
+                                    subtitle={t.processName}
+                                    meta={<SLACountdown dueDate={t.dueDate} />}
+                                    status={<NexBadge variant={t.priority === 'Critical' ? 'rose' : 'slate'}>{t.priority}</NexBadge>}
+                                    selected={selectedTask?.id === t.id}
+                                    onClick={() => setSelectedTask(t)}
+                                    before={
+                                        <div className="flex flex-col items-center gap-2">
+                                            <input type="checkbox" checked={selectedIds.has(t.id)} onChange={() => toggleSelection(t.id)} className="rounded-base text-blue-600" onClick={e => e.stopPropagation()} />
+                                            <button onClick={(e) => { e.stopPropagation(); toggleTaskStar(t.id); }}>
+                                                <Star size={12} className={t.isStarred ? "fill-amber-400 text-amber-400" : "text-tertiary hover:text-amber-400"} />
+                                            </button>
+                                        </div>
+                                    }
+                                />
                             )}
                         />
                     </div>
