@@ -182,23 +182,25 @@ export const MarketplaceView: React.FC = () => {
                 </div>
             </NexCard>
 
-            <div key="grid" className="overflow-y-auto p-1">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {filteredIntegrations.map(int => {
-                        const Icon = ICONS[int.iconName] || Box;
-                        return (
-                            <div key={int.id} onClick={() => handleOpen(int)} className="bg-panel border border-default rounded-lg p-5 shadow-sm hover:shadow-md hover:border-active transition-all flex flex-col group h-64 cursor-pointer">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className={`p-3 rounded-lg ${int.isInstalled ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-subtle text-secondary border border-default'}`}><Icon size={24}/></div>
-                                    {int.isInstalled && <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold border border-emerald-200 flex items-center gap-1"><CheckCircle size={10}/> Installed</span>}
+            <NexCard key="grid" dragHandle={isEditable} title="Available Integrations" className="p-0 overflow-hidden flex flex-col h-full bg-transparent border-0 shadow-none">
+                <div className="overflow-y-auto p-1 h-full">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {filteredIntegrations.map(int => {
+                            const Icon = ICONS[int.iconName] || Box;
+                            return (
+                                <div key={int.id} onClick={() => handleOpen(int)} className="bg-panel border border-default rounded-lg p-5 shadow-sm hover:shadow-md hover:border-active transition-all flex flex-col group h-64 cursor-pointer">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className={`p-3 rounded-lg ${int.isInstalled ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-subtle text-secondary border border-default'}`}><Icon size={24}/></div>
+                                        {int.isInstalled && <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold border border-emerald-200 flex items-center gap-1"><CheckCircle size={10}/> Installed</span>}
+                                    </div>
+                                    <div className="flex-1"><h3 className="font-bold text-primary text-sm mb-1 group-hover:text-blue-600 transition-colors">{int.name}</h3><p className="text-xs text-secondary leading-snug line-clamp-3">{int.description}</p></div>
+                                    <div className="pt-4 border-t border-default flex items-center justify-between mt-2"><div className="text-[10px] text-tertiary font-medium">v{int.version} • {int.provider}</div>{int.isInstalled ? <Settings size={16} className="text-tertiary group-hover:text-blue-600 transition-colors"/> : <div className="flex items-center gap-1 text-[10px] font-bold text-blue-600 uppercase tracking-wide opacity-0 group-hover:opacity-100 transition-opacity">Get <Download size={12}/></div>}</div>
                                 </div>
-                                <div className="flex-1"><h3 className="font-bold text-primary text-sm mb-1 group-hover:text-blue-600 transition-colors">{int.name}</h3><p className="text-xs text-secondary leading-snug line-clamp-3">{int.description}</p></div>
-                                <div className="pt-4 border-t border-default flex items-center justify-between mt-2"><div className="text-[10px] text-tertiary font-medium">v{int.version} • {int.provider}</div>{int.isInstalled ? <Settings size={16} className="text-tertiary group-hover:text-blue-600 transition-colors"/> : <div className="flex items-center gap-1 text-[10px] font-bold text-blue-600 uppercase tracking-wide opacity-0 group-hover:opacity-100 transition-opacity">Get <Download size={12}/></div>}</div>
-                            </div>
-                        );
-                    })}
+                            );
+                        })}
+                    </div>
                 </div>
-            </div>
+            </NexCard>
         </ResponsiveGridLayout>
 
         {selectedIntegration && (
