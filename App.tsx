@@ -78,13 +78,13 @@ const NavItem = ({ view, icon: Icon, label, active, collapsed }: { view: ViewSta
         ${collapsed ? 'justify-center w-10 h-10 mx-auto rounded-xl' : 'w-full px-3 py-2.5 mx-0 rounded-lg'}
         ${active 
           ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20' 
-          : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}
+          : 'text-secondary hover:bg-hover hover:text-primary'}
       `}
     >
       <Icon 
         size={20} 
         strokeWidth={active ? 2.5 : 2}
-        className={`transition-transform duration-200 shrink-0 ${!collapsed && 'mr-3'} ${active ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'}`} 
+        className={`transition-transform duration-200 shrink-0 ${!collapsed && 'mr-3'} ${active ? 'text-white' : 'text-tertiary group-hover:text-secondary'}`} 
       />
       
       {!collapsed && (
@@ -103,11 +103,11 @@ const NavItem = ({ view, icon: Icon, label, active, collapsed }: { view: ViewSta
 
 const NavGroup = ({ title, children, collapsed }: { title: string, children?: React.ReactNode, collapsed: boolean }) => {
   if (collapsed) {
-    return <div className="space-y-1 mb-2 pt-2 border-t border-slate-100 first:border-0">{children}</div>;
+    return <div className="space-y-1 mb-2 pt-2 border-t border-borderSubtle first:border-0">{children}</div>;
   }
   return (
     <div className="mb-6 px-3">
-      <div className="px-3 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{title}</div>
+      <div className="px-3 mb-2 text-[10px] font-bold text-tertiary uppercase tracking-widest">{title}</div>
       <div className="space-y-0.5">{children}</div>
     </div>
   );
@@ -134,7 +134,10 @@ const Breadcrumbs = ({ nav }: { nav: { view: ViewState, selectedId?: string } })
             'rules': 'Decision Logic',
             'identity': 'Access Control',
             'analytics': 'Intelligence',
-            'governance': 'Audit & Compliance'
+            'governance': 'Audit & Compliance',
+            'resource-planner': 'Resource Planning',
+            'api-gateway': 'API Gateway',
+            'marketplace': 'Integration Market'
         };
         return map[v] || v.charAt(0).toUpperCase() + v.slice(1).replace(/-/g, ' ');
     };
@@ -162,7 +165,7 @@ const Breadcrumbs = ({ nav }: { nav: { view: ViewState, selectedId?: string } })
             
             {parent && (
                 <>
-                    <span className="font-medium text-slate-500 hover:text-primary cursor-pointer" onClick={() => window.location.hash = parent}>{getViewName(parent)}</span>
+                    <span className="font-medium text-secondary hover:text-primary cursor-pointer" onClick={() => window.location.hash = parent}>{getViewName(parent)}</span>
                     <ChevronRight size={10} className="text-tertiary"/>
                 </>
             )}
@@ -331,7 +334,7 @@ const AppContent: React.FC = () => {
         {/* Footer User Profile */}
         <div className={`border-t border-default bg-subtle shrink-0 transition-all ${sidebarCollapsed ? 'p-2' : 'p-4'}`}>
           <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} transition-all`}>
-            <div className="w-9 h-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-blue-700 font-bold text-sm shadow-sm shrink-0">
+            <div className="w-9 h-9 rounded-full bg-white border border-default flex items-center justify-center text-blue-700 font-bold text-sm shadow-sm shrink-0">
               {currentUser.name.charAt(0)}
             </div>
             
@@ -341,13 +344,13 @@ const AppContent: React.FC = () => {
             </div>
 
             {!sidebarCollapsed && (
-               <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-md transition-colors">
+               <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="p-1.5 text-secondary hover:text-primary hover:bg-hover rounded-md transition-colors">
                   <PanelLeftClose size={16} />
                </button>
             )}
           </div>
           {sidebarCollapsed && (
-             <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="w-full mt-2 py-2 flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-white rounded-md transition-all">
+             <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="w-full mt-2 py-2 flex items-center justify-center text-secondary hover:text-blue-600 hover:bg-hover rounded-md transition-all">
                 <PanelLeftOpen size={16} />
              </button>
           )}
@@ -362,9 +365,9 @@ const AppContent: React.FC = () => {
           style={{ paddingLeft: 'var(--layout-padding)', paddingRight: 'var(--layout-padding)' }}
         >
           <div className="flex items-center" style={{ gap: 'var(--space-base)' }}>
-            <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden text-secondary p-1 hover:bg-slate-100 rounded-md"><Menu size={20}/></button>
+            <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden text-secondary p-1 hover:bg-hover rounded-md"><Menu size={20}/></button>
             <div 
-              className="flex items-center px-3 py-1.5 bg-subtle border border-default rounded-md hover:border-slate-300 transition-colors cursor-pointer group"
+              className="flex items-center px-3 py-1.5 bg-subtle border border-default rounded-md hover:border-active transition-colors cursor-pointer group"
               style={{ gap: 'var(--space-base)' }}
             >
                <span className="text-xs font-semibold text-secondary group-hover:text-primary">Domain:</span>
@@ -375,20 +378,20 @@ const AppContent: React.FC = () => {
           
           <div className="flex items-center" style={{ gap: 'var(--space-base)' }}>
             <div className="relative hidden md:block group">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors"/>
-              <input className="pl-9 pr-3 py-1.5 text-sm bg-subtle border border-default rounded-md w-64 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="Global Search..." />
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary group-focus-within:text-blue-500 transition-colors"/>
+              <input className="pl-9 pr-3 py-1.5 text-sm bg-subtle border border-default rounded-md w-64 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-primary" placeholder="Global Search..." />
             </div>
             <div className="h-5 w-px bg-default hidden lg:block"></div>
             <div className="flex items-center gap-2 text-xs text-tertiary font-medium px-2 py-1 bg-subtle rounded border border-default hidden lg:flex">
                <Command size={12} /> <span className="font-sans">K</span>
             </div>
-            <button className="text-secondary hover:text-blue-600 transition-colors relative p-1.5 hover:bg-slate-50 rounded-full">
+            <button className="text-secondary hover:text-blue-600 transition-colors relative p-1.5 hover:bg-hover rounded-full">
               <Bell size={20}/>
               {notifications.length > 0 && (
                 <span className="absolute top-1 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>
               )}
             </button>
-            <button className="text-secondary hover:text-blue-600 transition-colors p-1.5 hover:bg-slate-50 rounded-full" onClick={() => navigateTo('settings')}><SettingsIcon size={20}/></button>
+            <button className="text-secondary hover:text-blue-600 transition-colors p-1.5 hover:bg-hover rounded-full" onClick={() => navigateTo('settings')}><SettingsIcon size={20}/></button>
           </div>
         </header>
 

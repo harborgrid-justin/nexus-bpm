@@ -96,40 +96,40 @@ export const CommandPalette: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-[1000] bg-slate-900/40 backdrop-blur-[2px] flex items-start justify-center pt-[15vh]">
-      <div className="bg-white w-full max-w-xl rounded-lg shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-slide-up transform transition-all">
-        <div className="flex items-center px-4 py-3 border-b border-slate-100">
-           <Search size={18} className="text-slate-400 mr-3" />
+      <div className="bg-panel w-full max-w-xl rounded-lg shadow-2xl border border-default overflow-hidden flex flex-col animate-slide-up transform transition-all">
+        <div className="flex items-center px-4 py-3 border-b border-default">
+           <Search size={18} className="text-tertiary mr-3" />
            <input 
              ref={inputRef}
-             className="flex-1 text-sm bg-transparent outline-none placeholder:text-slate-400 text-slate-800"
+             className="flex-1 text-sm bg-transparent outline-none placeholder:text-tertiary text-primary"
              placeholder="Type a command or search assets..."
              value={query}
              onChange={e => setQuery(e.target.value)}
              onKeyDown={handleKeyDown}
            />
            <div className="flex gap-1">
-             <span className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px] text-slate-500 font-bold">ESC</span>
+             <span className="px-1.5 py-0.5 rounded bg-subtle border border-default text-[10px] text-secondary font-bold">ESC</span>
            </div>
         </div>
         <div className="max-h-[300px] overflow-y-auto py-2">
            {allItems.length === 0 ? (
-               <div className="px-4 py-8 text-center text-xs text-slate-400">No matching commands found.</div>
+               <div className="px-4 py-8 text-center text-xs text-tertiary">No matching commands found.</div>
            ) : (
                allItems.map((item, idx) => (
                    <button
                      key={idx}
                      onClick={() => handleSelect(idx)}
-                     className={`w-full px-4 py-2 flex items-center gap-3 text-left transition-colors ${idx === selectedIndex ? 'bg-blue-50 text-blue-700 border-l-2 border-blue-600' : 'text-slate-700 hover:bg-slate-50 border-l-2 border-transparent'}`}
+                     className={`w-full px-4 py-2 flex items-center gap-3 text-left transition-colors ${idx === selectedIndex ? 'bg-active text-blue-700 dark:text-blue-300 border-l-2 border-blue-600' : 'text-primary hover:bg-subtle border-l-2 border-transparent'}`}
                      onMouseEnter={() => setSelectedIndex(idx)}
                    >
-                      <item.icon size={16} className={idx === selectedIndex ? 'text-blue-600' : 'text-slate-400'} />
+                      <item.icon size={16} className={idx === selectedIndex ? 'text-blue-600 dark:text-blue-400' : 'text-tertiary'} />
                       <span className="flex-1 text-xs font-medium">{item.label}</span>
                       {idx === selectedIndex && <ChevronRight size={14} className="text-blue-400"/>}
                    </button>
                ))
            )}
         </div>
-        <div className="px-3 py-2 bg-slate-50 border-t border-slate-100 flex justify-between items-center text-[10px] text-slate-400 font-medium">
+        <div className="px-3 py-2 bg-subtle border-t border-default flex justify-between items-center text-[10px] text-tertiary font-medium">
             <div className="flex gap-2">
                 <span>Navigate <Command size={10} className="inline"/></span>
                 <span>Select ↵</span>

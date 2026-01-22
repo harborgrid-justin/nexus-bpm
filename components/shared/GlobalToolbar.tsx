@@ -31,15 +31,15 @@ const ToolbarMenu: React.FC<MenuProps> = ({ label, items, isOpen, onToggle, onCl
         <div className="relative" ref={ref}>
             <button 
                 onClick={onToggle}
-                className={`px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-200 rounded-sm transition-colors whitespace-nowrap ${isOpen ? 'bg-slate-200 font-bold text-slate-900' : ''}`}
+                className={`px-3 py-1.5 text-xs text-secondary hover:bg-hover rounded-sm transition-colors whitespace-nowrap ${isOpen ? 'bg-active font-bold text-primary' : ''}`}
             >
                 {label}
             </button>
             {isOpen && (
-                <div className="absolute top-full left-0 min-w-[200px] bg-white border border-slate-300 shadow-xl rounded-sm z-[100] py-1 animate-slide-up">
+                <div className="absolute top-full left-0 min-w-[200px] bg-panel border border-default shadow-xl rounded-sm z-[100] py-1 animate-slide-up">
                     {items.map((item, idx) => (
                         <React.Fragment key={idx}>
-                            {item.divider && <div className="h-px bg-slate-100 my-1 mx-2" />}
+                            {item.divider && <div className="h-px bg-default my-1 mx-2" />}
                             <button
                                 onClick={() => { 
                                     if(item.action && !item.disabled) {
@@ -48,10 +48,10 @@ const ToolbarMenu: React.FC<MenuProps> = ({ label, items, isOpen, onToggle, onCl
                                     }
                                 }}
                                 disabled={item.disabled}
-                                className={`w-full text-left px-4 py-2 text-xs flex justify-between items-center ${item.disabled ? 'text-slate-300 cursor-not-allowed' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}`}
+                                className={`w-full text-left px-4 py-2 text-xs flex justify-between items-center ${item.disabled ? 'text-tertiary cursor-not-allowed' : 'text-secondary hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-900/30 dark:hover:text-blue-300'}`}
                             >
                                 <span>{item.label}</span>
-                                {item.shortcut && <span className="text-[10px] text-slate-400 font-mono ml-4">{item.shortcut}</span>}
+                                {item.shortcut && <span className="text-[10px] text-tertiary font-mono ml-4">{item.shortcut}</span>}
                             </button>
                         </React.Fragment>
                     ))}
@@ -194,7 +194,7 @@ export const GlobalToolbar: React.FC = () => {
     ];
 
     return (
-        <div className="flex flex-wrap items-center px-2 bg-slate-50 border-b border-default min-h-[32px] select-none shrink-0 relative z-50" role="menubar">
+        <div className="flex flex-wrap items-center px-2 bg-subtle border-b border-default min-h-[32px] select-none shrink-0 relative z-50" role="menubar">
             <ToolbarMenu label="File" items={fileMenu} isOpen={activeMenu === 'file'} onToggle={() => toggleMenu('file')} onClose={closeMenu} />
             <ToolbarMenu label="Edit" items={editMenu} isOpen={activeMenu === 'edit'} onToggle={() => toggleMenu('edit')} onClose={closeMenu} />
             <ToolbarMenu label="View" items={viewMenu} isOpen={activeMenu === 'view'} onToggle={() => toggleMenu('view')} onClose={closeMenu} />
