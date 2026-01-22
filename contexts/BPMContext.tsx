@@ -9,6 +9,7 @@ import {
   Integration, ApiClient, SystemSettings, SavedView, ToolbarConfig, TaskHistory
 } from '../types';
 import { dbService, DEFAULT_SETTINGS } from '../services/dbService';
+import { useSLAEngine } from '../components/hooks/useSLAEngine';
 
 interface Notification {
   id: string;
@@ -152,7 +153,6 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const setToolbarConfig = useCallback((config: ToolbarConfig) => { setToolbarConfigState(config); }, []);
   const [activePresence, setActivePresence] = useState<Record<string, string[]>>({}); 
 
-  // --- REFS for Engine Access to Latest State (Simulates Backend DB Access) ---
   const stateRef = useRef(state);
   useEffect(() => { stateRef.current = state; }, [state]);
 
@@ -195,17 +195,13 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // --- HELPERS ---
-  const addAudit = useCallback(async (action: string, type: AuditLog['entityType'], id: string, details: string, severity: AuditLog['severity'] = 'Info') => {
-    const log: AuditLog = {
+  // --- Internal Helper for Audit Creation ---
+  const createAudit = (action: string, type: AuditLog['entityType'], id: string, details: string, severity: AuditLog['severity'] = 'Info'): AuditLog => ({
       id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       timestamp: new Date().toISOString(),
       userId: stateRef.current.currentUser?.name || 'System',
       action, entityType: type, entityId: id, details, severity
-    };
-    await dbService.add('auditLogs', log);
-    setState(produce(draft => { draft.auditLogs.unshift(log); }));
-  }, []);
+  });
 
   const addNotification = useCallback((type: 'success' | 'error' | 'info', message: string, deepLink?: { view: ViewState; id?: string }) => {
     const n: Notification = { id: `n-${Date.now()}`, type, message, deepLink };
@@ -222,39 +218,23 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setToolbarConfig({});
   }, [setToolbarConfig]);
 
-  // --- ORACLE BPM ENGINE SIMULATION ---
-
-  // SLA MONITOR (Runs every minute)
-  useEffect(() => {
-      const interval = setInterval(() => {
-          const now = new Date();
-          stateRef.current.tasks.forEach(t => {
-              if (t.status !== TaskStatus.COMPLETED && t.dueDate && new Date(t.dueDate) < now && t.priority !== TaskPriority.CRITICAL) {
-                  // Escalation Logic
-                  console.log(`[SLA Engine] Escalating Task: ${t.id}`);
-                  // In a real app, this would be a DB update
-                  // Simulating local state update for UI reflection
-                  setState(produce(draft => {
-                      const task = draft.tasks.find(x => x.id === t.id);
-                      if (task && task.priority !== TaskPriority.CRITICAL) {
-                          task.priority = TaskPriority.CRITICAL;
-                          draft.notifications.push({ id: `esc-${t.id}`, type: 'error', message: `SLA Breach: ${t.title} escalated to CRITICAL` });
-                      }
-                  }));
+  useSLAEngine(state.tasks, {
+      onEscalate: (t) => {
+          setState(produce(draft => {
+              const task = draft.tasks.find(x => x.id === t.id);
+              if (task && task.priority !== TaskPriority.CRITICAL) {
+                  task.priority = TaskPriority.CRITICAL;
+                  draft.notifications.push({ id: `esc-${t.id}`, type: 'error', message: `SLA Breach: ${t.title} escalated to CRITICAL` });
               }
-          });
-      }, 60000); // Check every minute
-      return () => clearInterval(interval);
-  }, []);
+          }));
+      }
+  });
 
   const evaluateCondition = (condition: string, variables: any) => {
       try {
-          // Simple safe eval for demo purposes. 
-          // Replaces variable names with values from instance payload
           let expr = condition;
           Object.keys(variables).forEach(key => {
               const val = typeof variables[key] === 'string' ? `'${variables[key]}'` : variables[key];
-              // Basic regex replace for whole words matching variable keys
               expr = expr.replace(new RegExp(`\\b${key}\\b`, 'g'), String(val));
           });
           // eslint-disable-next-line no-eval
@@ -273,50 +253,41 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       const currentStep = def.steps.find(s => s.id === currentStepId);
       
-      // 1. Audit / Flow Trace
       const historyEntry: TaskHistory = {
           id: `h-${Date.now()}`, stepName: currentStep?.name || 'Unknown', stepId: currentStepId,
           action: 'Completed', performer: 'System', timestamp: new Date().toISOString()
       };
       
-      // 2. Token Navigation Logic
       const outgoingLinks = def.links?.filter(l => l.sourceId === currentStepId) || [];
       let nextStepIds: string[] = [];
 
       if (currentStep?.type === 'exclusive-gateway') {
-          // XOR Gateway: Find first true condition
           const match = outgoingLinks.find(l => l.condition && evaluateCondition(l.condition, instance.variables));
           if (match) nextStepIds.push(match.targetId);
           else {
-              // Default path
               const defaultLink = outgoingLinks.find(l => l.isDefault) || outgoingLinks[0];
               if (defaultLink) nextStepIds.push(defaultLink.targetId);
           }
       } else if (currentStep?.type === 'parallel-gateway') {
-          // AND Gateway: Split token
           nextStepIds = outgoingLinks.map(l => l.targetId);
       } else {
-          // Standard Sequence Flow
           nextStepIds = outgoingLinks.map(l => l.targetId);
       }
 
-      // 3. Update Instance State
       const updates: Partial<ProcessInstance> = {
           activeStepIds: nextStepIds,
           history: [...instance.history, historyEntry]
       };
 
-      // 4. Activate Next Nodes
       for (const nextId of nextStepIds) {
           const nextStep = def.steps.find(s => s.id === nextId);
           if (!nextStep) continue;
 
           if (nextStep.type === 'user-task') {
-              // Human Workflow: Create Task
               const newTask: Task = {
                   id: `task-${Date.now()}-${Math.random().toString(36).substr(2,4)}`,
                   title: nextStep.name, processName: def.name, processInstanceId: instanceId,
-                  assignee: nextStep.role ? '' : (stateRef.current.currentUser?.id || ''), // Auto-assign if no role
+                  assignee: nextStep.role ? '' : (stateRef.current.currentUser?.id || ''),
                   candidateRoles: nextStep.role ? [nextStep.role] : [],
                   candidateGroups: nextStep.groupId ? [nextStep.groupId] : [],
                   requiredSkills: nextStep.requiredSkills || [],
@@ -324,19 +295,20 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   status: TaskStatus.PENDING, priority: TaskPriority.MEDIUM,
                   description: nextStep.description, stepId: nextId, data: {}, comments: [], attachments: [], isAdHoc: false, 
                   formId: nextStep.formId,
-                  caseId: instance.variables.sys_caseId || instance.variables.caseId // Propagate Case Context
+                  caseId: instance.variables.sys_caseId || instance.variables.caseId
               };
+              // New tasks created in logic are still added via standard add, 
+              // but proceeding logic is usually internal engine state.
+              // For simplicity, we keep standard add for generated tasks.
               await dbService.add('tasks', newTask);
               setState(produce(draft => { draft.tasks.unshift(newTask); }));
               addNotification('info', `New Task Assigned: ${newTask.title}`);
           } else if (nextStep.type === 'end') {
               updates.status = 'Completed';
               updates.endDate = new Date().toISOString();
-              updates.activeStepIds = []; // Clear active steps
+              updates.activeStepIds = [];
               addNotification('success', `Process Completed: ${def.name}`);
           } else if (['service-task', 'script-task', 'start', 'exclusive-gateway', 'parallel-gateway'].includes(nextStep.type)) {
-              // Service Integration / System Tasks: Auto-execute
-              // Simulating OSB/BPEL execution latency
               setTimeout(() => proceedWorkflow(instanceId, nextId), 500); 
           }
       }
@@ -367,30 +339,40 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           history: [], comments: [], complianceVerified: false, domainId: def.domainId
       };
 
-      await dbService.add('instances', newInstance);
-      setState(produce(draft => { draft.instances.unshift(newInstance); }));
-      addNotification('success', `Started ${def.name}`);
-      addAudit('PROCESS_START', 'Instance', newInstance.id, `Started process ${def.name}`);
+      // ATOMIC TRANSACTION: Create Instance + Audit Log
+      const auditEntry = createAudit('PROCESS_START', 'Instance', newInstance.id, `Started process ${def.name}`);
+      await dbService.auditTransaction('instances', newInstance, auditEntry);
 
-      // Kick off the engine
+      setState(produce(draft => { 
+          draft.instances.unshift(newInstance); 
+          draft.auditLogs.unshift(auditEntry);
+      }));
+      
+      addNotification('success', `Started ${def.name}`);
       proceedWorkflow(newInstance.id, startNode.id);
       
       return newInstance.id;
-  }, [addNotification, addAudit]);
+  }, [addNotification]);
 
   const completeTask = useCallback(async (taskId: string, action: string, comments: string, formData?: any) => {
       const task = stateRef.current.tasks.find(t => t.id === taskId);
       if (!task) return;
 
-      // 1. Update Task Status
+      // 1. Prepare Update
       const updates: Partial<Task> = { status: TaskStatus.COMPLETED, data: { ...task.data, ...formData } };
-      await dbService.add('tasks', { ...task, ...updates });
+      const updatedTask = { ...task, ...updates };
+      const auditEntry = createAudit('TASK_COMPLETE', 'Task', taskId, `Completed task ${task.title} with action: ${action}`);
+
+      // 2. ATOMIC TRANSACTION: Update Task + Audit Log
+      await dbService.auditTransaction('tasks', updatedTask, auditEntry);
+
       setState(produce(draft => {
           const t = draft.tasks.find(x => x.id === taskId);
           if (t) { t.status = TaskStatus.COMPLETED; t.data = { ...t.data, ...formData }; }
+          draft.auditLogs.unshift(auditEntry);
       }));
 
-      // 2. Update Instance Payload (Form Data Merging)
+      // 3. Update Instance (Standard DB call as it's a separate entity)
       if (task.processInstanceId) {
           const instance = stateRef.current.instances.find(i => i.id === task.processInstanceId);
           if (instance) {
@@ -400,14 +382,10 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   const i = draft.instances.find(x => x.id === task.processInstanceId);
                   if (i) i.variables = updatedVariables;
               }));
-
-              // 3. Move Token Forward
               proceedWorkflow(task.processInstanceId, task.stepId);
           }
       }
-
-      addAudit('TASK_COMPLETE', 'Task', taskId, `Completed task ${task.title} with action: ${action}`);
-  }, [addAudit]);
+  }, []);
 
   const compensateTransaction = useCallback(async (id: string) => {
       const instance = stateRef.current.instances.find(i => i.id === id);
@@ -470,8 +448,14 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           attachments: [],
           domainId: stateRef.current.currentUser?.domainId || 'GLOBAL'
       };
-      await dbService.add('cases', newCase);
-      setState(produce(draft => { draft.cases.unshift(newCase); }));
+      
+      const auditEntry = createAudit('CASE_CREATE', 'Case', newCase.id, `Case created: ${title}`);
+      await dbService.auditTransaction('cases', newCase, auditEntry);
+
+      setState(produce(draft => { 
+          draft.cases.unshift(newCase); 
+          draft.auditLogs.unshift(auditEntry);
+      }));
       addNotification('success', `Case created: ${title}`);
       return newCase.id;
   }, [addNotification]);

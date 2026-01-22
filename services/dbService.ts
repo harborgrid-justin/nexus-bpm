@@ -90,6 +90,36 @@ class DBService {
     });
   }
 
+  // --- ATOMIC AUDIT TRANSACTION ---
+  async auditTransaction<T>(storeName: string, item: T, auditEntry: AuditLog): Promise<void> {
+      const db = await this.open();
+      return new Promise((resolve, reject) => {
+          try {
+              // Open transaction spanning both the target store AND auditLogs
+              const transaction = db.transaction([storeName, 'auditLogs'], 'readwrite');
+              
+              transaction.oncomplete = () => {
+                  this.notify('TX_COMMIT', `Updated ${storeName} + Audit Log`, 'write');
+                  resolve();
+              };
+              
+              transaction.onerror = (e) => {
+                  this.notify('TX_ROLLBACK', (e.target as any).error?.message, 'error');
+                  reject((e.target as any).error);
+              }
+
+              const dataStore = transaction.objectStore(storeName);
+              const auditStore = transaction.objectStore('auditLogs');
+
+              dataStore.put(item);
+              auditStore.add(auditEntry);
+
+          } catch (e) {
+              reject(e);
+          }
+      });
+  }
+
   async delete(storeName: string, id: string): Promise<void> {
     const db = await this.open();
     return new Promise((resolve, reject) => {

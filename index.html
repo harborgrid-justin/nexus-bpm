@@ -52,6 +52,10 @@
               'sticky': '40',
               'modal': '100',
               'toast': '200',
+            },
+            boxShadow: {
+              'glass': 'var(--shadow-glass)',
+              'depth': 'var(--shadow-depth)'
             }
           }
         }
@@ -59,27 +63,28 @@
     </script>
     <style>
       :root {
-        /* --- Semantic Tokens (Light Mode Default) --- */
-        
-        /* Surfaces */
-        --surface-app: #f1f5f9;       /* Slate-100 */
-        --surface-canvas: #e2e8f0;    /* Slate-200 */
+        /* --- Semantic Tokens (Light Mode) --- */
+        --surface-app: #f8fafc;       /* Slate-50 */
+        --surface-canvas: #f1f5f9;    /* Slate-100 */
         --surface-panel: #ffffff;     /* White */
         --surface-subtle: #f8fafc;    /* Slate-50 */
         --surface-hover: #f1f5f9;     /* Slate-100 */
         --surface-active: #eff6ff;    /* Blue-50 */
         
-        /* Borders */
         --border-subtle: #f1f5f9;
         --border-default: #e2e8f0;    /* Slate-200 */
         --border-active: #bfdbfe;     /* Blue-200 */
         
-        /* Text */
         --text-primary: #0f172a;      /* Slate-900 */
         --text-secondary: #475569;    /* Slate-600 */
         --text-tertiary: #94a3b8;     /* Slate-400 */
         
-        /* Dimensions (Defaults) */
+        --glass-bg: rgba(255, 255, 255, 0.7);
+        --glass-border: rgba(255, 255, 255, 0.5);
+        --shadow-glass: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        --shadow-depth: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
+
+        /* Dimensions */
         --header-height: 56px;
         --sidebar-width: 256px;
         --radius-base: 6px;
@@ -90,7 +95,6 @@
 
       /* Dark Mode Semantic Tokens */
       [data-theme='dark'] {
-        /* Surfaces */
         --surface-app: #020617;       /* Slate-950 */
         --surface-canvas: #0f172a;    /* Slate-900 */
         --surface-panel: #1e293b;     /* Slate-800 */
@@ -98,15 +102,18 @@
         --surface-hover: #334155;     /* Slate-700 */
         --surface-active: #1e3a8a;    /* Blue-900 */
         
-        /* Borders */
         --border-subtle: #1e293b;
         --border-default: #334155;    /* Slate-700 */
         --border-active: #1d4ed8;     /* Blue-700 */
         
-        /* Text */
         --text-primary: #f8fafc;      /* Slate-50 */
         --text-secondary: #cbd5e1;    /* Slate-300 */
         --text-tertiary: #64748b;     /* Slate-500 */
+
+        --glass-bg: rgba(30, 41, 59, 0.7);
+        --glass-border: rgba(255, 255, 255, 0.05);
+        --shadow-glass: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        --shadow-depth: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
       }
       
       body {
@@ -117,10 +124,9 @@
         -webkit-font-smoothing: antialiased;
         letter-spacing: -0.011em;
         line-height: 1.5;
-        transition: font-size 0.2s ease-out; /* Smooth resizing */
+        transition: font-size 0.2s ease-out, background-color 0.2s ease;
       }
 
-      /* Standard Inputs with Dynamic Resizing */
       .prop-input {
         @apply w-full px-3 bg-panel border border-default rounded-base text-primary outline-none transition-all duration-200 placeholder:text-tertiary;
         height: var(--input-height);
@@ -130,7 +136,7 @@
         @apply border-blue-500 ring-2 ring-blue-500/10;
       }
 
-      /* Scrollbars */
+      /* Custom Scrollbars */
       ::-webkit-scrollbar { width: 6px; height: 6px; }
       ::-webkit-scrollbar-track { background: transparent; }
       ::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 4px; }
@@ -143,10 +149,9 @@
       @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
       @keyframes slideUp { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-      /* React Grid Layout Overrides */
       .react-grid-item.react-grid-placeholder {
-        background: rgba(37, 99, 235, 0.1) !important;
-        border: 2px dashed rgba(37, 99, 235, 0.3) !important;
+        background: rgba(59, 130, 246, 0.1) !important;
+        border: 2px dashed rgba(59, 130, 246, 0.3) !important;
         border-radius: var(--radius-base) !important;
         opacity: 0.8 !important;
       }

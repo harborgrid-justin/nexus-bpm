@@ -2,48 +2,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Activity, ListChecks, DollarSign, AlertCircle, ShieldCheck, Sparkles } from 'lucide-react';
 import { useBPM } from '../contexts/BPMContext';
-import { NexCard } from './shared/NexUI';
+import { NexCard, NexSkeleton, NexMetricItem } from './shared/NexUI';
 import { PageGridLayout } from './shared/PageGridLayout';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { getProcessInsights } from '../services/geminiService';
-
-const MetricPanel = React.forwardRef<HTMLDivElement, any>(({ label, value, sub, icon: Icon, color, onClick, ...props }, ref) => {
-  const colors: Record<string, string> = {
-    blue: 'text-blue-700 bg-blue-50 border-blue-200',
-    green: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-    amber: 'text-amber-700 bg-amber-50 border-amber-200',
-    red: 'text-rose-700 bg-rose-50 border-rose-200'
-  };
-
-  return (
-    <NexCard
-      ref={ref}
-      onClick={onClick} 
-      dragHandle={props.isDraggable}
-      className={`border-l-4 border-l-transparent hover:border-l-blue-600 h-full p-4`}
-      style={{ ...props.style }}
-      {...props}
-    >
-      <div className="flex flex-col h-full justify-between">
-        <div>
-            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                {label}
-            </p>
-            <div className="text-2xl font-bold text-slate-900 leading-none">{value}</div>
-        </div>
-        <p className="text-[11px] text-slate-400">{sub}</p>
-      </div>
-      <div className={`absolute top-4 right-4 rounded-sm border flex items-center justify-center w-10 h-10 ${colors[color].replace('text-', 'border-').split(' ')[2]} ${colors[color].split(' ')[1]} ${colors[color].split(' ')[0]}`}>
-        <Icon size={18} />
-      </div>
-    </NexCard>
-  );
-});
+import { getProcessInsightsStream } from '../services/geminiService';
 
 export const Dashboard: React.FC = () => {
   const { tasks, cases, auditLogs, navigateTo, addNotification } = useBPM();
   const [activeTab, setActiveTab] = useState('Overview');
-  const [aiInsight, setAiInsight] = useState("Analyzing operational telemetry...");
+  const [aiInsight, setAiInsight] = useState("");
+  const [isAiLoading, setIsAiLoading] = useState(true);
   
   const criticalCount = tasks.filter(t => t.priority === 'Critical').length;
   const completedTasks = tasks.filter(t => t.status === 'Completed').length;
@@ -106,7 +74,10 @@ export const Dashboard: React.FC = () => {
     return data;
   }, [auditLogs]);
 
+  // Streaming AI Logic
   useEffect(() => {
+    let active = true;
+    
     const fetchInsight = async () => {
       const context = {
         openTasks: tasks.length,
@@ -114,11 +85,25 @@ export const Dashboard: React.FC = () => {
         quality: qualityRate,
         velocity: velocityData.map(d => d.tasks)
       };
-      const insight = await getProcessInsights(context);
-      setAiInsight(insight);
+      
+      setIsAiLoading(true);
+      setAiInsight(""); // Reset before new stream
+
+      const stream = getProcessInsightsStream(context);
+      
+      for await (const chunk of stream) {
+          if (!active) break;
+          setAiInsight(prev => prev + chunk);
+          setIsAiLoading(false); // First chunk received
+      }
+      
+      setIsAiLoading(false);
     };
-    fetchInsight();
-  }, [tasks.length, criticalCount]);
+
+    // Debounce slightly to avoid rapid calls on mount
+    const timeout = setTimeout(fetchInsight, 500);
+    return () => { active = false; clearTimeout(timeout); };
+  }, [tasks.length, criticalCount, qualityRate]);
 
   return (
     <div className="animate-fade-in flex flex-col h-full overflow-hidden">
@@ -154,43 +139,43 @@ export const Dashboard: React.FC = () => {
             ]}
         >
             <div key="metric-progress">
-                <MetricPanel 
+                <NexMetricItem 
                     onClick={() => navigateTo('inbox')} 
                     label="Progress" 
                     value={`${progress}%`} 
-                    sub={`${completedTasks}/${totalTasks} Tasks`} 
+                    subtext={`${completedTasks}/${totalTasks} Tasks`} 
                     icon={ListChecks} 
                     color="blue" 
                 />
             </div>
             <div key="metric-exposure">
-                <MetricPanel 
+                <NexMetricItem 
                     onClick={() => navigateTo('cases')} 
                     label="Exposure" 
                     value={varianceValue} 
-                    sub="Active Case Impact" 
+                    subtext="Active Case Impact" 
                     icon={DollarSign} 
-                    color="green" 
+                    color="emerald" 
                 />
             </div>
             <div key="metric-risks">
-                <MetricPanel 
+                <NexMetricItem 
                     onClick={() => navigateTo('inbox', undefined, 'Critical')} 
                     label="Risks" 
                     value={criticalCount} 
-                    sub="Critical Items" 
+                    subtext="Critical Items" 
                     icon={AlertCircle} 
                     color="red" 
                 />
             </div>
             <div key="metric-quality">
-                <MetricPanel 
+                <NexMetricItem 
                     onClick={() => navigateTo('governance')} 
                     label="Quality" 
                     value={`${qualityRate}%`} 
-                    sub="Approval Rate" 
+                    subtext="Approval Rate" 
                     icon={ShieldCheck} 
-                    color="green" 
+                    color="emerald" 
                 />
             </div>
 
@@ -230,10 +215,18 @@ export const Dashboard: React.FC = () => {
                     </h3>
                 </div>
                 <div className="flex-1 bg-slate-50/30 flex flex-col justify-between p-4">
-                    <div className="bg-white border-l-4 border-l-amber-500 border border-slate-200 p-4 shadow-sm mb-4 flex-1">
-                        <p className="text-xs font-medium text-slate-800 leading-relaxed">
-                        {aiInsight}
-                        </p>
+                    <div className="bg-white border-l-4 border-l-amber-500 border border-slate-200 p-4 shadow-sm mb-4 flex-1 overflow-y-auto">
+                        {isAiLoading && !aiInsight ? (
+                            <div className="space-y-2">
+                                <NexSkeleton className="h-3 w-3/4" />
+                                <NexSkeleton className="h-3 w-1/2" />
+                                <NexSkeleton className="h-3 w-2/3" />
+                            </div>
+                        ) : (
+                            <p className="text-xs font-medium text-slate-800 leading-relaxed whitespace-pre-wrap">
+                                {aiInsight || "No insights available."}
+                            </p>
+                        )}
                     </div>
                     <button onClick={() => navigateTo('designer')} className="w-full py-2 bg-white border border-slate-300 text-slate-700 text-xs font-bold uppercase hover:bg-slate-50 transition-all shadow-sm">
                         Optimize Workflows

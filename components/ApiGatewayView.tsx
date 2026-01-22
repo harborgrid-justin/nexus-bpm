@@ -5,9 +5,9 @@ import { useTheme } from '../contexts/ThemeContext';
 import { 
   Globe, Server, Activity, Play, Copy, RefreshCw, 
   Database, Terminal, Plus, Wifi, WifiOff, Settings, Zap, PauseCircle, Lock, Webhook,
-  GripVertical, GitMerge, FileCode, Workflow
+  GripVertical, GitMerge, FileCode, Workflow, ArrowRight
 } from 'lucide-react';
-import { NexCard, NexButton, NexBadge, NexSwitch, NexModal, NexFormGroup } from './shared/NexUI';
+import { NexCard, NexButton, NexBadge, NexSwitch, NexModal, NexFormGroup, NexEmptyState } from './shared/NexUI';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { mockStreamService, StreamEvent } from '../services/mockStreamService';
 import { Responsive, WidthProvider } from 'react-grid-layout';
@@ -25,6 +25,15 @@ export const ApiGatewayView: React.FC = () => {
   const [isEditable, setIsEditable] = useState(false);
   const [liveLogs, setLiveLogs] = useState<LiveLog[]>([]);
   const logContainerRef = useRef<HTMLDivElement>(null);
+
+  // Dynamic Pipeline State
+  const [pipelineStages, setPipelineStages] = useState([
+      { id: 'p1', name: 'Inbound HTTP', icon: Globe, color: 'blue' },
+      { id: 'p2', name: 'Auth & OAuth', icon: Lock, color: 'emerald' },
+      { id: 'p3', name: 'Mediator', icon: GitMerge, color: 'amber' },
+      { id: 'p4', name: 'XSLT Trans', icon: FileCode, color: 'purple' },
+      { id: 'p5', name: 'SAP Adapter', icon: Database, color: 'slate' }
+  ]);
 
   const defaultLayouts = {
       lg: [
@@ -68,7 +77,8 @@ export const ApiGatewayView: React.FC = () => {
               const t = new Date(l.timestamp);
               return t >= startTime && t < endTime;
           }).length;
-          data.push({ time: startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), reqs: count + 10 });
+          // Add some baseline noise for realism if empty
+          data.push({ time: startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), reqs: count > 0 ? count : Math.floor(Math.random() * 5) });
       }
       return data;
   }, [auditLogs]);
@@ -80,35 +90,35 @@ export const ApiGatewayView: React.FC = () => {
       return unsub;
   }, []);
 
-  // --- SERVICE BUS PIPELINE MOCK ---
+  // --- SERVICE BUS PIPELINE DYNAMIC RENDER ---
   const PipelineView = () => (
       <div className="flex flex-col h-full bg-app p-6 space-y-6">
-          <div className="flex items-center gap-4">
-              <div className="p-4 bg-panel border border-default rounded shadow-sm flex flex-col items-center min-w-[120px]">
-                  <Globe size={24} className="text-blue-500 mb-2"/>
-                  <span className="text-xs font-bold text-primary">Inbound HTTP</span>
-              </div>
-              <div className="h-0.5 bg-default flex-1 relative"><div className="absolute right-0 -top-1 w-2 h-2 bg-default rounded-full"></div></div>
-              <div className="p-4 bg-panel border border-default rounded shadow-sm flex flex-col items-center min-w-[120px]">
-                  <GitMerge size={24} className="text-amber-500 mb-2"/>
-                  <span className="text-xs font-bold text-primary">Mediator</span>
-              </div>
-              <div className="h-0.5 bg-default flex-1 relative"><div className="absolute right-0 -top-1 w-2 h-2 bg-default rounded-full"></div></div>
-              <div className="p-4 bg-panel border border-default rounded shadow-sm flex flex-col items-center min-w-[120px]">
-                  <FileCode size={24} className="text-purple-500 mb-2"/>
-                  <span className="text-xs font-bold text-primary">XSLT Trans</span>
-              </div>
-              <div className="h-0.5 bg-default flex-1 relative"><div className="absolute right-0 -top-1 w-2 h-2 bg-default rounded-full"></div></div>
-              <div className="p-4 bg-panel border border-default rounded shadow-sm flex flex-col items-center min-w-[120px]">
-                  <Database size={24} className="text-emerald-500 mb-2"/>
-                  <span className="text-xs font-bold text-primary">SAP Adapter</span>
-              </div>
+          <div className="flex items-center gap-4 overflow-x-auto pb-4">
+              {pipelineStages.map((stage, idx) => (
+                  <React.Fragment key={stage.id}>
+                      <div className="p-4 bg-panel border border-default rounded shadow-sm flex flex-col items-center min-w-[120px] transition-all hover:scale-105 cursor-pointer hover:border-blue-400">
+                          <stage.icon size={24} className={`text-${stage.color}-500 mb-2`}/>
+                          <span className="text-xs font-bold text-primary whitespace-nowrap">{stage.name}</span>
+                          <span className="text-[9px] text-emerald-600 bg-emerald-50 px-1.5 rounded mt-1 font-mono">20ms</span>
+                      </div>
+                      {idx < pipelineStages.length - 1 && (
+                          <div className="flex-1 min-w-[30px] h-0.5 bg-default relative flex items-center justify-center">
+                              <div className="w-1.5 h-1.5 bg-slate-400 rounded-full"></div>
+                          </div>
+                      )}
+                  </React.Fragment>
+              ))}
+              <button className="p-2 border border-dashed border-default rounded-full hover:bg-subtle text-tertiary" title="Add Pipeline Step">
+                  <Plus size={16}/>
+              </button>
           </div>
-          <div className="bg-slate-900 rounded p-4 font-mono text-xs text-green-400 overflow-y-auto max-h-48 border border-slate-700 shadow-inner">
-              {">"} Pipeline active. Listening on port 7001...<br/>
-              {">"} [Mediator] Routing based on header 'X-Region'<br/>
-              {">"} [Transform] Applied 'OrderToSAP.xsl'<br/>
-              {">"} [JCA] Connection pool: 5/20 active<br/>
+          <div className="bg-slate-950 rounded p-4 font-mono text-xs text-green-400 overflow-y-auto max-h-64 border border-slate-800 shadow-inner flex-1">
+              <div className="mb-2 text-slate-500 border-b border-slate-800 pb-1">System Console - Node {Math.floor(Math.random() * 9999)}</div>
+              {liveLogs.map(log => (
+                  <div key={log.id} className="mb-1">
+                      <span className="text-slate-500">[{new Date(log.timestamp).toLocaleTimeString()}]</span> <span className="text-blue-400">[{log.source}]</span> {log.message}
+                  </div>
+              ))}
           </div>
       </div>
   );
@@ -121,28 +131,32 @@ export const ApiGatewayView: React.FC = () => {
           <p className="text-xs text-secondary mt-1">Oracle Service Bus (OSB) & API Gateway Console.</p>
         </div>
         <div className="flex gap-2">
-            <button onClick={() => setActiveTab('monitor')} className={`px-4 py-2 text-xs font-bold rounded-sm border ${activeTab === 'monitor' ? 'bg-slate-800 text-white' : 'bg-panel text-secondary border-default'}`}>Monitor</button>
-            <button onClick={() => setActiveTab('sb')} className={`px-4 py-2 text-xs font-bold rounded-sm border ${activeTab === 'sb' ? 'bg-slate-800 text-white' : 'bg-panel text-secondary border-default'}`}>Service Bus</button>
-            <button onClick={() => setActiveTab('adapters')} className={`px-4 py-2 text-xs font-bold rounded-sm border ${activeTab === 'adapters' ? 'bg-slate-800 text-white' : 'bg-panel text-secondary border-default'}`}>JCA Adapters</button>
+            <button onClick={() => setActiveTab('monitor')} className={`px-4 py-2 text-xs font-bold rounded-sm border transition-all ${activeTab === 'monitor' ? 'bg-slate-800 text-white shadow-md' : 'bg-panel text-secondary border-default hover:bg-subtle'}`}>Monitor</button>
+            <button onClick={() => setActiveTab('sb')} className={`px-4 py-2 text-xs font-bold rounded-sm border transition-all ${activeTab === 'sb' ? 'bg-slate-800 text-white shadow-md' : 'bg-panel text-secondary border-default hover:bg-subtle'}`}>Service Bus</button>
+            <button onClick={() => setActiveTab('adapters')} className={`px-4 py-2 text-xs font-bold rounded-sm border transition-all ${activeTab === 'adapters' ? 'bg-slate-800 text-white shadow-md' : 'bg-panel text-secondary border-default hover:bg-subtle'}`}>JCA Adapters</button>
         </div>
       </header>
 
       {activeTab === 'sb' && <PipelineView />}
       
       {activeTab === 'adapters' && (
-          <div className="p-4 grid grid-cols-3 gap-4">
-              <div className="p-4 bg-panel border border-default rounded shadow-sm flex flex-col gap-2">
-                  <div className="flex justify-between items-center"><span className="font-bold text-sm text-primary">SAP ERP (JCA)</span><span className="bg-emerald-100 text-emerald-700 text-[10px] px-2 py-0.5 rounded font-bold">Active</span></div>
-                  <p className="text-xs text-secondary">Connecting to S/4HANA via RFC.</p>
-              </div>
-              <div className="p-4 bg-panel border border-default rounded shadow-sm flex flex-col gap-2">
-                  <div className="flex justify-between items-center"><span className="font-bold text-sm text-primary">Salesforce (REST)</span><span className="bg-emerald-100 text-emerald-700 text-[10px] px-2 py-0.5 rounded font-bold">Active</span></div>
-                  <p className="text-xs text-secondary">Bidirectional sync for Opportunities.</p>
-              </div>
-              <div className="p-4 bg-panel border border-default rounded shadow-sm flex flex-col gap-2">
-                  <div className="flex justify-between items-center"><span className="font-bold text-sm text-primary">EDIFACT (B2B)</span><span className="bg-subtle text-secondary text-[10px] px-2 py-0.5 rounded font-bold border border-default">Idle</span></div>
-                  <p className="text-xs text-secondary">Trading partner gateway (X12/EDIFACT).</p>
-              </div>
+          <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto">
+              {[
+                  { name: 'SAP ERP (JCA)', desc: 'Connecting to S/4HANA via RFC.', status: 'Active', icon: Database },
+                  { name: 'Salesforce (REST)', desc: 'Bidirectional sync for Opportunities.', status: 'Active', icon: Globe },
+                  { name: 'EDIFACT (B2B)', desc: 'Trading partner gateway (X12/EDIFACT).', status: 'Idle', icon: FileCode },
+                  { name: 'Oracle DB', desc: 'Direct JDBC Pooling.', status: 'Active', icon: Database }
+              ].map((adapter, i) => (
+                  <div key={i} className="p-4 bg-panel border border-default rounded shadow-sm flex flex-col gap-3 group hover:border-blue-400 transition-colors cursor-pointer">
+                      <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-2 font-bold text-sm text-primary">
+                              <adapter.icon size={16} className="text-slate-500"/> {adapter.name}
+                          </div>
+                          <span className={`text-[10px] px-2 py-0.5 rounded font-bold border ${adapter.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-subtle text-secondary border-default'}`}>{adapter.status}</span>
+                      </div>
+                      <p className="text-xs text-secondary">{adapter.desc}</p>
+                  </div>
+              ))}
           </div>
       )}
 
@@ -181,8 +195,8 @@ export const ApiGatewayView: React.FC = () => {
 
             <NexCard key="clients" dragHandle={isEditable} title="API Clients" className="flex flex-col h-full">
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                    {apiClients.map(client => (
-                        <div key={client.id} className="p-3 border border-default rounded-sm flex items-center justify-between group hover:border-active transition-colors">
+                    {apiClients.length === 0 ? <NexEmptyState icon={Terminal} title="No Clients" description="No API keys generated."/> : apiClients.map(client => (
+                        <div key={client.id} className="p-3 border border-default rounded-sm flex items-center justify-between group hover:border-active transition-colors bg-white">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-blue-50 text-blue-600 rounded-sm"><Terminal size={16}/></div>
                                 <div>
@@ -199,15 +213,19 @@ export const ApiGatewayView: React.FC = () => {
             <NexCard key="endpoints" dragHandle={isEditable} className="p-0 overflow-hidden flex flex-col h-full">
                 <div className="p-3 border-b border-default bg-subtle"><h4 className="text-xs font-bold text-secondary uppercase">Route Registry</h4></div>
                 <div className="flex-1 overflow-y-auto">
-                    {registry.map((item) => (
-                        <div key={item.id} onClick={() => !isEditable && setSelectedEndpoint(item)} className={`p-3 border-b border-default cursor-pointer transition-colors hover:bg-subtle ${selectedEndpoint?.id === item.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'border-l-4 border-l-transparent'}`}>
-                            <div className="flex justify-between items-center mb-1">
-                                <div className="flex gap-2"><span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm ${item.type === 'Rule' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}`}>{item.type}</span></div>
-                                <NexBadge variant={item.status === 'Active' ? 'emerald' : 'slate'}>{item.status}</NexBadge>
+                    {registry.length === 0 ? (
+                        <NexEmptyState icon={GitMerge} title="No Routes" description="Deploy rules to create endpoints." />
+                    ) : (
+                        registry.map((item) => (
+                            <div key={item.id} onClick={() => !isEditable && setSelectedEndpoint(item)} className={`p-3 border-b border-default cursor-pointer transition-colors hover:bg-subtle ${selectedEndpoint?.id === item.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'border-l-4 border-l-transparent'}`}>
+                                <div className="flex justify-between items-center mb-1">
+                                    <div className="flex gap-2"><span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm ${item.type === 'Rule' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}`}>{item.type}</span></div>
+                                    <NexBadge variant={item.status === 'Active' ? 'emerald' : 'slate'}>{item.status}</NexBadge>
+                                </div>
+                                <div className="font-bold text-sm text-primary truncate">{item.name}</div>
                             </div>
-                            <div className="font-bold text-sm text-primary truncate">{item.name}</div>
-                        </div>
-                    ))}
+                        ))
+                    )}
                 </div>
             </NexCard>
 

@@ -8,6 +8,11 @@ import { Permission } from '../../types';
 export * from '../ui/primitives';
 import { NexBadge } from '../ui/primitives';
 
+// --- LOADING SKELETON ---
+export const NexSkeleton: React.FC<{ className?: string }> = ({ className }) => (
+  <div className={`animate-pulse bg-slate-200 rounded-sm ${className}`} />
+);
+
 // --- NEW CONSOLIDATED COMPONENTS (Phase 4) ---
 
 export const NexMetricItem: React.FC<{
@@ -17,7 +22,8 @@ export const NexMetricItem: React.FC<{
     color: 'blue' | 'amber' | 'red' | 'slate' | 'emerald';
     onClick?: () => void;
     subtext?: string;
-}> = ({ icon: Icon, label, value, color, onClick, subtext }) => {
+    loading?: boolean;
+}> = ({ icon: Icon, label, value, color, onClick, subtext, loading }) => {
   const colors = {
     blue: 'bg-blue-50 text-blue-700 border-blue-200',
     amber: 'bg-amber-50 text-amber-700 border-amber-200',
@@ -27,11 +33,15 @@ export const NexMetricItem: React.FC<{
   };
   return (
     <button onClick={onClick} className={`w-full p-4 rounded-sm border shadow-sm flex items-center justify-between transition-all group text-left bg-white border-default hover:border-active ${onClick ? 'cursor-pointer hover:shadow-md' : 'cursor-default'}`}>
-      <div>
+      <div className="flex-1">
         <p className="text-[10px] font-bold text-secondary uppercase tracking-wider mb-1 flex items-center gap-1">
           {label} {onClick && <ChevronRight size={10} className="opacity-0 group-hover:opacity-100 transition-opacity"/>}
         </p>
-        <h4 className="text-2xl font-bold text-primary leading-none">{value}</h4>
+        {loading ? (
+            <NexSkeleton className="h-8 w-24 my-1" />
+        ) : (
+            <h4 className="text-2xl font-bold text-primary leading-none">{value}</h4>
+        )}
         {subtext && <p className="text-[10px] text-tertiary mt-1">{subtext}</p>}
       </div>
       <div className={`p-2 rounded-sm ${colors[color]}`}>

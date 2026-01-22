@@ -44,6 +44,34 @@ const SLACountdown = ({ dueDate }: { dueDate: string }) => {
     );
 };
 
+// --- Extracted Stats Component for Memoization ---
+const TaskStats = React.memo(({ tasks, currentUserId, onSync }: { tasks: Task[], currentUserId: string | undefined, onSync: () => void }) => {
+    const stats = useMemo(() => ({
+        total: tasks.length,
+        myOpen: tasks.filter(t => t.assignee === currentUserId && t.status !== TASK_STATUS.COMPLETED).length,
+        critical: tasks.filter(t => t.priority === PRIORITIES.CRITICAL).length
+    }), [tasks, currentUserId]);
+
+    return (
+        <div className="flex items-center gap-4">
+            <div>
+                <div className="text-xs text-secondary uppercase font-bold">Total</div>
+                <div className="text-xl font-black text-primary">{stats.total}</div>
+            </div>
+            <div className="w-px h-8 bg-default"></div>
+            <div>
+                <div className="text-xs text-secondary uppercase font-bold">My Open</div>
+                <div className="text-xl font-black text-blue-600">{stats.myOpen}</div>
+            </div>
+            <div className="w-px h-8 bg-default"></div>
+            <div>
+                <div className="text-xs text-secondary uppercase font-bold">Critical</div>
+                <div className="text-xl font-black text-rose-600">{stats.critical}</div>
+            </div>
+        </div>
+    );
+});
+
 export const TaskInbox: React.FC = () => {
   const { 
       tasks, completeTask, claimTask, releaseTask, addTaskComment, bulkCompleteTasks, updateTaskChecklist,
@@ -333,22 +361,7 @@ export const TaskInbox: React.FC = () => {
 
                 {/* --- STATS WIDGET --- */}
                 <NexCard key="stats" dragHandle={isEditable} className="flex flex-row items-center justify-between p-4 h-full">
-                    <div className="flex items-center gap-4">
-                        <div>
-                            <div className="text-xs text-secondary uppercase font-bold">Total</div>
-                            <div className="text-xl font-black text-primary">{tasks.length}</div>
-                        </div>
-                        <div className="w-px h-8 bg-default"></div>
-                        <div>
-                            <div className="text-xs text-secondary uppercase font-bold">My Open</div>
-                            <div className="text-xl font-black text-blue-600">{tasks.filter(t => t.assignee === currentUser?.id && t.status !== TASK_STATUS.COMPLETED).length}</div>
-                        </div>
-                        <div className="w-px h-8 bg-default"></div>
-                        <div>
-                            <div className="text-xs text-secondary uppercase font-bold">Critical</div>
-                            <div className="text-xl font-black text-rose-600">{tasks.filter(t => t.priority === PRIORITIES.CRITICAL).length}</div>
-                        </div>
-                    </div>
+                    <TaskStats tasks={tasks} currentUserId={currentUser?.id} onSync={() => addNotification('info', 'Refreshing...')} />
                     {!isEditable && (
                         <NexButton variant="secondary" size="sm" onClick={() => addNotification('info', 'Refreshing task queue...')}>Sync</NexButton>
                     )}

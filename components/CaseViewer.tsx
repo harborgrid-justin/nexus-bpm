@@ -5,13 +5,15 @@ import {
   ArrowLeft, Users, Send, Settings, Activity, 
   CheckSquare, ChevronRight, Briefcase, ShieldCheck, Play, X, Layers, Plus, Shield, Edit, Trash2, RotateCcw, Lock, Database, Paperclip, FileText, Upload, Save, User as UserIcon, CheckCircle, Eye, GripVertical
 } from 'lucide-react';
-import { NexBadge, NexButton, NexHistoryFeed, NexCard, NexModal, NexFormGroup, NexStatusBadge } from './shared/NexUI';
+import { NexBadge, NexButton, NexHistoryFeed, NexCard, NexModal, NexFormGroup, NexStatusBadge, NexEmptyState } from './shared/NexUI';
 import { TaskStatus } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
 import { Responsive, WidthProvider } from 'react-grid-layout';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
-const MOCK_STAGES = ['Open', 'In Progress', 'Pending Review', 'Resolved', 'Closed'];
+
+// Standard Case Stages (In production this would come from a configuration service)
+const STANDARD_STAGES = ['Open', 'In Progress', 'Pending Review', 'Resolved', 'Closed'];
 
 export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
   const { cases, tasks, users, navigateTo, addCaseEvent, removeCaseEvent, addCasePolicy, removeCasePolicy, addCaseStakeholder, removeCaseStakeholder, updateCase, currentUser, openInstanceViewer, getActiveUsersOnRecord, setToolbarConfig, processes, startProcess } = useBPM();
@@ -70,7 +72,7 @@ export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
 
   if (!currentCase) return <div className="p-20 text-center text-tertiary">Case file not found.</div>;
 
-  const currentStageIndex = MOCK_STAGES.indexOf(currentCase.status) !== -1 ? MOCK_STAGES.indexOf(currentCase.status) : 0;
+  const currentStageIndex = STANDARD_STAGES.indexOf(currentCase.status) !== -1 ? STANDARD_STAGES.indexOf(currentCase.status) : 0;
 
   const handlePostNote = async () => {
     if (!note.trim()) return;
@@ -153,7 +155,7 @@ export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
             <NexCard key="progress" dragHandle={isEditable} className="flex items-center justify-center p-4">
                 <div className="w-full flex items-center justify-between relative">
                     <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-subtle rounded-full z-0"></div>
-                    {MOCK_STAGES.map((stage, i) => {
+                    {STANDARD_STAGES.map((stage, i) => {
                         const isCompleted = i <= currentStageIndex;
                         const isCurrent = i === currentStageIndex;
                         return (
@@ -192,21 +194,24 @@ export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
 
             <NexCard key="tasks" dragHandle={isEditable} title="Related Tasks" className="flex flex-col h-full">
                 <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                    {relatedTasks.length === 0 && <div className="text-center text-tertiary text-xs italic py-8">No tasks linked.</div>}
-                    {relatedTasks.map(task => (
-                        <div key={task.id} className="bg-subtle border border-default rounded-sm p-3 flex justify-between items-center group hover:shadow-sm">
-                            <div className="flex items-center gap-3 overflow-hidden">
-                                <div className={`w-8 h-8 rounded-sm flex items-center justify-center border ${task.status === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-panel text-secondary border-default'}`}>
-                                    {task.status === 'Completed' ? <CheckCircle size={14}/> : <Activity size={14}/>}
+                    {relatedTasks.length === 0 ? (
+                        <NexEmptyState icon={CheckSquare} title="No tasks" description="No active tasks linked."/>
+                    ) : (
+                        relatedTasks.map(task => (
+                            <div key={task.id} className="bg-subtle border border-default rounded-sm p-3 flex justify-between items-center group hover:shadow-sm">
+                                <div className="flex items-center gap-3 overflow-hidden">
+                                    <div className={`w-8 h-8 rounded-sm flex items-center justify-center border ${task.status === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-panel text-secondary border-default'}`}>
+                                        {task.status === 'Completed' ? <CheckCircle size={14}/> : <Activity size={14}/>}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="font-bold text-xs text-primary truncate">{task.title}</div>
+                                        <div className="text-[10px] text-secondary">{task.status} • {task.priority}</div>
+                                    </div>
                                 </div>
-                                <div className="min-w-0">
-                                    <div className="font-bold text-xs text-primary truncate">{task.title}</div>
-                                    <div className="text-[10px] text-secondary">{task.status} • {task.priority}</div>
-                                </div>
+                                <button onClick={() => !isEditable && navigateTo('inbox', task.id)} className="p-1 text-tertiary hover:text-blue-600"><ChevronRight size={16}/></button>
                             </div>
-                            <button onClick={() => !isEditable && navigateTo('inbox', task.id)} className="p-1 text-tertiary hover:text-blue-600"><ChevronRight size={16}/></button>
-                        </div>
-                    ))}
+                        ))
+                    )}
                 </div>
             </NexCard>
 
@@ -238,16 +243,19 @@ export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
 
             <NexCard key="content" dragHandle={isEditable} title="Artifacts" className="flex flex-col h-full" actions={<button onClick={handleMockUpload}><Upload size={14}/></button>}>
                 <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                    {currentCase.attachments.map((file, i) => (
-                        <div key={i} className="flex items-center justify-between p-2 border border-default rounded-sm hover:bg-subtle">
-                            <div className="flex items-center gap-2 overflow-hidden">
-                                <FileText size={14} className="text-blue-500 shrink-0"/>
-                                <span className="text-xs text-primary truncate">{file.name}</span>
+                    {currentCase.attachments.length === 0 ? (
+                        <NexEmptyState icon={FileText} title="Empty" description="No artifacts attached."/>
+                    ) : (
+                        currentCase.attachments.map((file, i) => (
+                            <div key={i} className="flex items-center justify-between p-2 border border-default rounded-sm hover:bg-subtle">
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                    <FileText size={14} className="text-blue-500 shrink-0"/>
+                                    <span className="text-xs text-primary truncate">{file.name}</span>
+                                </div>
+                                <button onClick={() => setPreviewFile({name: file.name})} className="text-tertiary hover:text-blue-600"><Eye size={12}/></button>
                             </div>
-                            <button onClick={() => setPreviewFile({name: file.name})} className="text-tertiary hover:text-blue-600"><Eye size={12}/></button>
-                        </div>
-                    ))}
-                    {currentCase.attachments.length === 0 && <div className="text-center text-[10px] text-tertiary italic py-4">No files.</div>}
+                        ))
+                    )}
                 </div>
             </NexCard>
 

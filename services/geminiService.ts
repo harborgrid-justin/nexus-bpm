@@ -111,19 +111,24 @@ export const runWorkflowSimulation = async (steps: ProcessStep[]): Promise<Simul
   );
 };
 
-export const getProcessInsights = async (processData: any): Promise<string> => {
+export const getProcessInsightsStream = async function* (processData: any): AsyncGenerator<string, void, unknown> {
   const ai = getClient();
-  if (!ai) return "AI Insights unavailable. Ensure API key is configured.";
+  if (!ai) {
+    yield "AI Insights unavailable. Ensure API key is configured.";
+    return;
+  }
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await ai.models.generateContentStream({
       model: "gemini-3-flash-preview",
-      contents: `Analyze this BPM workflow for bottlenecks or inefficiencies: ${JSON.stringify(processData)}. Provide 3 actionable executive bullets.`,
-      config: { thinkingConfig: { thinkingBudget: 0 } }
+      contents: `Analyze this BPM workflow/task data for bottlenecks or inefficiencies: ${JSON.stringify(processData)}. Provide 3 actionable executive bullets. Keep it short.`,
     });
-    return response.text || "Operational analysis complete. No critical bottlenecks detected.";
+    for await (const chunk of response) {
+      if (chunk.text) yield chunk.text;
+    }
   } catch (error) {
-    return "Analyzing workflow topology... focus on parallel gateway synchronization.";
+    console.error(error);
+    yield "Operational analysis unavailable.";
   }
 };
 
