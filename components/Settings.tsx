@@ -2,7 +2,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Database, RefreshCw, Trash2, Download, Upload, AlertTriangle, CheckCircle, Server, Monitor, Palette, Maximize, Move, Calendar, Moon, Sun, Settings as SettingsIcon, GripVertical } from 'lucide-react';
+import { Database, RefreshCw, Trash2, Download, Upload, AlertTriangle, CheckCircle, Server, Monitor, Palette, Maximize, Move, Calendar, Moon, Sun, Settings as SettingsIcon, GripVertical, ZoomIn, ZoomOut } from 'lucide-react';
 import { NexButton, NexCard } from './shared/NexUI';
 import { Responsive, WidthProvider } from 'react-grid-layout';
 
@@ -48,12 +48,12 @@ export const Settings: React.FC = () => {
         <ResponsiveGridLayout className="layout" layouts={layouts} breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }} cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }} rowHeight={gridConfig.rowHeight} margin={gridConfig.margin} isDraggable={isEditable} isResizable={isEditable} draggableHandle=".drag-handle" onLayoutChange={(curr, all) => setLayouts(all)}>
             <NexCard key="system" dragHandle={isEditable} title="System Operations" className="p-6">
                 <div className="space-y-4">
-                    <div className="flex items-center justify-between p-3 border border-slate-200 rounded-sm bg-slate-50">
-                        <div><h4 className="font-bold text-sm text-slate-800">Export Database</h4><p className="text-xs text-slate-500">Download a full JSON dump.</p></div>
+                    <div className="flex items-center justify-between p-3 border border-default rounded-sm bg-subtle">
+                        <div><h4 className="font-bold text-sm text-primary">Export Database</h4><p className="text-xs text-secondary">Download a full JSON dump.</p></div>
                         <NexButton variant="secondary" onClick={handleExport} icon={Download}>Backup</NexButton>
                     </div>
-                    <div className="flex items-center justify-between p-3 border border-slate-200 rounded-sm bg-slate-50">
-                        <div><h4 className="font-bold text-sm text-slate-800">Factory Reset</h4><p className="text-xs text-slate-500">Clear all local data.</p></div>
+                    <div className="flex items-center justify-between p-3 border border-default rounded-sm bg-subtle">
+                        <div><h4 className="font-bold text-sm text-primary">Factory Reset</h4><p className="text-xs text-secondary">Clear all local data.</p></div>
                         <NexButton variant="danger" onClick={() => { if(confirm('Reset all data?')) resetSystem(); }} icon={Trash2}>Reset</NexButton>
                     </div>
                 </div>
@@ -62,22 +62,44 @@ export const Settings: React.FC = () => {
             <NexCard key="appearance" dragHandle={isEditable} title="Interface Preferences" className="p-6">
                 <div className="space-y-6">
                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2"><Sun size={14}/> Theme Mode</label>
-                        <div className="flex bg-slate-100 p-1 rounded-sm">
+                        <label className="text-xs font-bold text-secondary uppercase flex items-center gap-2"><Sun size={14}/> Theme Mode</label>
+                        <div className="flex bg-subtle p-1 rounded-sm border border-default">
                             {['light', 'dark'].map(m => (
-                                <button key={m} onClick={() => setThemeMode(m as any)} className={`flex-1 py-1 text-xs font-bold uppercase rounded-sm transition-all ${themeMode === m ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}>{m}</button>
+                                <button key={m} onClick={() => setThemeMode(m as any)} className={`flex-1 py-1 text-xs font-bold uppercase rounded-sm transition-all ${themeMode === m ? 'bg-panel shadow-sm text-blue-600' : 'text-secondary'}`}>{m}</button>
                             ))}
                         </div>
                     </div>
+                    
                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2"><Palette size={14}/> Density</label>
-                        <div className="flex bg-slate-100 p-1 rounded-sm">
+                        <label className="text-xs font-bold text-secondary uppercase flex items-center gap-2"><Palette size={14}/> Density</label>
+                        <div className="flex bg-subtle p-1 rounded-sm border border-default">
                             {['compact', 'comfortable', 'spacious'].map(d => (
-                                <button key={d} onClick={() => setDensity(d as any)} className={`flex-1 py-1 text-xs font-bold uppercase rounded-sm transition-all ${density === d ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500'}`}>{d}</button>
+                                <button key={d} onClick={() => setDensity(d as any)} className={`flex-1 py-1 text-xs font-bold uppercase rounded-sm transition-all ${density === d ? 'bg-panel shadow-sm text-blue-600' : 'text-secondary'}`}>{d}</button>
                             ))}
                         </div>
                     </div>
-                    <button onClick={resetTheme} className="text-xs text-blue-600 hover:underline w-full text-center">Reset to Defaults</button>
+
+                    <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                            <label className="text-xs font-bold text-secondary uppercase flex items-center gap-2"><ZoomIn size={14}/> Interface Scale</label>
+                            <span className="text-xs font-mono text-primary font-bold">{Math.round(scale * 100)}%</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <ZoomOut size={14} className="text-tertiary"/>
+                            <input 
+                                type="range" 
+                                min="0.75" 
+                                max="1.25" 
+                                step="0.05" 
+                                value={scale} 
+                                onChange={e => setScale(parseFloat(e.target.value))}
+                                className="flex-1 h-2 bg-subtle rounded-lg appearance-none cursor-pointer accent-blue-600 border border-default"
+                            />
+                            <ZoomIn size={14} className="text-tertiary"/>
+                        </div>
+                    </div>
+
+                    <button onClick={resetTheme} className="text-xs text-blue-600 hover:underline w-full text-center mt-4">Reset to Defaults</button>
                 </div>
             </NexCard>
         </ResponsiveGridLayout>

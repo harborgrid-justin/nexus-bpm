@@ -83,6 +83,7 @@ export const NexDebouncedInput: React.FC<{
                 value={value} 
                 onChange={e => setValue(e.target.value)}
                 placeholder={placeholder}
+                style={{ height: 'var(--input-height)', fontSize: 'var(--text-base-size)' }}
             />
         </div>
     );
@@ -156,7 +157,7 @@ export const NexCard = React.forwardRef<HTMLDivElement, NexCardProps>(({
     onClick, 
     className = '', 
     title, 
-    actions,
+    actions, 
     dragHandle,
     style,
     ...props 
@@ -221,9 +222,9 @@ export const NexButton: React.FC<NexButtonProps> = ({ children, variant = 'prima
   };
   
   const sizes = {
-      sm: 'px-2.5 py-1 text-[11px]',
-      md: 'px-4 py-2 text-[13px]',
-      lg: 'px-6 py-3 text-[15px]'
+      sm: 'px-2.5 text-[11px] h-7',
+      md: 'px-4 text-[13px] h-9',
+      lg: 'px-6 text-[15px] h-11'
   };
 
   return (
@@ -241,14 +242,14 @@ export const NexButton: React.FC<NexButtonProps> = ({ children, variant = 'prima
 };
 
 export const NexFormGroup: React.FC<{ label: string; children: React.ReactNode; helpText?: string; icon?: LucideIcon; required?: boolean }> = ({ label, children, helpText, icon: Icon, required }) => (
-  <div className="space-y-1.5">
-    <label className="prop-label">
+  <div className="space-y-1.5 w-full">
+    <label className="text-xs font-bold text-secondary uppercase tracking-wide flex items-center gap-2">
       {Icon && <Icon size={14} className="text-tertiary" />}
       {label}
       {required && <span className="text-rose-500 ml-0.5">*</span>}
     </label>
     {children}
-    {helpText && <p className="text-[11px] text-secondary leading-tight">{helpText}</p>}
+    {helpText && <p className="text-[11px] text-tertiary leading-tight">{helpText}</p>}
   </div>
 );
 
@@ -333,8 +334,9 @@ export const NexSearchSelect: React.FC<{ value: string; onChange: (val: string) 
             <div 
                 className="prop-input flex items-center justify-between cursor-pointer"
                 onClick={() => setIsOpen(!isOpen)}
+                style={{ height: 'var(--input-height)', fontSize: 'var(--text-base-size)' }}
             >
-                <span className={`text-xs truncate ${!value ? 'text-tertiary' : 'text-primary'}`}>
+                <span className={`truncate ${!value ? 'text-tertiary' : 'text-primary'}`}>
                     {value ? selectedLabel : placeholder}
                 </span>
                 <ChevronDown size={14} className="text-tertiary"/>
@@ -400,7 +402,7 @@ export const NexSearchFilterBar: React.FC<{
                 value={searchValue} 
                 onChange={onSearch} 
                 placeholder={placeholder}
-                className="w-full pr-4 py-2 bg-panel border border-default rounded-sm text-xs font-medium focus:ring-1 focus:ring-blue-600 outline-none text-primary placeholder:text-tertiary"
+                className="w-full pr-4 bg-panel border border-default rounded-sm font-medium focus:ring-1 focus:ring-blue-600 outline-none text-primary placeholder:text-tertiary"
                 icon={Search}
             />
         </div>

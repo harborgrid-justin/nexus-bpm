@@ -79,11 +79,13 @@
         --text-secondary: #475569;    /* Slate-600 */
         --text-tertiary: #94a3b8;     /* Slate-400 */
         
-        /* Dimensions (Dynamic) */
+        /* Dimensions (Defaults) */
         --header-height: 56px;
         --sidebar-width: 256px;
         --radius-base: 6px;
-        --space-base: 0.75rem; /* 12px */
+        --space-base: 0.75rem; 
+        --input-height: 38px;
+        --text-base-size: 14px;
       }
 
       /* Dark Mode Semantic Tokens */
@@ -109,17 +111,20 @@
       
       body {
         font-family: 'Inter', sans-serif;
-        font-size: 14px;
+        font-size: var(--text-base-size);
         background-color: var(--surface-app);
         color: var(--text-primary);
         -webkit-font-smoothing: antialiased;
         letter-spacing: -0.011em;
+        line-height: 1.5;
+        transition: font-size 0.2s ease-out; /* Smooth resizing */
       }
 
-      /* Standard Inputs */
+      /* Standard Inputs with Dynamic Resizing */
       .prop-input {
-        @apply w-full h-[36px] px-3 bg-panel border border-default rounded-base text-primary outline-none transition-all duration-200 placeholder:text-tertiary;
-        font-size: 13px;
+        @apply w-full px-3 bg-panel border border-default rounded-base text-primary outline-none transition-all duration-200 placeholder:text-tertiary;
+        height: var(--input-height);
+        font-size: var(--text-base-size);
       }
       .prop-input:focus {
         @apply border-blue-500 ring-2 ring-blue-500/10;

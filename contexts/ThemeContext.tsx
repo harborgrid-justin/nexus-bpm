@@ -29,7 +29,7 @@ interface ThemeContextType {
 }
 
 const defaultTheme = {
-  scale: 1,
+  scale: 0.95, // Start slightly smaller for crisp enterprise look
   sidebarWidth: 256,
   headerHeight: 56,
   radius: 6,
@@ -51,31 +51,63 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const root = document.documentElement;
     const body = document.body;
     
-    // Layout Dimensions
+    // 1. Dynamic Root Scaling (Zoom)
+    root.style.fontSize = `${scale * 100}%`;
+
+    // 2. Layout Dimensions
     root.style.setProperty('--sidebar-width', `${sidebarWidth}px`);
     root.style.setProperty('--header-height', `${headerHeight}px`);
     
-    // Component Styling
+    // 3. Component Styling
     root.style.setProperty('--radius-base', `${radius}px`);
     
-    // Density
+    // 4. Density Map (Compass SaaS Logic)
     const densityMap = {
-      compact: { space: '0.5rem', padding: '12px', gap: '12px', cardPadding: '16px', sectionGap: '16px' },
-      comfortable: { space: '0.75rem', padding: '24px', gap: '24px', cardPadding: '24px', sectionGap: '32px' },
-      spacious: { space: '1.25rem', padding: '32px', gap: '32px', cardPadding: '32px', sectionGap: '40px' }
+      compact: { 
+        space: '0.5rem',        // 8px internal spacing
+        padding: '16px',        // Container padding
+        gap: '12px',            // Grid/Flex gaps
+        cardPadding: '12px',    // Tighter cards
+        sectionGap: '16px',     // Vertical rhythm
+        inputHeight: '32px',    // Dense inputs
+        fontSize: '0.8125rem'   // 13px Base Text
+      },
+      comfortable: { 
+        space: '0.75rem',       // 12px internal spacing
+        padding: '24px',        // Standard padding
+        gap: '20px',            // Breathable gaps
+        cardPadding: '20px',    // Standard cards
+        sectionGap: '24px',     // Standard rhythm
+        inputHeight: '38px',    // Standard inputs
+        fontSize: '0.875rem'    // 14px Base Text
+      },
+      spacious: { 
+        space: '1rem',          // 16px internal spacing
+        padding: '32px',        // Deep padding
+        gap: '32px',            // Wide gaps
+        cardPadding: '32px',    // Airy cards
+        sectionGap: '40px',     // Distinct separation
+        inputHeight: '44px',    // Touch-friendly inputs
+        fontSize: '1rem'        // 16px Base Text
+      }
     };
+    
     const d = densityMap[density];
     root.style.setProperty('--space-base', d.space);
     root.style.setProperty('--layout-padding', d.padding);
     root.style.setProperty('--layout-gap', d.gap);
     root.style.setProperty('--card-padding', d.cardPadding);
     root.style.setProperty('--section-gap', d.sectionGap);
+    
+    // Dynamic Component Vars
+    root.style.setProperty('--input-height', d.inputHeight);
+    root.style.setProperty('--text-base-size', d.fontSize);
 
-    // Shadows & Depth
+    // Shadows & Depth (Refined for cleanliness)
     root.style.setProperty('--shadow-subtle', '0 1px 2px 0 rgba(0, 0, 0, 0.05)');
     root.style.setProperty('--shadow-depth', '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)');
 
-    // Theme Mode
+    // Theme Mode Class Handling
     if (themeMode === 'dark') {
         body.classList.add('dark');
         root.setAttribute('data-theme', 'dark');
@@ -86,16 +118,14 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   }, [scale, sidebarWidth, headerHeight, radius, density, themeMode]);
 
+  // Refined Grid Config for alignment
   const gridConfig: GridConfig = {
       compact: { rowHeight: 20, margin: [12, 12] as [number, number] },
-      comfortable: { rowHeight: 30, margin: [16, 16] as [number, number] },
-      spacious: { rowHeight: 40, margin: [24, 24] as [number, number] }
+      comfortable: { rowHeight: 30, margin: [20, 20] as [number, number] },
+      spacious: { rowHeight: 40, margin: [32, 32] as [number, number] }
   }[density];
 
-  // Standardized Responsive Breakpoints
   const layoutBreakpoints = { lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 };
-  
-  // Standardized Column Counts
   const layoutCols = { lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 };
 
   const resetTheme = () => {
