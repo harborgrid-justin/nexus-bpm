@@ -11,11 +11,16 @@ import {
 export { DEFAULT_SETTINGS };
 
 const DB_NAME = 'NexFlowEnterpriseDB';
-const DB_VERSION = 9;
+const DB_VERSION = 11;
 
 class DBService {
   private db: IDBDatabase | null = null;
-  private stores = ['processes', 'instances', 'tasks', 'auditLogs', 'users', 'roles', 'groups', 'delegations', 'rules', 'decisionTables', 'cases', 'forms', 'integrations', 'apiClients', 'systemSettings', 'savedViews'];
+  private stores = [
+    'processes', 'instances', 'tasks', 'auditLogs', 'users', 'roles', 'groups', 
+    'delegations', 'rules', 'decisionTables', 'cases', 'forms', 'integrations', 
+    'apiClients', 'systemSettings', 'savedViews', 'triggers', 'queues', 'slaProfiles', 
+    'domainContexts', 'artifacts', 'channels'
+  ];
 
   private notify(action: string, detail: any, type: 'read' | 'write' | 'delete' | 'error' = 'read') {
     const event = new CustomEvent('nexflow-db-log', {
@@ -168,6 +173,15 @@ class DBService {
     for (const f of MOCK_FORMS) await this.add('forms', f);
     for (const i of MOCK_INTEGRATIONS) await this.add('integrations', i);
     for (const c of MOCK_API_CLIENTS) await this.add('apiClients', c);
+    
+    // Seed Cross-Module Entities
+    const { MOCK_TRIGGERS, MOCK_QUEUES, MOCK_SLA_PROFILES, MOCK_DOMAINS, MOCK_ARTIFACTS, MOCK_CHANNELS } = await import('../data/seeds');
+    for (const t of MOCK_TRIGGERS) await this.add('triggers', t);
+    for (const q of MOCK_QUEUES) await this.add('queues', q);
+    for (const s of MOCK_SLA_PROFILES) await this.add('slaProfiles', s);
+    for (const d of MOCK_DOMAINS) await this.add('domainContexts', d);
+    for (const a of MOCK_ARTIFACTS) await this.add('artifacts', a);
+    for (const c of MOCK_CHANNELS) await this.add('channels', c);
     
     await this.add('systemSettings', DEFAULT_SETTINGS);
     for (const v of MOCK_VIEWS) await this.add('savedViews', v);

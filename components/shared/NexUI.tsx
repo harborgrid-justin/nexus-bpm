@@ -4,113 +4,21 @@ import { LucideIcon, Search, Check, ArrowUp, ArrowDown, X, ChevronDown, GripVert
 import { useBPM } from '../../contexts/BPMContext';
 import { Permission } from '../../types';
 
-// Re-export Primitives
-export * from '../ui/primitives';
-import { NexBadge } from '../ui/primitives';
+// Re-export Primitives from individual files
+export * from '../ui/Button';
+export * from '../ui/Card';
+export * from '../ui/Badge';
+export * from '../ui/Skeleton';
+export * from '../ui/MetricItem';
+export * from '../ui/ListItem';
+export * from '../ui/KPICard';
+export * from '../ui/primitives'; // For remaining ones like NexFormGroup
 
-// --- LOADING SKELETON ---
-export const NexSkeleton: React.FC<{ className?: string }> = ({ className }) => (
-  <div className={`animate-pulse bg-slate-200 rounded-sm ${className}`} />
-);
+import { NexSkeleton } from '../ui/Skeleton';
 
 // --- NEW CONSOLIDATED COMPONENTS (Phase 4) ---
 
-export const NexMetricItem: React.FC<{
-    icon: React.ElementType;
-    label: string;
-    value: number | string;
-    color: 'blue' | 'amber' | 'red' | 'slate' | 'emerald';
-    onClick?: () => void;
-    subtext?: string;
-    loading?: boolean;
-}> = ({ icon: Icon, label, value, color, onClick, subtext, loading }) => {
-  const colors = {
-    blue: 'bg-blue-50 text-blue-700 border-blue-200',
-    amber: 'bg-amber-50 text-amber-700 border-amber-200',
-    red: 'bg-rose-50 text-rose-700 border-rose-200',
-    slate: 'bg-slate-50 text-slate-700 border-slate-200',
-    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200'
-  };
-  return (
-    <button onClick={onClick} className={`w-full p-4 rounded-sm border shadow-sm flex items-center justify-between transition-all group text-left bg-white border-default hover:border-active ${onClick ? 'cursor-pointer hover:shadow-md' : 'cursor-default'}`}>
-      <div className="flex-1">
-        <p className="text-[10px] font-bold text-secondary uppercase tracking-wider mb-1 flex items-center gap-1">
-          {label} {onClick && <ChevronRight size={10} className="opacity-0 group-hover:opacity-100 transition-opacity"/>}
-        </p>
-        {loading ? (
-            <NexSkeleton className="h-8 w-24 my-1" />
-        ) : (
-            <h4 className="text-2xl font-bold text-primary leading-none">{value}</h4>
-        )}
-        {subtext && <p className="text-[10px] text-tertiary mt-1">{subtext}</p>}
-      </div>
-      <div className={`p-2 rounded-sm ${colors[color]}`}>
-        <Icon size={18} />
-      </div>
-    </button>
-  );
-};
-
-export const NexListItem: React.FC<{
-    title: React.ReactNode;
-    subtitle?: React.ReactNode;
-    meta?: React.ReactNode;
-    status?: React.ReactNode;
-    icon?: React.ElementType;
-    iconColor?: string; // e.g. "bg-blue-50 text-blue-600"
-    selected?: boolean;
-    onClick?: () => void;
-    actions?: React.ReactNode;
-    before?: React.ReactNode; // Checkbox, etc.
-}> = ({ title, subtitle, meta, status, icon: Icon, iconColor, selected, onClick, actions, before }) => {
-    return (
-        <div 
-            onClick={onClick}
-            className={`px-4 py-3 border-b border-default transition-all duration-200 relative group flex items-start gap-3 ${onClick ? 'cursor-pointer' : ''} ${selected ? 'bg-active border-l-4 border-l-blue-600 pl-3' : 'border-l-4 border-l-transparent bg-panel hover:bg-subtle'}`}
-        >
-            {before && <div className="mt-1" onClick={e => e.stopPropagation()}>{before}</div>}
-            
-            {Icon && (
-                <div className={`w-8 h-8 rounded-sm flex items-center justify-center shrink-0 border border-default ${iconColor || 'bg-subtle text-secondary'}`}>
-                    <Icon size={16}/>
-                </div>
-            )}
-
-            <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-start mb-0.5">
-                    <div className={`font-bold truncate text-sm ${selected ? 'text-blue-900 dark:text-blue-100' : 'text-primary'}`}>
-                        {title}
-                    </div>
-                    {meta && <div className="shrink-0 pl-2">{meta}</div>}
-                </div>
-                
-                <div className="flex justify-between items-center text-xs text-secondary">
-                    <div className="truncate pr-2">{subtitle}</div>
-                    <div className="flex items-center gap-2 shrink-0">{status}</div>
-                </div>
-            </div>
-
-            {actions && (
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-panel/90 p-1 rounded border border-default shadow-sm" onClick={e => e.stopPropagation()}>
-                    {actions}
-                </div>
-            )}
-        </div>
-    );
-};
-
 // --- EXISTING COMPONENTS ---
-
-export const NexStatusBadge: React.FC<{ status: string }> = ({ status }) => {
-    const s = status.toLowerCase();
-    let variant: any = 'slate';
-    if (['active', 'completed', 'resolved', 'approved', 'open'].includes(s)) variant = 'emerald';
-    if (['in progress', 'pending', 'claimed'].includes(s)) variant = 'blue';
-    if (['critical', 'rejected', 'terminated', 'closed', 'breach'].includes(s)) variant = 'rose';
-    if (['suspended', 'warning', 'review'].includes(s)) variant = 'amber';
-
-    return <NexBadge variant={variant}>{status}</NexBadge>;
-};
 
 export const Restricted: React.FC<{ to: Permission; fallback?: React.ReactNode; children: React.ReactNode }> = ({ to, fallback, children }) => {
     const { hasPermission } = useBPM();

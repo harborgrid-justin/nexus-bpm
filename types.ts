@@ -120,7 +120,7 @@ export interface Task {
   priority: TaskPriority;
   description?: string;
   stepId: string; // or 'adhoc'
-  data?: any;
+  data?: Record<string, unknown>;
   comments: Comment[];
   attachments: Attachment[];
   checklist?: ChecklistItem[]; // New
@@ -207,7 +207,7 @@ export interface ProcessStep {
   nextStepIds?: string[];
   position?: { x: number; y: number };
   isCollapsed?: boolean;
-  data?: Record<string, any>; // For custom component properties
+  data?: Record<string, unknown>; // For custom component properties
   
   // LOGIC WIRING
   businessRuleId?: string; // Bind a rule to run on entry
@@ -299,7 +299,7 @@ export interface ProcessInstance {
   startDate: string;
   endDate?: string;
   dueDate?: string;
-  variables: Record<string, any>;
+  variables: Record<string, unknown>;
   priority: TaskPriority;
   history: TaskHistory[];
   comments: Comment[];
@@ -333,7 +333,7 @@ export interface Case {
   createdAt: string;
   resolvedAt?: string;
   stakeholders: CaseStakeholder[];
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   timeline: CaseEvent[];
   policies: CasePolicy[];
   attachments: Attachment[];
@@ -345,7 +345,7 @@ export interface RuleCondition {
   id: string;
   fact: string; // e.g., 'task.priority'
   operator: 'eq' | 'neq' | 'gt' | 'lt' | 'contains';
-  value: any;
+  value: unknown;
 }
 
 export type Condition = RuleCondition | ConditionGroup;
@@ -358,7 +358,7 @@ export interface ConditionGroup {
 
 export interface RuleAction {
   type: 'SET_VARIABLE' | 'SEND_NOTIFICATION' | 'ROUTE_TO';
-  params: Record<string, any>;
+  params: Record<string, unknown>;
 }
 
 export interface BusinessRule {
@@ -380,6 +380,7 @@ export interface DecisionTable {
   inputs: string[]; // Fact names
   outputs: string[]; // Action param names
   rules: (string | number)[][]; // Matrix of values
+  hitPolicy?: 'Unique' | 'First' | 'Priority' | 'Collect';
   version: number;
   status: 'Draft' | 'Active' | 'Deprecated';
   tags: string[];
@@ -540,6 +541,67 @@ export interface SavedView {
   type: 'Task' | 'Case';
 }
 
+// ---- CROSS-MODULE AUTOMATION & TRIGGERS ----
+export interface AutomationTrigger {
+  id: string;
+  name: string;
+  isEnabled: boolean;
+  eventSource: 'Task' | 'Case' | 'Instance' | 'System' | 'Audit' | 'Timer';
+  eventType: string; // e.g. "TASK_COMPLETE", "CASE_BREACH"
+  conditions: ConditionGroup; // Using the Rules Engine logic
+  actionType: 'ExecuteRule' | 'StartProcess' | 'CreateTask' | 'SendEmail' | 'Webhook' | 'AddLog';
+  actionParams: Record<string, unknown>;
+  cooldownPeriod: number; // minutes
+  lastTriggered?: string;
+}
+
+export interface TaskQueue {
+  id: string;
+  name: string;
+  description: string;
+  ownerGroupId: string;
+  filterCriteria: Record<string, unknown>; // Rules for which tasks land here
+  priorityBoost: number;
+}
+
+export interface SLAProfile {
+  id: string;
+  name: string;
+  targetDuration: number; // hours
+  warningThreshold: number; // % of target
+  criticalThreshold: number; // % of target
+  escalationActions: {
+    atWarning: 'Notify' | 'Highlight';
+    atCritical: 'Reassign' | 'EmailAdmin';
+  };
+}
+
+export interface DomainContext {
+  id: string;
+  name: string;
+  tenantId: string;
+  settings: Record<string, unknown>;
+  isActive: boolean;
+}
+
+export interface SharedArtifact {
+  id: string;
+  name: string;
+  schema: string; // "Invoice", "Incident", "Profile"
+  data: Record<string, unknown>;
+  linkedEntities: { type: 'Task' | 'Case' | 'Instance', id: string }[];
+  version: number;
+  lastUpdated: string;
+}
+
+export interface MessagingChannel {
+  id: string;
+  type: 'Email' | 'Slack' | 'Internal';
+  name: string;
+  config: Record<string, string>;
+  isVerified: boolean;
+}
+
 export type ViewState = 
   | 'dashboard' 
   | 'inbox' 
@@ -559,7 +621,8 @@ export type ViewState =
   | 'forms'         
   | 'form-designer' 
   | 'marketplace'   // Phase 9
-  | 'field-ops'     // Phase 8
+  | 'trigger-manager'
+  | 'explorer'
   // --- Form Pages (Replaces Modals) ---
   | 'create-user' | 'edit-user'
   | 'create-role' | 'edit-role'

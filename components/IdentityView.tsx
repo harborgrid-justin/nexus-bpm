@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { 
   Users, Shield, Landmark, UserPlus, Search, 
@@ -11,15 +11,12 @@ import { TabBtn } from './identity/TabBtn';
 import { IntegrationCard } from './identity/IntegrationCard';
 import { PolicyItem } from './identity/PolicyItem';
 import { NexButton, NexBadge, NexCard } from './shared/NexUI';
-import { Responsive, WidthProvider } from 'react-grid-layout';
-
-const ResponsiveGridLayout = WidthProvider(Responsive);
+import { PageGridLayout } from './shared/PageGridLayout';
 
 export const IdentityView: React.FC = () => {
   const { users, roles, groups, delegations, hasPermission, currentUser, revokeDelegation, deleteUser, deleteRole, deleteGroup, navigateTo, settings, updateSystemSettings, setToolbarConfig } = useBPM();
   const [activeTab, setActiveTab] = useState<'profile' | 'users' | 'roles' | 'groups' | 'sso'>('profile');
   const [searchQuery, setSearchQuery] = useState('');
-  const [isEditable, setIsEditable] = useState(false);
   
   const canManageUsers = hasPermission(Permission.USER_MANAGE);
 
@@ -38,7 +35,7 @@ export const IdentityView: React.FC = () => {
   };
 
   // --- Layouts ---
-  const defaultProfileLayout = {
+  const defaultProfileLayout = useMemo(() => ({
       lg: [
           { i: 'card-profile', x: 0, y: 0, w: 4, h: 8 },
           { i: 'card-delegations', x: 4, y: 0, w: 8, h: 8 }
@@ -47,9 +44,9 @@ export const IdentityView: React.FC = () => {
           { i: 'card-profile', x: 0, y: 0, w: 10, h: 6 },
           { i: 'card-delegations', x: 0, y: 6, w: 10, h: 8 }
       ]
-  };
+  }), []);
 
-  const defaultSSOLayout = {
+  const defaultSSOLayout = useMemo(() => ({
       lg: [
           { i: 'card-providers', x: 0, y: 0, w: 6, h: 10 },
           { i: 'card-policies', x: 6, y: 0, w: 6, h: 10 }
@@ -58,19 +55,7 @@ export const IdentityView: React.FC = () => {
           { i: 'card-providers', x: 0, y: 0, w: 10, h: 8 },
           { i: 'card-policies', x: 0, y: 8, w: 10, h: 8 }
       ]
-  };
-
-  const [profileLayouts, setProfileLayouts] = useState(defaultProfileLayout);
-  const [ssoLayouts, setSsoLayouts] = useState(defaultSSOLayout);
-
-  useEffect(() => {
-      setToolbarConfig({
-          view: [
-              { label: isEditable ? 'Lock Layout' : 'Edit Layout', action: () => setIsEditable(!isEditable), icon: Settings },
-              { label: 'Reset Layout', action: () => { setProfileLayouts(defaultProfileLayout); setSsoLayouts(defaultSSOLayout); } }
-          ]
-      });
-  }, [setToolbarConfig, isEditable]);
+  }), []);
 
   return (
     <div className="animate-fade-in flex flex-col h-full overflow-hidden">
@@ -92,18 +77,8 @@ export const IdentityView: React.FC = () => {
         
         {/* --- Profile Tab (Grid Layout) --- */}
         {activeTab === 'profile' && currentUser && (
-            <ResponsiveGridLayout
-                className="layout"
-                layouts={profileLayouts}
-                breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-                cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
-                rowHeight={30}
-                isDraggable={isEditable}
-                isResizable={isEditable}
-                draggableHandle=".drag-handle"
-                onLayoutChange={(curr, all) => setProfileLayouts(all)}
-                margin={[16, 16]}
-            >
+            <PageGridLayout defaultLayouts={defaultProfileLayout}>
+              {({ isEditable }) => [
                 <NexCard key="card-profile" dragHandle={isEditable} className="p-0 flex flex-col h-full">
                     <div className="p-6 text-center border-b border-default bg-subtle">
                         <div className="w-16 h-16 bg-panel border border-default rounded-sm flex items-center justify-center text-2xl font-bold text-primary mx-auto mb-3 shadow-sm">
@@ -129,7 +104,7 @@ export const IdentityView: React.FC = () => {
                             <span className="font-bold text-primary">{groups.find(g => currentUser?.groupIds?.includes(g.id))?.name || 'Global'}</span>
                         </div>
                     </div>
-                </NexCard>
+                </NexCard>,
 
                 <NexCard key="card-delegations" dragHandle={isEditable} className="p-6 h-full flex flex-col">
                     <div className="flex items-center justify-between mb-6">
@@ -170,23 +145,14 @@ export const IdentityView: React.FC = () => {
                         )}
                     </div>
                 </NexCard>
-            </ResponsiveGridLayout>
+              ]}
+            </PageGridLayout>
         )}
 
         {/* --- SSO Tab (Grid Layout) --- */}
         {activeTab === 'sso' && (
-            <ResponsiveGridLayout
-                className="layout"
-                layouts={ssoLayouts}
-                breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-                cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
-                rowHeight={30}
-                isDraggable={isEditable}
-                isResizable={isEditable}
-                draggableHandle=".drag-handle"
-                onLayoutChange={(curr, all) => setSsoLayouts(all)}
-                margin={[16, 16]}
-            >
+            <PageGridLayout defaultLayouts={defaultSSOLayout}>
+              {({ isEditable }) => [
                 <NexCard key="card-providers" dragHandle={isEditable} className="p-6 flex flex-col h-full">
                     <IntegrationCard isHeader name="Identity Providers" />
                     <div className="space-y-3 flex-1">
@@ -200,7 +166,7 @@ export const IdentityView: React.FC = () => {
                             <IntegrationCard name="Google Workspace" status={settings.sso.workspace ? "Connected" : "Inactive"} sync="OAuth 2.0" active={settings.sso.workspace} />
                         </div>
                     </div>
-                </NexCard>
+                </NexCard>,
 
                 <NexCard key="card-policies" dragHandle={isEditable} className="p-6 flex flex-col h-full">
                     <h3 className="text-sm font-bold text-primary mb-4 flex items-center gap-2">
@@ -212,7 +178,8 @@ export const IdentityView: React.FC = () => {
                         <PolicyItem text="Session Timeout: 60m" active />
                     </div>
                 </NexCard>
-            </ResponsiveGridLayout>
+              ]}
+            </PageGridLayout>
         )}
 
         {/* --- Standard List Views (Users, Roles, Groups) --- */}

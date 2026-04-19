@@ -232,6 +232,59 @@ export const FormDesigner: React.FC = () => {
                         </>
                     )}
                     
+                    {activeTab === 'appearance' && (
+                        <>
+                            <NexFormGroup label="Width">
+                                <div className="grid grid-cols-2 gap-2">
+                                    {['25%', '33.3%', '50%', '100%'].map(w => (
+                                        <button 
+                                            key={w} 
+                                            onClick={() => updateField(selectedField.id, { layout: { ...selectedField.layout, width: w }})}
+                                            className={`py-1 text-[10px] font-bold border rounded-sm transition-all ${selectedField.layout?.width === w ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-subtle border-default text-secondary hover:border-secondary'}`}
+                                        >
+                                            {w}
+                                        </button>
+                                    ))}
+                                </div>
+                            </NexFormGroup>
+                            <NexFormGroup label="Placeholder Text"><input className="prop-input" placeholder="Enter placeholder..." value={selectedField.placeholder || ''} onChange={e => updateField(selectedField.id, { placeholder: e.target.value })} /></NexFormGroup>
+                            <NexFormGroup label="Helper Text (Description)"><textarea className="prop-input h-16 resize-none" placeholder="Contextual help text..." value={selectedField.helpText || ''} onChange={e => updateField(selectedField.id, { helpText: e.target.value })} /></NexFormGroup>
+                        </>
+                    )}
+                    
+                    {activeTab === 'data' && (
+                        <>
+                            <NexFormGroup label="Default Value"><input className="prop-input" placeholder="Static value..." value={selectedField.defaultValue as string || ''} onChange={e => updateField(selectedField.id, { defaultValue: e.target.value })} /></NexFormGroup>
+                            {(selectedField.type === 'select' || selectedField.type === 'tags') && (
+                                <NexFormGroup label="Options (Comma Separated)">
+                                    <textarea className="prop-input h-24 resize-none" placeholder="Option A, Option B, Option C" value={(selectedField.options || []).join(', ')} onChange={e => updateField(selectedField.id, { options: e.target.value.split(',').map(s => s.trim()).filter(s => !!s) })} />
+                                </NexFormGroup>
+                            )}
+                        </>
+                    )}
+                    
+                    {activeTab === 'validation' && (
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between border-b border-default pb-2">
+                                <div className="flex items-center gap-2">
+                                    <AlertTriangle size={12} className="text-amber-500"/>
+                                    <span className="text-xs font-bold text-secondary">Is Required</span>
+                                </div>
+                                <button 
+                                    onClick={() => updateField(selectedField.id, { required: !selectedField.required })}
+                                    className={`w-8 h-4 rounded-full transition-colors relative ${selectedField.required ? 'bg-blue-600' : 'bg-slate-300'}`}
+                                >
+                                    <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform ${selectedField.required ? 'left-4.5' : 'left-0.5'}`} />
+                                </button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <NexFormGroup label="Min Length"><input type="number" className="prop-input" value={selectedField.validation?.min || ''} onChange={e => updateField(selectedField.id, { validation: { ...selectedField.validation, min: parseInt(e.target.value) || undefined }})} /></NexFormGroup>
+                                <NexFormGroup label="Max Length"><input type="number" className="prop-input" value={selectedField.validation?.max || ''} onChange={e => updateField(selectedField.id, { validation: { ...selectedField.validation, max: parseInt(e.target.value) || undefined }})} /></NexFormGroup>
+                            </div>
+                            <NexFormGroup label="Pattern (Regex Logic)"><input className="prop-input font-mono text-[11px]" placeholder="^[A-Z]{3}-\d{4}$" value={selectedField.validation?.pattern || ''} onChange={e => updateField(selectedField.id, { validation: { ...selectedField.validation, pattern: e.target.value }})} /></NexFormGroup>
+                        </div>
+                    )}
+                    
                     {activeTab === 'permissions' && (
                         <div className="space-y-4">
                             <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-sm text-xs text-indigo-800 flex gap-2">

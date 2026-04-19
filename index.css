@@ -1,0 +1,15 @@
+/* NexFlow Enterprise CSS */
+
+/* Ensure container dimensions for react-grid-layout */
+.layout {
+  min-height: 100%;
+  width: 100%;
+}
+
+.drag-handle {
+  cursor: grab;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}

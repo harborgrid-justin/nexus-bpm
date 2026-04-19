@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { 
@@ -9,9 +9,7 @@ import {
 } from 'lucide-react';
 import { NexButton, NexBadge, NexModal, NexFormGroup, NexCard } from './shared/NexUI';
 import { Integration } from '../types';
-import { Responsive, WidthProvider } from 'react-grid-layout';
-
-const ResponsiveGridLayout = WidthProvider(Responsive);
+import { PageGridLayout } from './shared/PageGridLayout';
 
 const CATEGORIES = [
     { id: 'All', icon: Box },
@@ -111,7 +109,7 @@ const IntegrationDetails: React.FC<{ integration: Integration, onInstall: () => 
 };
 
 export const MarketplaceView: React.FC = () => {
-  const { integrations, installIntegration, uninstallIntegration, setToolbarConfig } = useBPM();
+  const { integrations, installIntegration, uninstallIntegration, setToolbarConfig, navigateTo } = useBPM();
   const { gridConfig } = useTheme();
   const [activeCat, setActiveCat] = useState('All');
   const [search, setSearch] = useState('');
@@ -120,9 +118,22 @@ export const MarketplaceView: React.FC = () => {
   const [isConfiguring, setIsConfiguring] = useState(false);
   const [configValues, setConfigValues] = useState<Record<string, string>>({});
   const [isConnecting, setIsConnecting] = useState(false);
-  const [isEditable, setIsEditable] = useState(false);
+  
+  useEffect(() => {
+      setToolbarConfig({
+          title: 'Enterprise Marketplace',
+          actions: (
+              <div className="flex items-center gap-2">
+                  <NexButton variant="secondary" size="sm" icon={ExternalLink} onClick={() => window.open('https://nexflow.io/marketplace', '_blank')}>Publisher Portal</NexButton>
+                  <div className="h-4 w-px bg-default mx-1" />
+                  <NexButton variant="primary" size="sm" icon={Cloud} onClick={() => navigateTo('governance')}>Deploy Cloud Connector</NexButton>
+              </div>
+          ),
+          isEditable: true
+      });
+  }, [setToolbarConfig, navigateTo]);
 
-  const defaultLayouts = {
+  const defaultLayouts = useMemo(() => ({
       lg: [
           { i: 'header', x: 0, y: 0, w: 12, h: 4 },
           { i: 'grid', x: 0, y: 4, w: 12, h: 20 }
@@ -131,17 +142,7 @@ export const MarketplaceView: React.FC = () => {
           { i: 'header', x: 0, y: 0, w: 10, h: 4 },
           { i: 'grid', x: 0, y: 4, w: 10, h: 20 }
       ]
-  };
-  const [layouts, setLayouts] = useState(defaultLayouts);
-
-  useEffect(() => {
-      setToolbarConfig({
-          view: [
-              { label: isEditable ? 'Lock Layout' : 'Edit Layout', action: () => setIsEditable(!isEditable), icon: Settings },
-              { label: 'Reset Layout', action: () => setLayouts(defaultLayouts) }
-          ]
-      });
-  }, [setToolbarConfig, isEditable]);
+  }), []);
 
   const filteredIntegrations = integrations.filter(i => 
       (activeCat === 'All' || i.category === activeCat) &&
@@ -149,7 +150,6 @@ export const MarketplaceView: React.FC = () => {
   );
 
   const handleOpen = (integration: Integration) => {
-      if (isEditable) return;
       setSelectedIntegration(integration);
       setConfigValues(integration.config || {});
       setIsConfiguring(integration.isInstalled);
@@ -171,8 +171,10 @@ export const MarketplaceView: React.FC = () => {
 
   return (
     <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 -mx-4 px-4 pb-10">
-        <ResponsiveGridLayout className="layout" layouts={layouts} breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }} cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }} rowHeight={gridConfig.rowHeight} margin={gridConfig.margin} isDraggable={isEditable} isResizable={isEditable} draggableHandle=".drag-handle" onLayoutChange={(curr, all) => setLayouts(all)}>
-            <NexCard key="header" dragHandle={isEditable} className="p-4 flex flex-col justify-between">
+        <PageGridLayout defaultLayouts={defaultLayouts}>
+            {({ isEditable }) => (
+                <>
+                    <NexCard key="header" dragHandle={isEditable} className="p-4 flex flex-col justify-between">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-bold text-primary">Connector Marketplace</h2>
                     <div className="relative w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary" size={14}/><input className="w-full pl-9 pr-3 py-1.5 bg-subtle border border-default rounded-sm text-xs outline-none text-primary" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)}/></div>
@@ -201,7 +203,9 @@ export const MarketplaceView: React.FC = () => {
                     </div>
                 </div>
             </NexCard>
-        </ResponsiveGridLayout>
+                </>
+            )}
+        </PageGridLayout>
 
         {selectedIntegration && (
             <NexModal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Connector Details" size="lg">
@@ -209,7 +213,39 @@ export const MarketplaceView: React.FC = () => {
                 <div className="space-y-6">
                     <div className="bg-subtle p-4 rounded-sm border border-default flex items-center gap-4">{React.createElement(ICONS[selectedIntegration.iconName] || Box, { size: 32, className: 'text-secondary' })}<div><h3 className="text-lg font-bold text-primary">Configure {selectedIntegration.name}</h3><p className="text-sm text-secondary">Provide authentication credentials.</p></div></div>
                     <div className="space-y-4"><h4 className="text-xs font-bold text-primary uppercase border-b border-default pb-2">Authentication</h4>
-                        {['int-salesforce', 'int-slack', 'int-jira'].includes(selectedIntegration.id) ? (<div className="p-6 border border-default rounded-sm bg-panel text-center">{configValues._connected ? <div className="text-emerald-600 flex flex-col items-center gap-2"><CheckCircle size={32}/><p className="font-bold">Connected as {configValues._account}</p><button onClick={() => setConfigValues({...configValues, _connected: ''})} className="text-xs text-slate-400 hover:text-rose-600 underline">Disconnect</button></div> : <NexButton variant="primary" onClick={handleConnect} disabled={isConnecting} className="mx-auto">{isConnecting ? 'Connecting...' : `Connect ${selectedIntegration.name} Account`}</NexButton>}</div>) : <div className="grid grid-cols-2 gap-4"><NexFormGroup label="Username"><input className="prop-input" /></NexFormGroup><NexFormGroup label="Password"><input className="prop-input" type="password" /></NexFormGroup></div>}
+                        {['int-salesforce', 'int-slack', 'int-jira'].includes(selectedIntegration.id) ? (
+                            <div className="p-6 border border-default rounded-sm bg-panel text-center">
+                                {configValues._connected ? (
+                                    <div className="text-emerald-600 flex flex-col items-center gap-2">
+                                        <CheckCircle size={32}/>
+                                        <p className="font-bold">Connected as {configValues._account}</p>
+                                        <button onClick={() => setConfigValues({...configValues, _connected: ''})} className="text-xs text-slate-400 hover:text-rose-600 underline">Disconnect</button>
+                                    </div>
+                                ) : (
+                                    <NexButton variant="primary" onClick={handleConnect} disabled={isConnecting} className="mx-auto">{isConnecting ? 'Connecting...' : `Connect ${selectedIntegration.name} Account`}</NexButton>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 gap-4">
+                                <NexFormGroup label="Endpoint URL">
+                                    <input 
+                                        className="prop-input" 
+                                        placeholder="https://api.example.com"
+                                        value={configValues.endpoint || ''}
+                                        onChange={e => setConfigValues({ ...configValues, endpoint: e.target.value })}
+                                    />
+                                </NexFormGroup>
+                                <NexFormGroup label="API Token / Key">
+                                    <input 
+                                        className="prop-input" 
+                                        type="password" 
+                                        placeholder="Bearer ..."
+                                        value={configValues.apiKey || ''}
+                                        onChange={e => setConfigValues({ ...configValues, apiKey: e.target.value })}
+                                    />
+                                </NexFormGroup>
+                            </div>
+                        )}
                     </div>
                     <div className="flex justify-between pt-4 border-t border-default"><button onClick={() => setIsConfiguring(false)} className="text-secondary text-sm hover:underline">Back to Details</button><div className="flex gap-3">{selectedIntegration.isInstalled && <NexButton variant="danger" onClick={() => { uninstallIntegration(selectedIntegration.id); setModalOpen(false); }}>Uninstall</NexButton>}<NexButton variant="primary" onClick={handleInstall}>{selectedIntegration.isInstalled ? 'Save Changes' : 'Complete Installation'}</NexButton></div></div>
                 </div>}

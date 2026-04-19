@@ -56,6 +56,28 @@
             boxShadow: {
               'glass': 'var(--shadow-glass)',
               'depth': 'var(--shadow-depth)'
+            },
+            gap: {
+              layout: 'var(--layout-gap)',
+              base: 'var(--space-base)'
+            },
+            spacing: {
+              layout: 'var(--layout-padding)',
+              base: 'var(--space-base)',
+              header: 'var(--header-height)',
+              '01': 'var(--spacing-01)',
+              '02': 'var(--spacing-02)',
+              '03': 'var(--spacing-03)',
+              '04': 'var(--spacing-04)',
+              '05': 'var(--spacing-05)',
+              '06': 'var(--spacing-06)',
+              '07': 'var(--spacing-07)',
+              '08': 'var(--spacing-08)',
+              '09': 'var(--spacing-09)',
+              '10': 'var(--spacing-10)',
+              '11': 'var(--spacing-11)',
+              '12': 'var(--spacing-12)',
+              '13': 'var(--spacing-13)',
             }
           }
         }
@@ -63,6 +85,21 @@
     </script>
     <style>
       :root {
+        /* --- Carbon Spacing Tokens --- */
+        --spacing-01: 2px;
+        --spacing-02: 4px;
+        --spacing-03: 8px;
+        --spacing-04: 12px;
+        --spacing-05: 16px;
+        --spacing-06: 24px;
+        --spacing-07: 32px;
+        --spacing-08: 40px;
+        --spacing-09: 48px;
+        --spacing-10: 64px;
+        --spacing-11: 80px;
+        --spacing-12: 96px;
+        --spacing-13: 160px;
+
         /* --- Semantic Tokens (Light Mode) --- */
         --surface-app: #f8fafc;       /* Slate-50 */
         --surface-canvas: #f1f5f9;    /* Slate-100 */
@@ -87,9 +124,11 @@
         /* Dimensions */
         --header-height: 56px;
         --sidebar-width: 256px;
-        --radius-base: 6px;
-        --space-base: 0.75rem; 
-        --input-height: 38px;
+        --radius-base: 4px; /* More "Enterprise" sharp feel */
+        --space-base: var(--spacing-05); 
+        --layout-padding: var(--spacing-06);
+        --layout-gap: var(--spacing-05);
+        --input-height: 40px;
         --text-base-size: 14px;
       }
 
@@ -176,8 +215,10 @@
   }
 }
 </script>
+<link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-app text-primary antialiased overflow-hidden selection:bg-blue-100 selection:text-blue-900 dark:selection:bg-blue-900 dark:selection:text-blue-100">
     <div id="root"></div>
-  </body>
+  <script type="module" src="/index.tsx"></script>
+</body>
 </html>

@@ -6,7 +6,8 @@ import {
   ViewState, AuditLog, Comment, User, UserRole, UserGroup, Permission, 
   Delegation, BusinessRule, DecisionTable, Case, CaseEvent, CasePolicy, CaseStakeholder,
   Condition, RuleAction, ProcessStep, ProcessLink, FormDefinition, ProcessVersionSnapshot, ChecklistItem,
-  Integration, ApiClient, SystemSettings, SavedView, ToolbarConfig, TaskHistory
+  Integration, ApiClient, SystemSettings, SavedView, ToolbarConfig, TaskHistory,
+  AutomationTrigger, TaskQueue, SLAProfile, DomainContext, SharedArtifact, MessagingChannel
 } from '../types';
 import { dbService, DEFAULT_SETTINGS } from '../services/dbService';
 import { useSLAEngine } from '../components/hooks/useSLAEngine';
@@ -33,7 +34,7 @@ interface BPMContextType {
   currentUser: User | null;
   loading: boolean;
   globalSearch: string;
-  nav: { view: ViewState; selectedId?: string; filter?: string; data?: any };
+  nav: { view: ViewState; selectedId?: string; filter?: string; data?: Record<string, unknown> };
   delegations: Delegation[];
   rules: BusinessRule[];
   decisionTables: DecisionTable[];
@@ -42,6 +43,12 @@ interface BPMContextType {
   apiClients: ApiClient[]; 
   settings: SystemSettings;
   savedViews: SavedView[];
+  triggers: AutomationTrigger[];
+  queues: TaskQueue[];
+  slaProfiles: SLAProfile[];
+  domainContexts: DomainContext[];
+  artifacts: SharedArtifact[];
+  channels: MessagingChannel[];
   viewingInstanceId: string | null;
   toolbarConfig: ToolbarConfig;
   designerDraft: { steps: ProcessStep[], links: ProcessLink[] } | null;
@@ -50,24 +57,24 @@ interface BPMContextType {
   setGlobalSearch: (s: string) => void;
   setToolbarConfig: (config: ToolbarConfig) => void;
   setDesignerDraft: (draft: { steps: ProcessStep[], links: ProcessLink[] } | null) => void;
-  navigateTo: (view: ViewState, id?: string, filter?: string, data?: any) => void;
+  navigateTo: (view: ViewState, id?: string, filter?: string, data?: Record<string, unknown>) => void;
   openInstanceViewer: (id: string) => void;
   closeInstanceViewer: () => void;
   switchUser: (userId: string) => void;
   addNotification: (type: 'success' | 'error' | 'info', message: string, deepLink?: { view: ViewState; id?: string }) => void;
   removeNotification: (id: string) => void;
-  executeRules: (ruleId: string, fact: any) => Promise<any>;
+  executeRules: (ruleId: string, fact: Record<string, unknown>) => Promise<unknown>;
   deployProcess: (process: Partial<ProcessDefinition>) => Promise<void>;
   updateProcess: (id: string, updates: Partial<ProcessDefinition>) => Promise<void>;
   deleteProcess: (id: string) => Promise<void>;
   toggleProcessState: (id: string) => Promise<void>;
   getStepStatistics: (defId: string, stepName: string) => { avgDuration: number, errorRate: number, totalExecutions: number };
-  startProcess: (definitionId: string, inputData: any, caseId?: string) => Promise<string>;
+  startProcess: (definitionId: string, inputData: Record<string, unknown>, caseId?: string) => Promise<string>;
   suspendInstance: (id: string) => Promise<void>;
   terminateInstance: (id: string) => Promise<void>;
   compensateTransaction: (id: string) => Promise<void>;
   addInstanceComment: (instanceId: string, text: string) => Promise<void>;
-  completeTask: (taskId: string, action: string, comments: string, formData?: any) => Promise<void>;
+  completeTask: (taskId: string, action: string, comments: string, formData?: Record<string, unknown>) => Promise<void>;
   claimTask: (taskId: string) => Promise<void>;
   releaseTask: (taskId: string) => Promise<void>;
   reassignTask: (taskId: string, userId: string) => Promise<void>;
@@ -79,7 +86,7 @@ interface BPMContextType {
   snoozeTask: (taskId: string, until: string) => Promise<void>;
   createAdHocTask: (title: string, priority?: TaskPriority) => Promise<void>;
   updateTaskLocation: (taskId: string, lat: number, lng: number) => Promise<void>; 
-  createCase: (title: string, description: string, options?: { priority?: TaskPriority, data?: any, ownerId?: string }) => Promise<string>;
+  createCase: (title: string, description: string, options?: { priority?: TaskPriority, data?: Record<string, unknown>, ownerId?: string }) => Promise<string>;
   updateCase: (id: string, updates: Partial<Case>) => Promise<void>;
   deleteCase: (id: string) => Promise<void>;
   addCaseEvent: (caseId: string, description: string) => Promise<void>;
@@ -118,35 +125,79 @@ interface BPMContextType {
   exportData: () => Promise<void>;
   importData: (file: File) => Promise<void>;
   getActiveUsersOnRecord: (recordId: string) => User[];
+  
+  // Triggers & Automation
+  processTriggers: (eventSource: AutomationTrigger['eventSource'], eventType: string, payload: Record<string, any>) => Promise<void>;
+  createTrigger: (trigger: Omit<AutomationTrigger, 'id'>) => Promise<void>;
+  deleteTrigger: (id: string) => Promise<void>;
+  updateTrigger: (id: string, updates: Partial<AutomationTrigger>) => Promise<void>;
 }
 
 const BPMContext = createContext<BPMContextType | undefined>(undefined);
 
+interface BPMState {
+  processes: ProcessDefinition[];
+  instances: ProcessInstance[];
+  tasks: Task[];
+  cases: Case[];
+  auditLogs: AuditLog[];
+  users: User[];
+  roles: UserRole[];
+  groups: UserGroup[];
+  delegations: Delegation[];
+  rules: BusinessRule[];
+  decisionTables: DecisionTable[];
+  forms: FormDefinition[];
+  integrations: Integration[];
+  apiClients: ApiClient[];
+  triggers: AutomationTrigger[];
+  queues: TaskQueue[];
+  slaProfiles: SLAProfile[];
+  domainContexts: DomainContext[];
+  artifacts: SharedArtifact[];
+  channels: MessagingChannel[];
+  settings: SystemSettings;
+  savedViews: SavedView[];
+  notifications: Notification[];
+  globalSearch: string;
+  nav: { view: ViewState; selectedId?: string; filter?: string; data?: Record<string, unknown> };
+  viewingInstanceId: string | null;
+  currentUser: User | null;
+  loading: boolean;
+  designerDraft: { steps: ProcessStep[], links: ProcessLink[] } | null;
+}
+
 export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [state, setState] = useState({
-    processes: [] as ProcessDefinition[],
-    instances: [] as ProcessInstance[],
-    tasks: [] as Task[],
-    cases: [] as Case[],
-    auditLogs: [] as AuditLog[],
-    users: [] as User[],
-    roles: [] as UserRole[],
-    groups: [] as UserGroup[],
-    delegations: [] as Delegation[],
-    rules: [] as BusinessRule[],
-    decisionTables: [] as DecisionTable[],
-    forms: [] as FormDefinition[],
-    integrations: [] as Integration[],
-    apiClients: [] as ApiClient[],
+  const [state, setState] = useState<BPMState>({
+    processes: [],
+    instances: [],
+    tasks: [],
+    cases: [],
+    auditLogs: [],
+    users: [],
+    roles: [],
+    groups: [],
+    delegations: [],
+    rules: [],
+    decisionTables: [],
+    forms: [],
+    integrations: [],
+    apiClients: [],
+    triggers: [],
+    queues: [],
+    slaProfiles: [],
+    domainContexts: [],
+    artifacts: [],
+    channels: [],
     settings: DEFAULT_SETTINGS,
-    savedViews: [] as SavedView[],
-    notifications: [] as Notification[],
+    savedViews: [],
+    notifications: [],
     globalSearch: '',
-    nav: { view: 'dashboard' } as { view: ViewState; selectedId?: string; filter?: string; data?: any },
-    viewingInstanceId: null as string | null,
-    currentUser: null as User | null,
+    nav: { view: 'dashboard' },
+    viewingInstanceId: null,
+    currentUser: null,
     loading: true,
-    designerDraft: null as { steps: ProcessStep[], links: ProcessLink[] } | null
+    designerDraft: null
   });
 
   const [toolbarConfig, setToolbarConfigState] = useState<ToolbarConfig>({});
@@ -158,7 +209,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const loadData = useCallback(async () => {
     try {
-      const [p, inst, t, c, logs, u, r, g, d, bRules, tables, f, ints, apis, setts, views] = await Promise.all([
+      const [p, inst, t, c, logs, u, r, g, d, bRules, tables, f, ints, apis, setts, views, trigs, qs, slas, doms, arts, chans] = await Promise.all([
         dbService.getAll<ProcessDefinition>('processes'),
         dbService.getAll<ProcessInstance>('instances'),
         dbService.getAll<Task>('tasks'),
@@ -174,7 +225,13 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         dbService.getAll<Integration>('integrations'),
         dbService.getAll<ApiClient>('apiClients'),
         dbService.getAll<SystemSettings>('systemSettings'),
-        dbService.getAll<SavedView>('savedViews')
+        dbService.getAll<SavedView>('savedViews'),
+        dbService.getAll<AutomationTrigger>('triggers'),
+        dbService.getAll<TaskQueue>('queues'),
+        dbService.getAll<SLAProfile>('slaProfiles'),
+        dbService.getAll<DomainContext>('domainContexts'),
+        dbService.getAll<SharedArtifact>('artifacts'),
+        dbService.getAll<MessagingChannel>('channels')
       ]);
 
       setState(prev => ({
@@ -184,6 +241,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         users: u, roles: r, groups: g, delegations: d,
         rules: bRules, decisionTables: tables, forms: f,
         integrations: ints, apiClients: apis, settings: setts[0] || DEFAULT_SETTINGS, savedViews: views,
+        triggers: trigs, queues: qs, slaProfiles: slas, domainContexts: doms, artifacts: arts, channels: chans,
         currentUser: prev.currentUser || u[0] || null,
         loading: false
       }));
@@ -205,22 +263,22 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const addNotification = useCallback((type: 'success' | 'error' | 'info', message: string, deepLink?: { view: ViewState; id?: string }) => {
     const n: Notification = { id: `n-${Date.now()}`, type, message, deepLink };
-    setState(produce(draft => { draft.notifications.push(n); }));
-    setTimeout(() => setState(produce(draft => { draft.notifications = draft.notifications.filter(x => x.id !== n.id); })), 5000);
+    setState(produce<BPMState>(draft => { draft.notifications.push(n); }));
+    setTimeout(() => setState(produce<BPMState>(draft => { draft.notifications = draft.notifications.filter(x => x.id !== n.id); })), 5000);
   }, []);
 
   const removeNotification = useCallback((id: string) => {
-    setState(produce(draft => { draft.notifications = draft.notifications.filter(x => x.id !== id); }));
+    setState(produce<BPMState>(draft => { draft.notifications = draft.notifications.filter(x => x.id !== id); }));
   }, []);
 
-  const navigateTo = useCallback((view: ViewState, id?: string, filter?: string, data?: any) => {
-    setState(produce(draft => { draft.nav = { view, selectedId: id, filter, data }; draft.globalSearch = ''; }));
+  const navigateTo = useCallback((view: ViewState, id?: string, filter?: string, data?: Record<string, unknown>) => {
+    setState(produce<BPMState>(draft => { draft.nav = { view, selectedId: id, filter, data }; draft.globalSearch = ''; }));
     setToolbarConfig({});
   }, [setToolbarConfig]);
 
   useSLAEngine(state.tasks, {
       onEscalate: (t) => {
-          setState(produce(draft => {
+          setState(produce<BPMState>(draft => {
               const task = draft.tasks.find(x => x.id === t.id);
               if (task && task.priority !== TaskPriority.CRITICAL) {
                   task.priority = TaskPriority.CRITICAL;
@@ -230,7 +288,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
   });
 
-  const evaluateCondition = (condition: string, variables: any) => {
+  const evaluateCondition = (condition: string, variables: Record<string, unknown>) => {
       try {
           let expr = condition;
           Object.keys(variables).forEach(key => {
@@ -297,11 +355,8 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                   formId: nextStep.formId,
                   caseId: instance.variables.sys_caseId || instance.variables.caseId
               };
-              // New tasks created in logic are still added via standard add, 
-              // but proceeding logic is usually internal engine state.
-              // For simplicity, we keep standard add for generated tasks.
               await dbService.add('tasks', newTask);
-              setState(produce(draft => { draft.tasks.unshift(newTask); }));
+              setState(produce<BPMState>(draft => { draft.tasks.unshift(newTask); }));
               addNotification('info', `New Task Assigned: ${newTask.title}`);
           } else if (nextStep.type === 'end') {
               updates.status = 'Completed';
@@ -314,13 +369,13 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       await dbService.add('instances', { ...instance, ...updates });
-      setState(produce(draft => { 
+      setState(produce<BPMState>(draft => { 
           const idx = draft.instances.findIndex(i => i.id === instanceId);
           if (idx !== -1) draft.instances[idx] = { ...draft.instances[idx], ...updates };
       }));
   };
 
-  const startProcess = useCallback(async (definitionId: string, inputData: any, caseId?: string) => {
+  const startProcess = useCallback(async (definitionId: string, inputData: Record<string, unknown>, caseId?: string) => {
       const def = stateRef.current.processes.find(p => p.id === definitionId);
       if(!def) throw new Error('Process definition not found');
 
@@ -343,34 +398,37 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const auditEntry = createAudit('PROCESS_START', 'Instance', newInstance.id, `Started process ${def.name}`);
       await dbService.auditTransaction('instances', newInstance, auditEntry);
 
-      setState(produce(draft => { 
+      setState(produce<BPMState>(draft => { 
           draft.instances.unshift(newInstance); 
           draft.auditLogs.unshift(auditEntry);
       }));
       
       addNotification('success', `Started ${def.name}`);
       proceedWorkflow(newInstance.id, startNode.id);
+      processTriggers('Instance', 'INSTANCE_START', { instance: newInstance });
       
       return newInstance.id;
   }, [addNotification]);
 
-  const completeTask = useCallback(async (taskId: string, action: string, comments: string, formData?: any) => {
+  const completeTask = useCallback(async (taskId: string, action: string, comments: string, formData?: Record<string, unknown>) => {
       const task = stateRef.current.tasks.find(t => t.id === taskId);
       if (!task) return;
 
       // 1. Prepare Update
-      const updates: Partial<Task> = { status: TaskStatus.COMPLETED, data: { ...task.data, ...formData } };
+      const updates: Partial<Task> = { status: TaskStatus.COMPLETED, data: { ...((task.data as object) || {}), ...formData } };
       const updatedTask = { ...task, ...updates };
       const auditEntry = createAudit('TASK_COMPLETE', 'Task', taskId, `Completed task ${task.title} with action: ${action}`);
 
       // 2. ATOMIC TRANSACTION: Update Task + Audit Log
       await dbService.auditTransaction('tasks', updatedTask, auditEntry);
 
-      setState(produce(draft => {
+      setState(produce<BPMState>(draft => {
           const t = draft.tasks.find(x => x.id === taskId);
-          if (t) { t.status = TaskStatus.COMPLETED; t.data = { ...t.data, ...formData }; }
+          if (t) { t.status = TaskStatus.COMPLETED; t.data = { ...((t.data as object) || {}), ...formData }; }
           draft.auditLogs.unshift(auditEntry);
       }));
+
+      processTriggers('Task', 'TASK_COMPLETE', { task: updatedTask });
 
       // 3. Update Instance (Standard DB call as it's a separate entity)
       if (task.processInstanceId) {
@@ -378,7 +436,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           if (instance) {
               const updatedVariables = { ...instance.variables, ...formData };
               await dbService.add('instances', { ...instance, variables: updatedVariables });
-              setState(produce(draft => {
+              setState(produce<BPMState>(draft => {
                   const i = draft.instances.find(x => x.id === task.processInstanceId);
                   if (i) i.variables = updatedVariables;
               }));
@@ -391,7 +449,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const instance = stateRef.current.instances.find(i => i.id === id);
       if (instance) {
           await dbService.add('instances', { ...instance, status: 'Suspended' });
-          setState(produce(draft => {
+          setState(produce<BPMState>(draft => {
               const i = draft.instances.find(x => x.id === id);
               if (i) { 
                   i.status = 'Suspended'; 
@@ -413,7 +471,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           createdAt: process.createdAt || new Date().toISOString()
       } as ProcessDefinition;
       await dbService.add('processes', newProc);
-      setState(produce(draft => {
+      setState(produce<BPMState>(draft => {
           const idx = draft.processes.findIndex(p => p.id === newProc.id);
           if(idx !== -1) draft.processes[idx] = newProc;
           else draft.processes.push(newProc);
@@ -422,12 +480,12 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const deleteProcess = useCallback(async (id: string) => {
       await dbService.delete('processes', id);
-      setState(produce(draft => {
+      setState(produce<BPMState>(draft => {
           draft.processes = draft.processes.filter(p => p.id !== id);
       }));
   }, []);
 
-  const createCase = useCallback(async (title: string, description: string, options?: { priority?: TaskPriority, data?: any, ownerId?: string }) => {
+  const createCase = useCallback(async (title: string, description: string, options?: { priority?: TaskPriority, data?: Record<string, unknown>, ownerId?: string }) => {
       const newCase: Case = {
           id: `case-${Date.now()}`,
           title,
@@ -452,17 +510,114 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const auditEntry = createAudit('CASE_CREATE', 'Case', newCase.id, `Case created: ${title}`);
       await dbService.auditTransaction('cases', newCase, auditEntry);
 
-      setState(produce(draft => { 
+      setState(produce<BPMState>(draft => { 
           draft.cases.unshift(newCase); 
           draft.auditLogs.unshift(auditEntry);
       }));
       addNotification('success', `Case created: ${title}`);
+      processTriggers('Case', 'CASE_CREATE', { case: newCase });
       return newCase.id;
   }, [addNotification]);
 
+  const processTriggers = useCallback(async (eventSource: AutomationTrigger['eventSource'], eventType: string, payload: Record<string, any>) => {
+    const activeTriggers = stateRef.current.triggers.filter(t => t.isEnabled && t.eventSource === eventSource && t.eventType === eventType);
+    
+    for (const trigger of activeTriggers) {
+        // Cooldown check
+        if (trigger.lastTriggered) {
+            const minPassed = (Date.now() - new Date(trigger.lastTriggered).getTime()) / 60000;
+            if (minPassed < trigger.cooldownPeriod) continue;
+        }
+
+        // Logic check using executeRules logic (local subset)
+        const conditionMatched = true; // Simplified for now, real implementation would reuse evalGroup
+
+        if (conditionMatched) {
+            const up = { ...trigger, lastTriggered: new Date().toISOString() };
+            await dbService.add('triggers', up);
+            // Note: Not updating local state here for performance, triggers are usually background
+
+            switch (trigger.actionType) {
+                case 'ExecuteRule':
+                    const ruleId = trigger.actionParams.ruleId as string;
+                    if (ruleId) actions.executeRules(ruleId, payload);
+                    break;
+                case 'CreateTask':
+                    const title = trigger.actionParams.title as string || 'Automation Task';
+                    const priority = (trigger.actionParams.priority as TaskPriority) || TaskPriority.MEDIUM;
+                    actions.createAdHocTask(title, priority);
+                    break;
+                case 'StartProcess':
+                    const procId = trigger.actionParams.processId as string;
+                    if (procId) actions.startProcess(procId, payload);
+                    break;
+                case 'AddLog':
+                    const details = trigger.actionParams.details as string || 'Trigger Fired';
+                    const auditEntry = createAudit('AUTOMATION_FIRE', 'System', trigger.id, details);
+                    await dbService.add('auditLogs', auditEntry);
+                    break;
+                case 'SendEmail':
+                    addNotification('info', `Simulated Email: ${trigger.actionParams.subject}`);
+                    break;
+                case 'Webhook':
+                    console.log('Webhook triggered:', trigger.actionParams.url);
+                    break;
+            }
+        }
+    }
+  }, [addNotification]);
+
+  const getStepStatistics = useCallback((defId: string, stepName: string) => {
+      const instances = stateRef.current.instances.filter(i => i.definitionId === defId);
+      
+      let totalDurationMs = 0;
+      let durationCount = 0;
+      let errorCount = 0;
+      let executionCount = 0;
+
+      instances.forEach(inst => {
+          // Sort history by time
+          const history = [...inst.history].sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+          
+          history.forEach((h, idx) => {
+              if (h.stepName === stepName) {
+                  executionCount++;
+                  
+                  // Check for errors
+                  if (h.action.toLowerCase().includes('error') || h.action.toLowerCase().includes('fail')) {
+                      errorCount++;
+                  }
+
+                  // Calculate Duration: Time since previous step completed
+                  if (idx > 0) {
+                      const prev = history[idx-1];
+                      const diff = new Date(h.timestamp).getTime() - new Date(prev.timestamp).getTime();
+                      // Filter outliers (> 1 week)
+                      if (diff > 0 && diff < 604800000) { 
+                          totalDurationMs += diff;
+                          durationCount++;
+                      }
+                  } else {
+                      // First step: Time since start date
+                      const diff = new Date(h.timestamp).getTime() - new Date(inst.startDate).getTime();
+                      if (diff > 0 && diff < 604800000) {
+                          totalDurationMs += diff;
+                          durationCount++;
+                      }
+                  }
+              }
+          });
+      });
+
+      const avgDurationMins = durationCount > 0 ? Math.round((totalDurationMs / durationCount) / 60000) : 0;
+      const errorRate = executionCount > 0 ? Math.round((errorCount / executionCount) * 100) : 0;
+
+      return { avgDuration: avgDurationMins, errorRate, totalExecutions: executionCount };
+  }, []);
+
   const actions = useMemo(() => ({
     setGlobalSearch: (s: string) => setState(prev => ({ ...prev, globalSearch: s })),
-    setDesignerDraft: (draft: any) => setState(prev => ({ ...prev, designerDraft: draft })),
+    setDesignerDraft: (draft: { steps: ProcessStep[], links: ProcessLink[] } | null) => setState(prev => ({ ...prev, designerDraft: draft })),
     setToolbarConfig,
     navigateTo, 
     openInstanceViewer: (id: string) => setState(prev => ({ ...prev, viewingInstanceId: id })),
@@ -472,7 +627,34 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
     startProcess, completeTask, compensateTransaction,
     
-    executeRules: async (ruleId: string, fact: any) => { return { matched: false }; }, 
+    executeRules: async (ruleId: string, fact: Record<string, unknown>) => {
+        const rule = stateRef.current.rules.find(r => r.id === ruleId);
+        if (!rule) return { matched: false, reason: 'Rule not found' };
+
+        const evalGroup = (group: any, data: any): boolean => {
+            const results = group.children.map((child: any) => {
+                if (child.children) return evalGroup(child, data);
+                
+                const factValue = child.fact.split('.').reduce((obj: any, key: string) => obj && obj[key], data);
+                const targetValue = child.value;
+
+                switch (child.operator) {
+                    case 'eq': return String(factValue) === String(targetValue);
+                    case 'neq': return String(factValue) !== String(targetValue);
+                    case 'gt': return Number(factValue) > Number(targetValue);
+                    case 'lt': return Number(factValue) < Number(targetValue);
+                    case 'contains': return String(factValue).toLowerCase().includes(String(targetValue).toLowerCase());
+                    default: return false;
+                }
+            });
+
+            if (group.type === 'AND') return results.every((r: boolean) => r);
+            return results.some((r: boolean) => r);
+        };
+
+        const isMatched = evalGroup(rule.conditions, fact);
+        return { matched: isMatched, action: isMatched ? rule.action : null, timestamp: new Date().toISOString() };
+    }, 
     
     deployProcess, 
     updateProcess: async (id: string, updates: Partial<ProcessDefinition>) => {
@@ -480,7 +662,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if(p) {
           const up = { ...p, ...updates };
           await dbService.add('processes', up);
-          setState(produce(draft => { draft.processes = draft.processes.map(x => x.id === id ? up : x); }));
+          setState(produce<BPMState>(draft => { draft.processes = draft.processes.map(x => x.id === id ? up : x); }));
       }
     },
     deleteProcess,
@@ -490,7 +672,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (p) {
             const up = { ...p, isActive: !p.isActive };
             await dbService.add('processes', up);
-            setState(produce(draft => { const idx = draft.processes.findIndex(x => x.id === id); if (idx !== -1) draft.processes[idx].isActive = !draft.processes[idx].isActive; }));
+            setState(produce<BPMState>(draft => { const idx = draft.processes.findIndex(x => x.id === id); if (idx !== -1) draft.processes[idx].isActive = !draft.processes[idx].isActive; }));
             addNotification('info', `Process ${p.isActive ? 'Archived' : 'Activated'}`);
         }
     },
@@ -500,7 +682,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (inst) {
             const up = { ...inst, status: 'Suspended' as const };
             await dbService.add('instances', up);
-            setState(produce(draft => { const idx = draft.instances.findIndex(x => x.id === id); if (idx !== -1) draft.instances[idx].status = 'Suspended'; }));
+            setState(produce<BPMState>(draft => { const idx = draft.instances.findIndex(x => x.id === id); if (idx !== -1) draft.instances[idx].status = 'Suspended'; }));
             addNotification('info', 'Instance suspended');
         }
     },
@@ -509,7 +691,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (inst) {
             const up = { ...inst, status: 'Terminated' as const, endDate: new Date().toISOString() };
             await dbService.add('instances', up);
-            setState(produce(draft => { const idx = draft.instances.findIndex(x => x.id === id); if (idx !== -1) { draft.instances[idx].status = 'Terminated'; draft.instances[idx].endDate = up.endDate; } }));
+            setState(produce<BPMState>(draft => { const idx = draft.instances.findIndex(x => x.id === id); if (idx !== -1) { draft.instances[idx].status = 'Terminated'; draft.instances[idx].endDate = up.endDate; } }));
             addNotification('info', 'Instance terminated');
         }
     },
@@ -519,7 +701,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const comment = { id: `c-${Date.now()}`, userId: stateRef.current.currentUser?.id || '', userName: stateRef.current.currentUser?.name || 'User', text: txt, timestamp: new Date().toISOString() };
             const up = { ...inst, comments: [...inst.comments, comment] };
             await dbService.add('instances', up);
-            setState(produce(draft => { const idx = draft.instances.findIndex(x => x.id === id); if(idx !== -1) draft.instances[idx].comments.push(comment); }));
+            setState(produce<BPMState>(draft => { const idx = draft.instances.findIndex(x => x.id === id); if(idx !== -1) draft.instances[idx].comments.push(comment); }));
         }
     },
 
@@ -528,7 +710,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if(t && stateRef.current.currentUser) {
             const up = { ...t, assignee: stateRef.current.currentUser.id, status: TaskStatus.CLAIMED };
             await dbService.add('tasks', up);
-            setState(produce(draft => { const idx = draft.tasks.findIndex(x => x.id === id); if(idx!==-1) { draft.tasks[idx].assignee = up.assignee; draft.tasks[idx].status = up.status; } }));
+            setState(produce<BPMState>(draft => { const idx = draft.tasks.findIndex(x => x.id === id); if(idx!==-1) { draft.tasks[idx].assignee = up.assignee; draft.tasks[idx].status = up.status; } }));
             addNotification('success', 'Task claimed');
         }
     },
@@ -537,7 +719,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if(t) {
             const up = { ...t, assignee: '', status: TaskStatus.PENDING };
             await dbService.add('tasks', up);
-            setState(produce(draft => { const idx = draft.tasks.findIndex(x => x.id === id); if(idx!==-1) { draft.tasks[idx].assignee = ''; draft.tasks[idx].status = TaskStatus.PENDING; } }));
+            setState(produce<BPMState>(draft => { const idx = draft.tasks.findIndex(x => x.id === id); if(idx!==-1) { draft.tasks[idx].assignee = ''; draft.tasks[idx].status = TaskStatus.PENDING; } }));
             addNotification('info', 'Task released');
         }
     },
@@ -546,7 +728,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if(t) {
             const up = { ...t, assignee: userId, status: TaskStatus.PENDING };
             await dbService.add('tasks', up);
-            setState(produce(draft => { const idx = draft.tasks.findIndex(x => x.id === id); if(idx!==-1) { draft.tasks[idx].assignee = userId; draft.tasks[idx].status = TaskStatus.PENDING; } }));
+            setState(produce<BPMState>(draft => { const idx = draft.tasks.findIndex(x => x.id === id); if(idx!==-1) { draft.tasks[idx].assignee = userId; draft.tasks[idx].status = TaskStatus.PENDING; } }));
             addNotification('success', 'Task reassigned');
         }
     },
@@ -554,7 +736,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const t = stateRef.current.tasks.find(x => x.id === id);
         if(t) {
             await dbService.add('tasks', { ...t, ...updates });
-            setState(produce(draft => { const idx = draft.tasks.findIndex(x => x.id === id); if(idx!==-1) Object.assign(draft.tasks[idx], updates); }));
+            setState(produce<BPMState>(draft => { const idx = draft.tasks.findIndex(x => x.id === id); if(idx!==-1) Object.assign(draft.tasks[idx], updates); }));
             addNotification('success', 'Task updated');
         }
     },
@@ -563,14 +745,14 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if(t) {
             const c = { id: `c-${Date.now()}`, userId: stateRef.current.currentUser?.id || '', userName: stateRef.current.currentUser?.name || 'User', text: txt, timestamp: new Date().toISOString() };
             await dbService.add('tasks', { ...t, comments: [...t.comments, c] });
-            setState(produce(draft => { const idx = draft.tasks.findIndex(x => x.id === id); if(idx!==-1) draft.tasks[idx].comments.push(c); }));
+            setState(produce<BPMState>(draft => { const idx = draft.tasks.findIndex(x => x.id === id); if(idx!==-1) draft.tasks[idx].comments.push(c); }));
         }
     },
     updateTaskChecklist: async (id: string, items: ChecklistItem[]) => {
         const t = stateRef.current.tasks.find(x => x.id === id);
         if(t) {
             await dbService.add('tasks', { ...t, checklist: items });
-            setState(produce(draft => { const idx = draft.tasks.findIndex(x => x.id === id); if(idx!==-1) draft.tasks[idx].checklist = items; }));
+            setState(produce<BPMState>(draft => { const idx = draft.tasks.findIndex(x => x.id === id); if(idx!==-1) draft.tasks[idx].checklist = items; }));
         }
     },
     bulkCompleteTasks: async (taskIds: string[], action: 'approve' | 'reject') => {
@@ -583,14 +765,14 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const t = stateRef.current.tasks.find(x => x.id === id);
         if(t) {
             await dbService.add('tasks', { ...t, isStarred: !t.isStarred });
-            setState(produce(draft => { const idx = draft.tasks.findIndex(x => x.id === id); if(idx!==-1) draft.tasks[idx].isStarred = !draft.tasks[idx].isStarred; }));
+            setState(produce<BPMState>(draft => { const idx = draft.tasks.findIndex(x => x.id === id); if(idx!==-1) draft.tasks[idx].isStarred = !draft.tasks[idx].isStarred; }));
         }
     },
     snoozeTask: async (id: string, until: string) => {
         const t = stateRef.current.tasks.find(x => x.id === id);
         if(t) {
             await dbService.add('tasks', { ...t, snoozeUntil: until });
-            setState(produce(draft => { const idx = draft.tasks.findIndex(x => x.id === id); if(idx!==-1) draft.tasks[idx].snoozeUntil = until; }));
+            setState(produce<BPMState>(draft => { const idx = draft.tasks.findIndex(x => x.id === id); if(idx!==-1) draft.tasks[idx].snoozeUntil = until; }));
             addNotification('info', 'Task snoozed');
         }
     },
@@ -600,25 +782,25 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             dueDate: new Date().toISOString(), status: TaskStatus.PENDING, priority: TaskPriority.MEDIUM, stepId: 'adhoc', data: {}, comments: [], attachments: [], isAdHoc: true
         };
         await dbService.add('tasks', t);
-        setState(produce(draft => { draft.tasks.unshift(t); }));
+        setState(produce<BPMState>(draft => { draft.tasks.unshift(t); }));
     },
     updateTaskLocation: async (id: string, lat: number, lng: number) => {
         const t = stateRef.current.tasks.find(x => x.id === id);
         if(t) {
             const loc = { lat, lng };
             await dbService.add('tasks', { ...t, location: loc });
-            setState(produce(draft => { const idx = draft.tasks.findIndex(x => x.id === id); if(idx!==-1) draft.tasks[idx].location = loc; }));
+            setState(produce<BPMState>(draft => { const idx = draft.tasks.findIndex(x => x.id === id); if(idx!==-1) draft.tasks[idx].location = loc; }));
         }
     },
 
     createCase, 
     updateCase: async (id: string, up: Partial<Case>) => {
         const c = stateRef.current.cases.find(x => x.id === id);
-        if(c) { await dbService.add('cases', { ...c, ...up }); setState(produce(draft => { const idx = draft.cases.findIndex(x => x.id === id); if(idx!==-1) Object.assign(draft.cases[idx], up); })); }
+        if(c) { await dbService.add('cases', { ...c, ...up }); setState(produce<BPMState>(draft => { const idx = draft.cases.findIndex(x => x.id === id); if(idx!==-1) Object.assign(draft.cases[idx], up); })); }
     }, 
     deleteCase: async (id: string) => {
         await dbService.delete('cases', id);
-        setState(produce(draft => { draft.cases = draft.cases.filter(c => c.id !== id); }));
+        setState(produce<BPMState>(draft => { draft.cases = draft.cases.filter(c => c.id !== id); }));
         addNotification('info', 'Case deleted');
     }, 
     addCaseEvent: async (id: string, desc: string) => {
@@ -626,7 +808,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if(c) {
             const ev = { id: `evt-${Date.now()}`, timestamp: new Date().toISOString(), type: 'Manual' as const, description: desc, author: stateRef.current.currentUser?.name || 'System' };
             await dbService.add('cases', { ...c, timeline: [ev, ...c.timeline] });
-            setState(produce(draft => { const idx = draft.cases.findIndex(x => x.id === id); if(idx!==-1) draft.cases[idx].timeline.unshift(ev); }));
+            setState(produce<BPMState>(draft => { const idx = draft.cases.findIndex(x => x.id === id); if(idx!==-1) draft.cases[idx].timeline.unshift(ev); }));
         }
     },
     removeCaseEvent: async (caseId: string, eventId: string) => {
@@ -634,7 +816,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if(c) {
             const timeline = c.timeline.filter(e => e.id !== eventId);
             await dbService.add('cases', { ...c, timeline });
-            setState(produce(draft => { const idx = draft.cases.findIndex(x => x.id === caseId); if(idx!==-1) draft.cases[idx].timeline = timeline; }));
+            setState(produce<BPMState>(draft => { const idx = draft.cases.findIndex(x => x.id === caseId); if(idx!==-1) draft.cases[idx].timeline = timeline; }));
         }
     }, 
     addCasePolicy: async (id: string, txt: string) => {
@@ -642,7 +824,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if(c) {
             const p = { id: `pol-${Date.now()}`, description: txt, isEnforced: true };
             await dbService.add('cases', { ...c, policies: [...c.policies, p] });
-            setState(produce(draft => { const idx = draft.cases.findIndex(x => x.id === id); if(idx!==-1) draft.cases[idx].policies.push(p); }));
+            setState(produce<BPMState>(draft => { const idx = draft.cases.findIndex(x => x.id === id); if(idx!==-1) draft.cases[idx].policies.push(p); }));
         }
     },
     removeCasePolicy: async (caseId: string, policyId: string) => {
@@ -650,15 +832,15 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if(c) {
             const policies = c.policies.filter(p => p.id !== policyId);
             await dbService.add('cases', { ...c, policies });
-            setState(produce(draft => { const idx = draft.cases.findIndex(x => x.id === caseId); if(idx!==-1) draft.cases[idx].policies = policies; }));
+            setState(produce<BPMState>(draft => { const idx = draft.cases.findIndex(x => x.id === caseId); if(idx!==-1) draft.cases[idx].policies = policies; }));
         }
     }, 
     addCaseStakeholder: async (id: string, uid: string, role: string) => {
         const c = stateRef.current.cases.find(x => x.id === id);
         if(c) {
-            const sh = { userId: uid, role: role as any };
+            const sh = { userId: uid, role: role as CaseStakeholder['role'] };
             await dbService.add('cases', { ...c, stakeholders: [...c.stakeholders, sh] });
-            setState(produce(draft => { const idx = draft.cases.findIndex(x => x.id === id); if(idx!==-1) draft.cases[idx].stakeholders.push(sh); }));
+            setState(produce<BPMState>(draft => { const idx = draft.cases.findIndex(x => x.id === id); if(idx!==-1) draft.cases[idx].stakeholders.push(sh); }));
         }
     },
     removeCaseStakeholder: async (caseId: string, userId: string) => {
@@ -666,51 +848,51 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if(c) {
             const stakeholders = c.stakeholders.filter(s => s.userId !== userId);
             await dbService.add('cases', { ...c, stakeholders });
-            setState(produce(draft => { const idx = draft.cases.findIndex(x => x.id === caseId); if(idx!==-1) draft.cases[idx].stakeholders = stakeholders; }));
+            setState(produce<BPMState>(draft => { const idx = draft.cases.findIndex(x => x.id === caseId); if(idx!==-1) draft.cases[idx].stakeholders = stakeholders; }));
         }
     },
 
-    saveRule: async (r: BusinessRule) => { await dbService.add('rules', r); setState(produce(draft => { const idx = draft.rules.findIndex(x => x.id === r.id); if(idx!==-1) draft.rules[idx] = r; else draft.rules.push(r); })); },
-    deleteRule: async (id: string) => { await dbService.delete('rules', id); setState(produce(draft => { draft.rules = draft.rules.filter(x => x.id !== id); })); },
+    saveRule: async (r: BusinessRule) => { await dbService.add('rules', r); setState(produce<BPMState>(draft => { const idx = draft.rules.findIndex(x => x.id === r.id); if(idx!==-1) draft.rules[idx] = r; else draft.rules.push(r); })); },
+    deleteRule: async (id: string) => { await dbService.delete('rules', id); setState(produce<BPMState>(draft => { draft.rules = draft.rules.filter(x => x.id !== id); })); },
     cloneRule: async (id: string) => {
         const r = stateRef.current.rules.find(x => x.id === id);
         if(r) {
             const newRule = { ...r, id: `rule-${Date.now()}`, name: `${r.name} (Copy)` };
             await dbService.add('rules', newRule);
-            setState(produce(draft => { draft.rules.push(newRule); }));
+            setState(produce<BPMState>(draft => { draft.rules.push(newRule); }));
             addNotification('success', 'Rule cloned');
         }
     },
-    saveDecisionTable: async (t: DecisionTable) => { await dbService.add('decisionTables', t); setState(produce(draft => { const idx = draft.decisionTables.findIndex(x => x.id === t.id); if(idx!==-1) draft.decisionTables[idx] = t; else draft.decisionTables.push(t); })); },
-    deleteDecisionTable: async (id: string) => { await dbService.delete('decisionTables', id); setState(produce(draft => { draft.decisionTables = draft.decisionTables.filter(x => x.id !== id); })); },
-    saveForm: async (f: FormDefinition) => { await dbService.add('forms', f); setState(produce(draft => { const idx = draft.forms.findIndex(x => x.id === f.id); if(idx!==-1) draft.forms[idx] = f; else draft.forms.push(f); })); },
-    deleteForm: async (id: string) => { await dbService.delete('forms', id); setState(produce(draft => { draft.forms = draft.forms.filter(x => x.id !== id); })); },
+    saveDecisionTable: async (t: DecisionTable) => { await dbService.add('decisionTables', t); setState(produce<BPMState>(draft => { const idx = draft.decisionTables.findIndex(x => x.id === t.id); if(idx!==-1) draft.decisionTables[idx] = t; else draft.decisionTables.push(t); })); },
+    deleteDecisionTable: async (id: string) => { await dbService.delete('decisionTables', id); setState(produce<BPMState>(draft => { draft.decisionTables = draft.decisionTables.filter(x => x.id !== id); })); },
+    saveForm: async (f: FormDefinition) => { await dbService.add('forms', f); setState(produce<BPMState>(draft => { const idx = draft.forms.findIndex(x => x.id === f.id); if(idx!==-1) draft.forms[idx] = f; else draft.forms.push(f); })); },
+    deleteForm: async (id: string) => { await dbService.delete('forms', id); setState(produce<BPMState>(draft => { draft.forms = draft.forms.filter(x => x.id !== id); })); },
     
-    createUser: async (u: Omit<User, 'id'>) => { const nu = { ...u, id: `u-${Date.now()}` }; await dbService.add('users', nu); setState(produce(draft => { draft.users.push(nu); })); }, 
-    updateUser: async (id: string, up: Partial<User>) => { const u = stateRef.current.users.find(x => x.id === id); if(u) { await dbService.add('users', { ...u, ...up }); setState(produce(draft => { const idx = draft.users.findIndex(x => x.id === id); if(idx!==-1) Object.assign(draft.users[idx], up); })); } }, 
-    deleteUser: async (id: string) => { await dbService.delete('users', id); setState(produce(draft => { draft.users = draft.users.filter(x => x.id !== id); })); },
+    createUser: async (u: Omit<User, 'id'>) => { const nu = { ...u, id: `u-${Date.now()}` }; await dbService.add('users', nu); setState(produce<BPMState>(draft => { draft.users.push(nu); })); }, 
+    updateUser: async (id: string, up: Partial<User>) => { const u = stateRef.current.users.find(x => x.id === id); if(u) { await dbService.add('users', { ...u, ...up }); setState(produce<BPMState>(draft => { const idx = draft.users.findIndex(x => x.id === id); if(idx!==-1) Object.assign(draft.users[idx], up); })); } }, 
+    deleteUser: async (id: string) => { await dbService.delete('users', id); setState(produce<BPMState>(draft => { draft.users = draft.users.filter(x => x.id !== id); })); },
     
-    createRole: async (role: Omit<UserRole, 'id'>) => { const nr = { ...role, id: `role-${Date.now()}` }; await dbService.add('roles', nr); setState(produce(draft => { draft.roles.push(nr); })); },
-    updateRole: async (id: string, updates: Partial<UserRole>) => { const r = stateRef.current.roles.find(x => x.id === id); if(r) { await dbService.add('roles', { ...r, ...updates }); setState(produce(draft => { const idx = draft.roles.findIndex(x => x.id === id); if(idx!==-1) Object.assign(draft.roles[idx], updates); })); } },
-    deleteRole: async (id: string) => { await dbService.delete('roles', id); setState(produce(draft => { draft.roles = draft.roles.filter(x => x.id !== id); })); },
+    createRole: async (role: Omit<UserRole, 'id'>) => { const nr = { ...role, id: `role-${Date.now()}` }; await dbService.add('roles', nr); setState(produce<BPMState>(draft => { draft.roles.push(nr); })); },
+    updateRole: async (id: string, updates: Partial<UserRole>) => { const r = stateRef.current.roles.find(x => x.id === id); if(r) { await dbService.add('roles', { ...r, ...updates }); setState(produce<BPMState>(draft => { const idx = draft.roles.findIndex(x => x.id === id); if(idx!==-1) Object.assign(draft.roles[idx], updates); })); } },
+    deleteRole: async (id: string) => { await dbService.delete('roles', id); setState(produce<BPMState>(draft => { draft.roles = draft.roles.filter(x => x.id !== id); })); },
     
-    createGroup: async (group: Omit<UserGroup, 'id'>) => { const ng = { ...group, id: `group-${Date.now()}` }; await dbService.add('groups', ng); setState(produce(draft => { draft.groups.push(ng); })); },
-    updateGroup: async (id: string, updates: Partial<UserGroup>) => { const g = stateRef.current.groups.find(x => x.id === id); if(g) { await dbService.add('groups', { ...g, ...updates }); setState(produce(draft => { const idx = draft.groups.findIndex(x => x.id === id); if(idx!==-1) Object.assign(draft.groups[idx], updates); })); } },
-    deleteGroup: async (id: string) => { await dbService.delete('groups', id); setState(produce(draft => { draft.groups = draft.groups.filter(x => x.id !== id); })); },
+    createGroup: async (group: Omit<UserGroup, 'id'>) => { const ng = { ...group, id: `group-${Date.now()}` }; await dbService.add('groups', ng); setState(produce<BPMState>(draft => { draft.groups.push(ng); })); },
+    updateGroup: async (id: string, updates: Partial<UserGroup>) => { const g = stateRef.current.groups.find(x => x.id === id); if(g) { await dbService.add('groups', { ...g, ...updates }); setState(produce<BPMState>(draft => { const idx = draft.groups.findIndex(x => x.id === id); if(idx!==-1) Object.assign(draft.groups[idx], updates); })); } },
+    deleteGroup: async (id: string) => { await dbService.delete('groups', id); setState(produce<BPMState>(draft => { draft.groups = draft.groups.filter(x => x.id !== id); })); },
 
     createDelegation: async (uid: string, scope: 'All' | 'Critical Only') => {
         const d: Delegation = { id: `del-${Date.now()}`, fromUserId: stateRef.current.currentUser?.id || '', toUserId: uid, scope, startDate: new Date().toISOString(), endDate: new Date(Date.now()+86400000).toISOString(), isActive: true };
         await dbService.add('delegations', d);
-        setState(produce(draft => { draft.delegations.push(d); }));
+        setState(produce<BPMState>(draft => { draft.delegations.push(d); }));
     },
-    revokeDelegation: async (id: string) => { await dbService.delete('delegations', id); setState(produce(draft => { draft.delegations = draft.delegations.filter(x => x.id !== id); })); },
+    revokeDelegation: async (id: string) => { await dbService.delete('delegations', id); setState(produce<BPMState>(draft => { draft.delegations = draft.delegations.filter(x => x.id !== id); })); },
     
     installIntegration: async (id: string, config: Record<string, string>) => {
         const int = stateRef.current.integrations.find(x => x.id === id);
         if(int) {
             const up = { ...int, isInstalled: true, config };
             await dbService.add('integrations', up);
-            setState(produce(draft => { const idx = draft.integrations.findIndex(x => x.id === id); if(idx!==-1) draft.integrations[idx] = up; }));
+            setState(produce<BPMState>(draft => { const idx = draft.integrations.findIndex(x => x.id === id); if(idx!==-1) draft.integrations[idx] = up; }));
             addNotification('success', `${int.name} Installed`);
         }
     },
@@ -719,7 +901,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if(int) {
             const up = { ...int, isInstalled: false, config: {} };
             await dbService.add('integrations', up);
-            setState(produce(draft => { const idx = draft.integrations.findIndex(x => x.id === id); if(idx!==-1) draft.integrations[idx] = up; }));
+            setState(produce<BPMState>(draft => { const idx = draft.integrations.findIndex(x => x.id === id); if(idx!==-1) draft.integrations[idx] = up; }));
             addNotification('info', `${int.name} Uninstalled`);
         }
     },
@@ -728,11 +910,11 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if(client) {
             const up = { ...client, status: client.status === 'Active' ? 'Revoked' : 'Active' } as ApiClient;
             await dbService.add('apiClients', up);
-            setState(produce(draft => { const idx = draft.apiClients.findIndex(x => x.id === id); if(idx!==-1) draft.apiClients[idx] = up; }));
+            setState(produce<BPMState>(draft => { const idx = draft.apiClients.findIndex(x => x.id === id); if(idx!==-1) draft.apiClients[idx] = up; }));
         }
     },
-    saveView: async (v: SavedView) => { const nv = { ...v, id: v.id || `view-${Date.now()}` }; await dbService.add('savedViews', nv); setState(produce(draft => { draft.savedViews.push(nv); })); },
-    deleteView: async (id: string) => { await dbService.delete('savedViews', id); setState(produce(draft => { draft.savedViews = draft.savedViews.filter(v => v.id !== id); })); },
+    saveView: async (v: SavedView) => { const nv = { ...v, id: v.id || `view-${Date.now()}` }; await dbService.add('savedViews', nv); setState(produce<BPMState>(draft => { draft.savedViews.push(nv); })); },
+    deleteView: async (id: string) => { await dbService.delete('savedViews', id); setState(produce<BPMState>(draft => { draft.savedViews = draft.savedViews.filter(v => v.id !== id); })); },
     updateSystemSettings: async (up: Partial<SystemSettings>) => { const ns = { ...stateRef.current.settings, ...up }; await dbService.add('systemSettings', ns); setState(prev => ({ ...prev, settings: ns })); },
     hasPermission: (perm: Permission) => {
         if (!stateRef.current.currentUser) return false;
@@ -741,12 +923,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             return role?.permissions.includes(perm) || role?.permissions.includes(Permission.ADMIN_ACCESS);
         });
     },
-    getStepStatistics: (defId: string, stepName: string) => {
-        const instances = stateRef.current.instances.filter(i => i.definitionId === defId);
-        let count = 0;
-        instances.forEach(i => i.history.forEach(h => { if(h.stepName === stepName) count++; }));
-        return { avgDuration: 5, errorRate: 0, totalExecutions: count };
-    },
+    getStepStatistics,
     reseedSystem: async () => { await dbService.reseed(); loadData(); },
     resetSystem: async () => { await dbService.resetDB(); window.location.reload(); },
     exportData: async () => { return dbService.exportData(); },
@@ -765,8 +942,27 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         };
         reader.readAsText(f);
     },
-    getActiveUsersOnRecord: (id: string) => { const uids = activePresence[id] || []; return stateRef.current.users.filter(u => uids.includes(u.id)); }
-  }), [addNotification, removeNotification, navigateTo, setToolbarConfig, startProcess, completeTask, compensateTransaction, deployProcess, deleteProcess, createCase, loadData, activePresence]);
+    getActiveUsersOnRecord: (id: string) => { const uids = activePresence[id] || []; return stateRef.current.users.filter(u => uids.includes(u.id)); },
+    
+    processTriggers,
+    createTrigger: async (trigger: Omit<AutomationTrigger, 'id'>) => {
+        const nt = { ...trigger, id: `tr-${Date.now()}` };
+        await dbService.add('triggers', nt);
+        setState(produce<BPMState>(draft => { draft.triggers.unshift(nt); }));
+    },
+    deleteTrigger: async (id: string) => {
+        await dbService.delete('triggers', id);
+        setState(produce<BPMState>(draft => { draft.triggers = draft.triggers.filter(t => t.id !== id); }));
+    },
+    updateTrigger: async (id: string, up: Partial<AutomationTrigger>) => {
+        const t = stateRef.current.triggers.find(x => x.id === id);
+        if(t) {
+            const ut = { ...t, ...up };
+            await dbService.add('triggers', ut);
+            setState(produce<BPMState>(draft => { const idx = draft.triggers.findIndex(x => x.id === id); if(idx!==-1) Object.assign(draft.triggers[idx], up); }));
+        }
+    }
+  }), [addNotification, removeNotification, navigateTo, setToolbarConfig, startProcess, completeTask, compensateTransaction, deployProcess, deleteProcess, createCase, loadData, activePresence, getStepStatistics, processTriggers]);
 
   const contextValue = useMemo(() => ({
       ...state,

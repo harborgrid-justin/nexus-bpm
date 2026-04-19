@@ -28,8 +28,13 @@ export const RuleGenPage = () => {
         };
         await saveRule(newRule);
         navigateTo('rules', newRule.id);
-    } catch (e) {
-        alert('Generation failed.');
+    } catch (e: any) {
+        const msg = e?.message || '';
+        if (msg.includes('429') || msg.toLowerCase().includes('quota')) {
+            alert('AI Generation failed: Quota Exceeded. Please try again later.');
+        } else {
+            alert('Generation failed: ' + msg);
+        }
     } finally {
         setLoading(false);
     }

@@ -1,7 +1,6 @@
 
 import React, { useMemo } from 'react';
 import { ProcessDefinition, ProcessStep } from '../../types';
-import { diff } from 'immer';
 import { ArrowRight, Plus, Minus, Edit, AlertCircle, CheckCircle } from 'lucide-react';
 import { NexBadge } from '../shared/NexUI';
 

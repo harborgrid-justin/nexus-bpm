@@ -1,5 +1,9 @@
 
-import { User, UserRole, UserGroup, Permission, ProcessDefinition, FormDefinition, BusinessRule, DecisionTable, Integration, ApiClient, SystemSettings, SavedView } from '../types';
+import { 
+  User, UserRole, UserGroup, Permission, ProcessDefinition, FormDefinition, 
+  BusinessRule, DecisionTable, Integration, ApiClient, SystemSettings, SavedView,
+  AutomationTrigger, TaskQueue, SLAProfile, DomainContext, SharedArtifact, MessagingChannel, TaskPriority, TaskStatus
+} from '../types';
 
 export const MOCK_ROLES: UserRole[] = [
   { id: 'admin', name: 'Principal Administrator', permissions: Object.values(Permission) },
@@ -141,4 +145,53 @@ export const DEFAULT_SETTINGS: SystemSettings = {
 
 export const MOCK_VIEWS: SavedView[] = [
     { id: 'v1', name: 'High Priority My Tasks', type: 'Task', filters: { priority: 'High', assignee: 'u-1' } }
+];
+
+export const MOCK_TRIGGERS: AutomationTrigger[] = [
+  {
+    id: 'tr-001',
+    name: 'Auto-Case on Critical Delay',
+    isEnabled: true,
+    eventSource: 'Task',
+    eventType: 'TASK_COMPLETE',
+    conditions: { id: 'g1', type: 'AND', children: [{ id: 'c1', fact: 'task.status', operator: 'eq', value: 'Completed' }] },
+    actionType: 'CreateTask',
+    actionParams: { title: 'Escalation Review', priority: 'Critical' },
+    cooldownPeriod: 10
+  },
+  {
+    id: 'tr-002',
+    name: 'Notify Slack on Case Resolved',
+    isEnabled: true,
+    eventSource: 'Case',
+    eventType: 'CASE_RESOLVED',
+    conditions: { id: 'g2', type: 'AND', children: [] },
+    actionType: 'Webhook',
+    actionParams: { url: 'https://hooks.slack.com/services/...' },
+    cooldownPeriod: 5
+  }
+];
+
+export const MOCK_QUEUES: TaskQueue[] = [
+  { id: 'q-global', name: 'Global Triage', description: 'Primary entry point for unassigned work.', ownerGroupId: 'hq', filterCriteria: {}, priorityBoost: 0 },
+  { id: 'q-finance', name: 'Financial Exception Queue', description: 'High-visibility fiscal variances.', ownerGroupId: 'finance-dept', filterCriteria: { category: 'Finance' }, priorityBoost: 10 }
+];
+
+export const MOCK_SLA_PROFILES: SLAProfile[] = [
+  { id: 'sla-standard', name: 'Standard Service (3d)', targetDuration: 72, warningThreshold: 75, criticalThreshold: 90, escalationActions: { atWarning: 'Notify', atCritical: 'Reassign' } },
+  { id: 'sla-vip', name: 'VIP Priority (4h)', targetDuration: 4, warningThreshold: 50, criticalThreshold: 80, escalationActions: { atWarning: 'Highlight', atCritical: 'EmailAdmin' } }
+];
+
+export const MOCK_DOMAINS: DomainContext[] = [
+  { id: 'EUROPE-PROD', name: 'EMEA Production', tenantId: 'nexflow-internal', settings: { region: 'EU' }, isActive: true },
+  { id: 'AMER-PROD', name: 'Americas Production', tenantId: 'nexflow-internal', settings: { region: 'US' }, isActive: true }
+];
+
+export const MOCK_ARTIFACTS: SharedArtifact[] = [
+  { id: 'art-inv-101', name: 'Invoice #101', schema: 'Finance', data: { amount: 1500, vendor: 'Acme Corp' }, linkedEntities: [], version: 1, lastUpdated: new Date().toISOString() }
+];
+
+export const MOCK_CHANNELS: MessagingChannel[] = [
+  { id: 'ch-email-main', type: 'Email', name: 'Corporate Relay', config: { host: 'smtp.internal.com' }, isVerified: true },
+  { id: 'ch-slack-ops', type: 'Slack', name: 'Ops Status #status-ops', config: { token: 'xoxb-...' }, isVerified: true }
 ];

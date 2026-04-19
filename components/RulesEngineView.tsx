@@ -7,13 +7,11 @@ import {
   FunctionSquare, Plus, BrainCircuit, Table, TestTube, Trash2, Save, 
   Upload, Play, GitMerge, X, 
   Activity, Tag, ArrowUp, ArrowDown, Download, Maximize2, Sparkles, MessageSquare, Search, LucideIcon,
-  ChevronDown, ChevronRight, Check, GripVertical, Settings, Minus
+  ChevronDown, ChevronRight, Check, GripVertical, Settings, Minus, Lock
 } from 'lucide-react';
 import { produce } from 'immer';
-import { NexButton, NexBadge, NexCard } from './shared/NexUI';
-import { Responsive, WidthProvider } from 'react-grid-layout';
-
-const ResponsiveGridLayout = WidthProvider(Responsive);
+import { NexButton, NexBadge, NexCard, NexFormGroup } from './shared/NexUI';
+import { PageGridLayout } from './shared/PageGridLayout';
 
 const SUGGESTED_FACTS = [
   'invoice.amount', 'invoice.currency', 'invoice.vendor', 'invoice.date',
@@ -211,7 +209,57 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({ rule, onSave, onDelete }) => 
             </div>
             <div className="flex-1 p-4 bg-subtle border border-default rounded-base font-mono text-xs text-primary leading-relaxed"><span className="text-blue-600 font-bold">LOGIC</span> {summary}</div>
             <section className="space-y-4"><h4 className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-2"><BrainCircuit size={14} className="text-blue-500"/> Logic Definition</h4><ConditionGroupEditor group={localRule.conditions} onUpdate={(p, g) => updateRule(d => {d.conditions = g})} path="conditions" /></section>
-            <section className="space-y-4"><h4 className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-2"><Play size={14} className="text-emerald-500"/> Result Action</h4><div className="p-4 border border-default rounded-base space-y-4 bg-panel"><select value={localRule.action.type} onChange={(e) => updateRule(d => { d.action.type = e.target.value as any })} className="prop-input"><option value="SET_VARIABLE">Set Variable</option><option value="ROUTE_TO">Route To</option><option value="SEND_NOTIFICATION">Notification</option></select><input placeholder="Param Value" value={localRule.action.params.value || ''} onChange={(e) => updateRule(d => {d.action.params.value = e.target.value})} className="prop-input" /></div></section>
+            <section className="space-y-4">
+                <h4 className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-2">
+                    <Play size={14} className="text-emerald-500"/> Result Action
+                </h4>
+                <NexCard className="p-4 space-y-4">
+                    <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-xs font-bold text-secondary uppercase">Result Action</h4>
+                    </div>
+                    <NexFormGroup label="Action Type">
+                        <select 
+                            className="prop-input" 
+                            value={localRule.action.type}
+                            onChange={e => updateRule(d => { d.action.type = e.target.value as any })}
+                        >
+                            <option value="SET_VARIABLE">Set Variable</option>
+                            <option value="ROUTE_TO">Route To</option>
+                            <option value="SEND_NOTIFICATION">Notification</option>
+                        </select>
+                    </NexFormGroup>
+                    {localRule.action.type === 'SET_VARIABLE' && (
+                        <div className="grid grid-cols-2 gap-2">
+                            <NexFormGroup label="Variable">
+                                <input 
+                                    className="prop-input" 
+                                    placeholder="amount" 
+                                    value={String(localRule.action.params?.variable || '')}
+                                    onChange={e => updateRule(d => { d.action.params.variable = e.target.value })}
+                                />
+                            </NexFormGroup>
+                            <NexFormGroup label="Value">
+                                <input 
+                                    className="prop-input" 
+                                    placeholder="100" 
+                                    value={String(localRule.action.params?.value || '')}
+                                    onChange={e => updateRule(d => { d.action.params.value = e.target.value })}
+                                />
+                            </NexFormGroup>
+                        </div>
+                    )}
+                    {localRule.action.type === 'ROUTE_TO' && (
+                         <NexFormGroup label="Queue/Role">
+                            <input 
+                                className="prop-input" 
+                                placeholder="Compliance Team" 
+                                value={String(localRule.action.params?.target || '')}
+                                onChange={e => updateRule(d => { d.action.params.target = e.target.value })}
+                            />
+                         </NexFormGroup>
+                    )}
+                </NexCard>
+            </section>
         </div>
     );
 };
@@ -249,6 +297,28 @@ const TableBuilder: React.FC<TableBuilderProps> = ({ table, onSave, onDelete }) 
     return (
         <div className="p-6 space-y-6 h-full overflow-y-auto">
             <div className="flex justify-between border-b border-default pb-4"><input className="text-xl font-bold bg-transparent outline-none text-primary" value={localTable.name} onChange={e => updateTable(d => {d.name = e.target.value})} /><div className="flex gap-2"><NexButton variant="danger" onClick={() => onDelete(table.id)} icon={Trash2}>Delete</NexButton><NexButton variant="primary" onClick={() => onSave(localTable)} icon={Save}>Save</NexButton></div></div>
+            
+            <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-4">
+                    <NexFormGroup label="Hit Policy" className="w-32">
+                        <select 
+                            className="prop-input text-[10px]"
+                            value={localTable.hitPolicy || 'Unique'}
+                            onChange={e => updateTable(d => { d.hitPolicy = e.target.value as any })}
+                        >
+                            <option value="Unique">Unique</option>
+                            <option value="First">First</option>
+                            <option value="Priority">Priority</option>
+                            <option value="Collect">Collect</option>
+                        </select>
+                    </NexFormGroup>
+                    <div className="flex gap-1 mt-4">
+                        <NexButton variant="secondary" size="sm" onClick={() => addColumn('input')} icon={Plus}>Input</NexButton>
+                        <NexButton variant="secondary" size="sm" onClick={() => addColumn('output')} icon={Plus}>Output</NexButton>
+                    </div>
+                </div>
+                <NexButton variant="primary" size="sm" onClick={() => updateTable(d => { d.rules.push(new Array(d.inputs.length + d.outputs.length).fill('')) })} icon={Plus}>Add Rule Row</NexButton>
+            </div>
             
             <div className="overflow-x-auto border border-default rounded-base shadow-sm">
                 <table className="w-full text-xs text-left">
@@ -308,10 +378,23 @@ export const RulesEngineView: React.FC = () => {
     const { gridConfig } = useTheme();
     const [selectedAsset, setSelectedAsset] = useState<{type: 'rule' | 'table', id: string} | null>(null);
     const [search, setSearch] = useState('');
-    const [isEditable, setIsEditable] = useState(false);
+
+    useEffect(() => {
+        setToolbarConfig({
+            title: 'Business Logic Registry',
+            actions: (
+                <div className="flex items-center gap-2">
+                    <NexButton variant="secondary" size="sm" icon={Plus} onClick={() => navigateTo('governance')}>New Domain</NexButton>
+                    <div className="h-4 w-px bg-default mx-1" />
+                    <button className="p-1.5 hover:bg-subtle rounded-sm text-secondary" title="Global Logic Lock"><Lock size={16}/></button>
+                </div>
+            ),
+            isEditable: true
+        });
+    }, [setToolbarConfig, navigateTo]);
 
     // Layouts
-    const defaultLayouts = {
+    const defaultLayouts = useMemo(() => ({
         lg: [
             { i: 'library', x: 0, y: 0, w: 3, h: 20 },
             { i: 'editor', x: 3, y: 0, w: 6, h: 20 },
@@ -322,17 +405,7 @@ export const RulesEngineView: React.FC = () => {
             { i: 'test', x: 0, y: 10, w: 4, h: 10 },
             { i: 'editor', x: 4, y: 0, w: 6, h: 20 }
         ]
-    };
-    const [layouts, setLayouts] = useState(defaultLayouts);
-
-    useEffect(() => {
-        setToolbarConfig({
-            view: [
-                { label: isEditable ? 'Lock Layout' : 'Edit Layout', action: () => setIsEditable(!isEditable), icon: Settings },
-                { label: 'Reset Layout', action: () => setLayouts(defaultLayouts) }
-            ]
-      });
-    }, [setToolbarConfig, isEditable]);
+    }), []);
 
     const createNew = (type: 'rule' | 'table') => {
         const id = `${type}-${Date.now()}`;
@@ -352,29 +425,72 @@ export const RulesEngineView: React.FC = () => {
 
     return (
         <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 -mx-4 px-4 pb-10">
-            <ResponsiveGridLayout className="layout" layouts={layouts} breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }} cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }} rowHeight={gridConfig.rowHeight} margin={gridConfig.margin} isDraggable={isEditable} isResizable={isEditable} draggableHandle=".drag-handle" onLayoutChange={(curr, all) => setLayouts(all)}>
-                <NexCard key="library" dragHandle={isEditable} className="p-0 flex flex-col h-full">
-                    <div className="p-3 border-b border-default bg-subtle">
-                        <div className="flex items-center justify-between mb-2">
-                            <h3 className="text-xs font-bold text-primary uppercase">Library</h3>
-                            <div className="flex gap-1"><IconButton icon={Sparkles} onClick={() => navigateTo('ai-rule-gen')} tooltip="AI Generate" className="text-blue-600"/><IconButton icon={BrainCircuit} onClick={() => createNew('rule')} tooltip="New Rule"/><IconButton icon={Table} onClick={() => createNew('table')} tooltip="New Table"/></div>
+            <PageGridLayout defaultLayouts={defaultLayouts}>
+                {({ isEditable }) => [
+                    <NexCard key="library" dragHandle={isEditable} className="p-0 flex flex-col overflow-hidden">
+                        <div className="p-03 border-b border-default bg-subtle">
+                            <div className="flex items-center justify-between mb-02">
+                                <h3 className="text-[10px] font-bold text-secondary uppercase tracking-widest">Logic Asset Registry</h3>
+                                <div className="flex gap-01">
+                                    <IconButton icon={Sparkles} onClick={() => navigateTo('ai-rule-gen')} tooltip="AI Synthesis" className="text-blue-600"/>
+                                    <IconButton icon={BrainCircuit} onClick={() => createNew('rule')} tooltip="Declare New Rule"/>
+                                    <IconButton icon={Table} onClick={() => createNew('table')} tooltip="Construct Decision Table"/>
+                                </div>
+                            </div>
+                            <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary" size={12}/><input className="w-full pl-9 pr-2 py-1.5 bg-panel border border-default rounded-sm text-[11px] font-semibold outline-none text-primary placeholder:text-tertiary" placeholder="Filter assets..." value={search} onChange={e => setSearch(e.target.value)}/></div>
                         </div>
-                        <div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-tertiary" size={12}/><input className="w-full pl-7 pr-2 py-1.5 bg-panel border border-default rounded-base text-xs outline-none text-primary" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)}/></div>
-                    </div>
-                    <div className="overflow-y-auto flex-1 p-3 space-y-6">
-                        {filteredRules.length > 0 && <section><h4 className="text-xs font-bold text-tertiary uppercase mb-2">Rules</h4>{filteredRules.map(r => <button key={r.id} onClick={() => setSelectedAsset({type: 'rule', id: r.id})} className={`w-full text-left px-3 py-2 rounded-base flex items-center gap-2 ${selectedAsset?.id === r.id ? 'bg-blue-50 text-blue-700 font-bold' : 'text-secondary hover:bg-subtle'}`}><BrainCircuit size={14} /> {r.name}</button>)}</section>}
-                        {filteredTables.length > 0 && <section><h4 className="text-xs font-bold text-tertiary uppercase mb-2">Tables</h4>{filteredTables.map(t => <button key={t.id} onClick={() => setSelectedAsset({type: 'table', id: t.id})} className={`w-full text-left px-3 py-2 rounded-base flex items-center gap-2 ${selectedAsset?.id === t.id ? 'bg-emerald-50 text-emerald-700 font-bold' : 'text-secondary hover:bg-subtle'}`}><Table size={14} /> {t.name}</button>)}</section>}
-                    </div>
-                </NexCard>
+                        <div className="overflow-y-auto flex-1 p-03 space-y-05 bg-panel">
+                            {filteredRules.length > 0 && (
+                                <section>
+                                    <h4 className="text-[9px] font-black text-tertiary uppercase mb-02 ml-2 tracking-tighter opacity-70">Business Rules</h4>
+                                    <div className="space-y-01">
+                                        {filteredRules.map(r => (
+                                            <button key={r.id} onClick={() => setSelectedAsset({type: 'rule', id: r.id})} className={`w-full text-left px-3 py-2 rounded-sm flex items-center gap-2 group transition-all text-[11px] font-medium ${selectedAsset?.id === r.id ? 'bg-blue-600 text-white shadow-sm' : 'text-secondary hover:bg-subtle'}`}>
+                                                <BrainCircuit size={14} className={selectedAsset?.id === r.id ? 'text-white' : 'text-tertiary group-hover:text-blue-600'} /> 
+                                                <span className="truncate">{r.name}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </section>
+                            )}
+                            {filteredTables.length > 0 && (
+                                <section>
+                                    <h4 className="text-[9px] font-black text-tertiary uppercase mb-02 ml-2 tracking-tighter opacity-70">Decision Tables</h4>
+                                    <div className="space-y-01">
+                                        {filteredTables.map(t => (
+                                            <button key={t.id} onClick={() => setSelectedAsset({type: 'table', id: t.id})} className={`w-full text-left px-3 py-2 rounded-sm flex items-center gap-2 group transition-all text-[11px] font-medium ${selectedAsset?.id === t.id ? 'bg-emerald-600 text-white shadow-sm' : 'text-secondary hover:bg-subtle'}`}>
+                                                <Table size={14} className={selectedAsset?.id === t.id ? 'text-white' : 'text-tertiary group-hover:text-emerald-600'} /> 
+                                                <span className="truncate">{t.name}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </section>
+                            )}
+                            {filteredRules.length === 0 && filteredTables.length === 0 && (
+                                <div className="py-10 text-center text-[10px] text-tertiary italic uppercase tracking-widest opacity-40">No matches</div>
+                            )}
+                        </div>
+                    </NexCard>,
 
-                <NexCard key="editor" dragHandle={isEditable} className="p-0 flex flex-col h-full overflow-hidden">
-                    {currentAsset ? (selectedAsset?.type === 'rule' ? <RuleBuilder rule={currentAsset as BusinessRule} onSave={saveRule} onDelete={handleDelete} /> : <TableBuilder table={currentAsset as DecisionTable} onSave={saveDecisionTable} onDelete={handleDelete} />) : <div className="flex-1 flex items-center justify-center text-tertiary italic">Select an asset</div>}
-                </NexCard>
+                    <NexCard key="editor" dragHandle={isEditable} className="p-0 flex flex-col overflow-hidden shadow-sm">
+                        {currentAsset ? (
+                            selectedAsset?.type === 'rule' ? 
+                            <RuleBuilder rule={currentAsset as BusinessRule} onSave={saveRule} onDelete={handleDelete} /> : 
+                            <TableBuilder table={currentAsset as DecisionTable} onSave={saveDecisionTable} onDelete={handleDelete} />
+                        ) : (
+                            <div className="flex-1 flex flex-col items-center justify-center text-tertiary p-10 text-center opacity-50 grayscale">
+                                <Activity size={32} className="mb-4 stroke-[1.5]"/>
+                                <div className="text-xs font-bold uppercase tracking-widest">Select an asset to debug</div>
+                                <div className="text-[10px] mt-2 max-w-[200px]">Logic definitions will appear here for manipulation and deployment.</div>
+                            </div>
+                        )}
+                    </NexCard>,
 
-                <NexCard key="test" dragHandle={isEditable} className="p-0 flex flex-col h-full overflow-hidden">
-                    <LiveTestPanel ruleId={selectedAsset?.id || null} />
-                </NexCard>
-            </ResponsiveGridLayout>
+                    <NexCard key="test" dragHandle={isEditable} className="p-0 flex flex-col overflow-hidden shadow-sm">
+                        <LiveTestPanel ruleId={selectedAsset?.id || null} />
+                    </NexCard>
+                ]}
+            </PageGridLayout>
         </div>
     );
 };

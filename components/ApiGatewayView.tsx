@@ -10,21 +10,42 @@ import {
 import { NexCard, NexButton, NexBadge, NexSwitch, NexModal, NexFormGroup, NexEmptyState } from './shared/NexUI';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { mockStreamService, StreamEvent } from '../services/mockStreamService';
-import { Responsive, WidthProvider } from 'react-grid-layout';
-
-const ResponsiveGridLayout = WidthProvider(Responsive);
+import { PageGridLayout } from './shared/PageGridLayout';
 
 interface LiveLog extends StreamEvent {}
+
+interface RegistryItem {
+    id: string;
+    name: string;
+    type: 'Rule' | 'Table';
+    method: string;
+    endpoint: string;
+    circuitOpen: boolean;
+}
 
 export const ApiGatewayView: React.FC = () => {
   const { rules, decisionTables, addNotification, apiClients, toggleApiClient, auditLogs, setToolbarConfig } = useBPM();
   const { gridConfig } = useTheme();
   
   const [activeTab, setActiveTab] = useState<'monitor' | 'sb' | 'adapters'>('monitor');
-  const [selectedEndpoint, setSelectedEndpoint] = useState<any>(null);
+  const [selectedEndpoint, setSelectedEndpoint] = useState<RegistryItem | null>(null);
   const [isEditable, setIsEditable] = useState(false);
   const [liveLogs, setLiveLogs] = useState<LiveLog[]>([]);
   const logContainerRef = useRef<HTMLDivElement>(null);
+  const [isAddStepOpen, setIsAddStepOpen] = useState(false);
+
+  // Dynamic Adapter State
+  const [adapters, setAdapters] = useState([
+    { id: 'jca-sap', name: 'SAP ERP (JCA)', desc: 'Connecting to S/4HANA via RFC.', status: 'Active', icon: Database },
+    { id: 'res-salesforce', name: 'Salesforce (REST)', desc: 'Bidirectional sync for Opportunities.', status: 'Active', icon: Globe },
+    { id: 'b2b-edifact', name: 'EDIFACT (B2B)', desc: 'Trading partner gateway (X12/EDIFACT).', status: 'Idle', icon: FileCode },
+    { id: 'jdbc-oracle', name: 'Oracle DB', desc: 'Direct JDBC Pooling.', status: 'Active', icon: Database }
+  ]);
+
+  const toggleAdapter = (id: string) => {
+      setAdapters(prev => prev.map(a => a.id === id ? { ...a, status: a.status === 'Active' ? 'Idle' : 'Active' } : a));
+      addNotification('info', `Adapter status updated.`);
+  };
 
   // Dynamic Pipeline State
   const [pipelineStages, setPipelineStages] = useState([
@@ -35,7 +56,7 @@ export const ApiGatewayView: React.FC = () => {
       { id: 'p5', name: 'SAP Adapter', icon: Database, color: 'slate' }
   ]);
 
-  const defaultLayouts = {
+  const defaultLayouts = useMemo(() => ({
       lg: [
           { i: 'traffic', x: 0, y: 0, w: 8, h: 8 },
           { i: 'clients', x: 8, y: 0, w: 4, h: 8 },
@@ -48,21 +69,20 @@ export const ApiGatewayView: React.FC = () => {
           { i: 'endpoints', x: 0, y: 14, w: 5, h: 10 },
           { i: 'logs', x: 5, y: 14, w: 5, h: 10 }
       ]
-  };
-  const [layouts, setLayouts] = useState(defaultLayouts);
+  }), []);
 
   useEffect(() => {
       setToolbarConfig({
           view: [
               { label: isEditable ? 'Lock Dashboard' : 'Customize Dashboard', action: () => setIsEditable(!isEditable), icon: Settings },
-              { label: 'Reset Layout', action: () => setLayouts(defaultLayouts) }
+              { label: 'Reset Layout', action: () => {} }
           ]
       });
   }, [setToolbarConfig, isEditable]);
 
-  const registry = useMemo(() => {
-    const rItems = rules.map(r => ({ ...r, type: 'Rule' as const, method: 'POST', endpoint: `/v1/execute/rule/${r.id}`, circuitOpen: false }));
-    const tItems = decisionTables.map(t => ({ ...t, type: 'Table' as const, method: 'POST', endpoint: `/v1/execute/table/${t.id}`, circuitOpen: false }));
+  const registry = useMemo<RegistryItem[]>(() => {
+    const rItems: RegistryItem[] = rules.map(r => ({ ...r, type: 'Rule' as const, method: 'POST', endpoint: `/v1/execute/rule/${r.id}`, circuitOpen: false }));
+    const tItems: RegistryItem[] = decisionTables.map(t => ({ ...t, type: 'Table' as const, method: 'POST', endpoint: `/v1/execute/table/${t.id}`, circuitOpen: false }));
     return [...rItems, ...tItems];
   }, [rules, decisionTables]);
 
@@ -108,7 +128,7 @@ export const ApiGatewayView: React.FC = () => {
                       )}
                   </React.Fragment>
               ))}
-              <button className="p-2 border border-dashed border-default rounded-full hover:bg-subtle text-tertiary" title="Add Pipeline Step">
+              <button className="p-2 border border-dashed border-default rounded-full hover:bg-subtle text-tertiary" title="Add Pipeline Step" onClick={() => setIsAddStepOpen(true)}>
                   <Plus size={16}/>
               </button>
           </div>
@@ -141,13 +161,8 @@ export const ApiGatewayView: React.FC = () => {
       
       {activeTab === 'adapters' && (
           <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto">
-              {[
-                  { name: 'SAP ERP (JCA)', desc: 'Connecting to S/4HANA via RFC.', status: 'Active', icon: Database },
-                  { name: 'Salesforce (REST)', desc: 'Bidirectional sync for Opportunities.', status: 'Active', icon: Globe },
-                  { name: 'EDIFACT (B2B)', desc: 'Trading partner gateway (X12/EDIFACT).', status: 'Idle', icon: FileCode },
-                  { name: 'Oracle DB', desc: 'Direct JDBC Pooling.', status: 'Active', icon: Database }
-              ].map((adapter, i) => (
-                  <div key={i} className="p-4 bg-panel border border-default rounded shadow-sm flex flex-col gap-3 group hover:border-blue-400 transition-colors cursor-pointer">
+              {adapters.map((adapter) => (
+                  <div key={adapter.id} onClick={() => toggleAdapter(adapter.id)} className="p-4 bg-panel border border-default rounded shadow-sm flex flex-col gap-3 group hover:border-blue-400 transition-colors cursor-pointer">
                       <div className="flex justify-between items-center">
                           <div className="flex items-center gap-2 font-bold text-sm text-primary">
                               <adapter.icon size={16} className="text-slate-500"/> {adapter.name}
@@ -155,6 +170,10 @@ export const ApiGatewayView: React.FC = () => {
                           <span className={`text-[10px] px-2 py-0.5 rounded font-bold border ${adapter.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-subtle text-secondary border-default'}`}>{adapter.status}</span>
                       </div>
                       <p className="text-xs text-secondary">{adapter.desc}</p>
+                      <div className="pt-2 border-t border-default/50 flex justify-between items-center">
+                         <span className="text-[9px] text-tertiary uppercase">Resource ID: {adapter.id}</span>
+                         <span className="text-[9px] text-blue-600 font-bold opacity-0 group-hover:opacity-100 transition-opacity">Toggle State</span>
+                      </div>
                   </div>
               ))}
           </div>
@@ -162,89 +181,80 @@ export const ApiGatewayView: React.FC = () => {
 
       {activeTab === 'monitor' && (
       <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 -mx-4 px-4 pb-10">
-        <ResponsiveGridLayout
-            className="layout"
-            layouts={layouts}
-            breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-            cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
-            rowHeight={gridConfig.rowHeight}
-            margin={gridConfig.margin}
-            isDraggable={isEditable}
-            isResizable={isEditable}
-            draggableHandle=".drag-handle"
-            onLayoutChange={(curr, all) => setLayouts(all)}
-        >
-            <NexCard key="traffic" dragHandle={isEditable} className="p-0 overflow-hidden flex flex-col h-full">
-                <div className="px-4 py-3 border-b border-default bg-subtle flex justify-between items-center">
-                    <h3 className="text-xs font-bold text-secondary uppercase flex items-center gap-2"><Activity size={14}/> Traffic Volume (24h)</h3>
-                    <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-base border border-blue-100 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span> Live</span>
-                </div>
-                <div className="flex-1 p-4">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={trafficData}>
-                            <defs><linearGradient id="colorReqs" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2}/><stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/></linearGradient></defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                            <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} />
-                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} />
-                            <Tooltip contentStyle={{borderRadius: '4px', border: '1px solid #e2e8f0', fontSize: '12px'}} />
-                            <Area type="monotone" dataKey="reqs" stroke="#3b82f6" fillOpacity={1} fill="url(#colorReqs)" strokeWidth={2} />
-                        </AreaChart>
-                    </ResponsiveContainer>
-                </div>
-            </NexCard>
+        <PageGridLayout defaultLayouts={defaultLayouts}>
+            {({ isEditable }) => [
+                <NexCard key="traffic" dragHandle={isEditable} className="p-0 overflow-hidden flex flex-col h-full">
+                    <div className="px-4 py-3 border-b border-default bg-subtle flex justify-between items-center">
+                        <h3 className="text-xs font-bold text-secondary uppercase flex items-center gap-2"><Activity size={14}/> Traffic Volume (24h)</h3>
+                        <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-base border border-blue-100 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span> Live</span>
+                    </div>
+                    <div className="flex-1 p-4">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={trafficData}>
+                                <defs><linearGradient id="colorReqs" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2}/><stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/></linearGradient></defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} />
+                                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} />
+                                <Tooltip contentStyle={{borderRadius: '4px', border: '1px solid #e2e8f0', fontSize: '12px'}} />
+                                <Area type="monotone" dataKey="reqs" stroke="#3b82f6" fillOpacity={1} fill="url(#colorReqs)" strokeWidth={2} />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </NexCard>,
 
-            <NexCard key="clients" dragHandle={isEditable} title="API Clients" className="flex flex-col h-full">
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                    {apiClients.length === 0 ? <NexEmptyState icon={Terminal} title="No Clients" description="No API keys generated."/> : apiClients.map(client => (
-                        <div key={client.id} className="p-3 border border-default rounded-sm flex items-center justify-between group hover:border-active transition-colors bg-white">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-50 text-blue-600 rounded-sm"><Terminal size={16}/></div>
-                                <div>
-                                    <h4 className="font-bold text-primary text-xs">{client.name}</h4>
-                                    <code className="text-[10px] text-secondary font-mono">{client.clientId}</code>
+                <NexCard key="clients" dragHandle={isEditable} title="API Clients" className="flex flex-col h-full">
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                        {apiClients.length === 0 ? <NexEmptyState icon={Terminal} title="No Clients" description="No API keys generated."/> : apiClients.map(client => (
+                            <div key={client.id} className="p-3 border border-default rounded-sm flex items-center justify-between group hover:border-active transition-colors bg-white">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-blue-50 text-blue-600 rounded-sm"><Terminal size={16}/></div>
+                                    <div>
+                                        <h4 className="font-bold text-primary text-xs">{client.name}</h4>
+                                        <code className="text-[10px] text-secondary font-mono">{client.clientId}</code>
+                                    </div>
                                 </div>
+                                <button onClick={() => !isEditable && toggleApiClient(client.id)}><NexBadge variant={client.status === 'Active' ? 'emerald' : 'rose'}>{client.status}</NexBadge></button>
                             </div>
-                            <button onClick={() => !isEditable && toggleApiClient(client.id)}><NexBadge variant={client.status === 'Active' ? 'emerald' : 'rose'}>{client.status}</NexBadge></button>
-                        </div>
-                    ))}
-                </div>
-            </NexCard>
+                        ))}
+                    </div>
+                </NexCard>,
 
-            <NexCard key="endpoints" dragHandle={isEditable} className="p-0 overflow-hidden flex flex-col h-full">
-                <div className="p-3 border-b border-default bg-subtle"><h4 className="text-xs font-bold text-secondary uppercase">Route Registry</h4></div>
-                <div className="flex-1 overflow-y-auto">
-                    {registry.length === 0 ? (
-                        <NexEmptyState icon={GitMerge} title="No Routes" description="Deploy rules to create endpoints." />
-                    ) : (
-                        registry.map((item) => (
-                            <div key={item.id} onClick={() => !isEditable && setSelectedEndpoint(item)} className={`p-3 border-b border-default cursor-pointer transition-colors hover:bg-subtle ${selectedEndpoint?.id === item.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'border-l-4 border-l-transparent'}`}>
-                                <div className="flex justify-between items-center mb-1">
-                                    <div className="flex gap-2"><span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm ${item.type === 'Rule' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}`}>{item.type}</span></div>
-                                    <NexBadge variant={item.status === 'Active' ? 'emerald' : 'slate'}>{item.status}</NexBadge>
+                <NexCard key="endpoints" dragHandle={isEditable} className="p-0 overflow-hidden flex flex-col h-full">
+                    <div className="p-3 border-b border-default bg-subtle"><h4 className="text-xs font-bold text-secondary uppercase">Route Registry</h4></div>
+                    <div className="flex-1 overflow-y-auto">
+                        {registry.length === 0 ? (
+                            <NexEmptyState icon={GitMerge} title="No Routes" description="Deploy rules to create endpoints." />
+                        ) : (
+                            registry.map((item) => (
+                                <div key={item.id} onClick={() => !isEditable && setSelectedEndpoint(item)} className={`p-3 border-b border-default cursor-pointer transition-colors hover:bg-subtle ${selectedEndpoint?.id === item.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'border-l-4 border-l-transparent'}`}>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <div className="flex gap-2"><span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm ${item.type === 'Rule' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}`}>{item.type}</span></div>
+                                        <NexBadge variant={item.status === 'Active' ? 'emerald' : 'slate'}>{item.status}</NexBadge>
+                                    </div>
+                                    <div className="font-bold text-sm text-primary truncate">{item.name}</div>
                                 </div>
-                                <div className="font-bold text-sm text-primary truncate">{item.name}</div>
-                            </div>
-                        ))
-                    )}
-                </div>
-            </NexCard>
+                            ))
+                        )}
+                    </div>
+                </NexCard>,
 
-            <NexCard key="logs" dragHandle={isEditable} className="p-0 overflow-hidden flex flex-col h-full border-slate-800 bg-slate-900 shadow-lg">
-                <div className="p-2 border-b border-slate-800 bg-slate-950 flex justify-between items-center text-slate-400">
-                    <h3 className="font-bold uppercase flex items-center gap-2 text-xs"><Terminal size={12}/> Live Stream</h3>
-                    <span className="flex items-center gap-1.5 text-[10px]"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Connected</span>
-                </div>
-                <div className="flex-1 overflow-y-auto p-2 space-y-1 font-mono text-xs" ref={logContainerRef}>
-                    {liveLogs.map(log => (
-                        <div key={log.id} className="flex gap-3 hover:bg-slate-800/50 p-0.5 rounded text-slate-300">
-                            <span className="text-slate-600 w-16 shrink-0">{log.timestamp.toLocaleTimeString()}</span>
-                            <span className={`w-12 font-bold ${log.source === 'API Gateway' ? 'text-amber-400' : 'text-blue-400'}`}>{log.source}</span>
-                            <span className="flex-1 truncate text-slate-400">{log.message}</span>
-                        </div>
-                    ))}
-                </div>
-            </NexCard>
-        </ResponsiveGridLayout>
+                <NexCard key="logs" dragHandle={isEditable} className="p-0 overflow-hidden flex flex-col h-full border-slate-800 bg-slate-900 shadow-lg">
+                    <div className="p-2 border-b border-slate-800 bg-slate-950 flex justify-between items-center text-slate-400">
+                        <h3 className="font-bold uppercase flex items-center gap-2 text-xs"><Terminal size={12}/> Live Stream</h3>
+                        <span className="flex items-center gap-1.5 text-[10px]"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Connected</span>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-2 space-y-1 font-mono text-xs" ref={logContainerRef}>
+                        {liveLogs.map(log => (
+                            <div key={log.id} className="flex gap-3 hover:bg-slate-800/50 p-0.5 rounded text-slate-300">
+                                <span className="text-slate-600 w-16 shrink-0">{log.timestamp.toLocaleTimeString()}</span>
+                                <span className={`w-12 font-bold ${log.source === 'API Gateway' ? 'text-amber-400' : 'text-blue-400'}`}>{log.source}</span>
+                                <span className="flex-1 truncate text-slate-400">{log.message}</span>
+                            </div>
+                        ))}
+                    </div>
+                </NexCard>
+            ]}
+        </PageGridLayout>
       </div>
       )}
     </div>

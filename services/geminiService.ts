@@ -42,8 +42,12 @@ async function safeExecute<T>(
       return JSON.parse(response.text) as T;
     }
     return fallback;
-  } catch (error) {
+  } catch (error: any) {
     console.error(`AI Service Error (${model}):`, error);
+    const msg = error?.message || '';
+    if (msg.includes('429') || msg.toLowerCase().includes('quota')) {
+        throw error;
+    }
     return fallback;
   }
 }
@@ -126,9 +130,15 @@ export const getProcessInsightsStream = async function* (processData: any): Asyn
     for await (const chunk of response) {
       if (chunk.text) yield chunk.text;
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
-    yield "Operational analysis unavailable.";
+    const msg = error?.message || '';
+    if (msg.includes('429') || msg.toLowerCase().includes('quota')) {
+       yield "AI Insights are currently unavailable (Quota Exceeded rate limit). Please try again later.";
+       throw error;
+    } else {
+       yield "Operational analysis unavailable.";
+    }
   }
 };
 
@@ -174,10 +184,19 @@ export const generateProcessDocumentation = async (processDef: any): Promise<str
   const ai = getClient();
   if (!ai) return "<h1>Documentation Unavailable</h1><p>API Key required for generation.</p>";
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-pro-preview",
-    contents: `Generate professional HTML documentation for this Business Process: ${JSON.stringify(processDef)}. Format: Pure HTML body content only.`
-  });
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-pro-preview",
+      contents: `Generate professional HTML documentation for this Business Process: ${JSON.stringify(processDef)}. Format: Pure HTML body content only.`
+    });
 
-  return response.text || "<p>Generation failed.</p>";
+    return response.text || "<p>Generation failed.</p>";
+  } catch (error: any) {
+    console.error("Documentation Generation Error:", error);
+    const msg = error?.message || '';
+    if (msg.includes('429') || msg.toLowerCase().includes('quota')) {
+      return "<h1>Quota Exceeded</h1><p>Documentation generation is currently unavailable due to API rate limits (Quota Exceeded). Please try again later.</p>";
+    }
+    return "<h1>Documentation Unavailable</h1><p>Generation failed unexpectedly.</p>";
+  }
 };

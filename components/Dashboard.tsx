@@ -18,7 +18,7 @@ export const Dashboard: React.FC = () => {
   const totalTasks = tasks.length || 1;
   const progress = Math.round((completedTasks / totalTasks) * 100);
 
-  const defaultLayouts = {
+  const defaultLayouts = useMemo(() => ({
     lg: [
       { i: 'metric-progress', x: 0, y: 0, w: 3, h: 4 },
       { i: 'metric-exposure', x: 3, y: 0, w: 3, h: 4 },
@@ -35,7 +35,7 @@ export const Dashboard: React.FC = () => {
       { i: 'chart-velocity', x: 0, y: 8, w: 10, h: 10 },
       { i: 'ai-advisor', x: 0, y: 18, w: 10, h: 8 }
     ]
-  };
+  }), []);
 
   const varianceValue = useMemo(() => {
     const totalImpact = cases
@@ -53,6 +53,11 @@ export const Dashboard: React.FC = () => {
     const totalDecisions = approvals + rejections;
     return totalDecisions === 0 ? 100 : Math.round((approvals / totalDecisions) * 100);
   }, [auditLogs]);
+
+  const toolbarActions = useMemo(() => [
+      { label: 'Export Report (PDF)', action: () => addNotification('info', 'Report generation started...') },
+      { label: 'Export Data (CSV)', action: () => addNotification('info', 'CSV download started...') }
+  ], [addNotification]);
 
   const velocityData = useMemo(() => {
     const days = 7;
@@ -89,15 +94,25 @@ export const Dashboard: React.FC = () => {
       setIsAiLoading(true);
       setAiInsight(""); // Reset before new stream
 
-      const stream = getProcessInsightsStream(context);
-      
-      for await (const chunk of stream) {
-          if (!active) break;
-          setAiInsight(prev => prev + chunk);
-          setIsAiLoading(false); // First chunk received
+      try {
+        const stream = getProcessInsightsStream(context);
+        
+        for await (const chunk of stream) {
+            if (!active) break;
+            setAiInsight(prev => prev + chunk);
+            setIsAiLoading(false); // First chunk received
+        }
+      } catch (err: any) {
+        if (!active) return;
+        const msg = err?.message || 'Failed';
+        if (msg.includes('429') || msg.toLowerCase().includes('quota')) {
+            setAiInsight("AI Insights are currently unavailable (Quota Exceeded rate limit). Please try again later.");
+        } else {
+            setAiInsight("AI Insights are temporarily unavailable.");
+        }
+      } finally {
+        if (active) setIsAiLoading(false);
       }
-      
-      setIsAiLoading(false);
     };
 
     // Debounce slightly to avoid rapid calls on mount
@@ -105,13 +120,46 @@ export const Dashboard: React.FC = () => {
     return () => { active = false; clearTimeout(timeout); };
   }, [tasks.length, criticalCount, qualityRate]);
 
+  const stats = useMemo(() => {
+    switch(activeTab) {
+        case 'Planning':
+            return {
+                progress: Math.round((tasks.filter(t => t.status === 'Pending').length / totalTasks) * 100),
+                exposure: `$${(cases.filter(c => c.status === 'Open').reduce((s, c) => s + (c.data?.impactAmount || 0), 0) / 1000).toFixed(0)}K`,
+                risks: tasks.filter(t => t.priority === 'High').length,
+                quality: 94
+            };
+        case 'Execution':
+            return {
+                progress: progress,
+                exposure: varianceValue,
+                risks: criticalCount,
+                quality: qualityRate
+            };
+        case 'Control':
+            return {
+                progress: 100,
+                exposure: '$0',
+                risks: 0,
+                quality: Math.min(100, qualityRate + 5)
+            };
+        default:
+            return {
+                progress: progress,
+                exposure: varianceValue,
+                risks: criticalCount,
+                quality: qualityRate
+            };
+    }
+  }, [activeTab, tasks, cases, progress, varianceValue, criticalCount, qualityRate, totalTasks]);
+
   return (
     <div className="animate-fade-in flex flex-col h-full overflow-hidden">
       <div 
-        className="flex items-center justify-between bg-white border border-slate-300 shadow-sm shrink-0 mb-4 px-4 py-2"
+        className="flex items-center justify-between bg-white border border-slate-300 shadow-sm shrink-0 mb-layout px-layout py-2"
         style={{ borderRadius: 'var(--radius-base)' }}
       >
-        <div className="flex gap-1">
+        <div className="flex gap-01">
           {['Overview', 'Planning', 'Execution', 'Control'].map(tab => (
             <button 
               key={tab}
@@ -122,7 +170,7 @@ export const Dashboard: React.FC = () => {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-04">
            <div className="flex items-center gap-2 px-3 border-l border-slate-200">
               <span className="text-[11px] font-bold text-slate-500">LAST SYNC:</span>
               <span className="text-[11px] font-mono text-slate-800">{new Date().toLocaleTimeString()}</span>
@@ -133,16 +181,13 @@ export const Dashboard: React.FC = () => {
       <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 -mx-4 px-4 pb-10">
         <PageGridLayout
             defaultLayouts={defaultLayouts}
-            toolbarActions={[
-                { label: 'Export Report (PDF)', action: () => addNotification('info', 'Report generation started...') },
-                { label: 'Export Data (CSV)', action: () => addNotification('info', 'CSV download started...') }
-            ]}
+            toolbarActions={toolbarActions}
         >
             <div key="metric-progress">
                 <NexMetricItem 
                     onClick={() => navigateTo('inbox')} 
                     label="Progress" 
-                    value={`${progress}%`} 
+                    value={`${stats.progress}%`} 
                     subtext={`${completedTasks}/${totalTasks} Tasks`} 
                     icon={ListChecks} 
                     color="blue" 
@@ -152,7 +197,7 @@ export const Dashboard: React.FC = () => {
                 <NexMetricItem 
                     onClick={() => navigateTo('cases')} 
                     label="Exposure" 
-                    value={varianceValue} 
+                    value={stats.exposure} 
                     subtext="Active Case Impact" 
                     icon={DollarSign} 
                     color="emerald" 
@@ -162,8 +207,8 @@ export const Dashboard: React.FC = () => {
                 <NexMetricItem 
                     onClick={() => navigateTo('inbox', undefined, 'Critical')} 
                     label="Risks" 
-                    value={criticalCount} 
-                    subtext="Critical Items" 
+                    value={stats.risks} 
+                    subtext="Stage-Specific Items" 
                     icon={AlertCircle} 
                     color="red" 
                 />
@@ -172,21 +217,21 @@ export const Dashboard: React.FC = () => {
                 <NexMetricItem 
                     onClick={() => navigateTo('governance')} 
                     label="Quality" 
-                    value={`${qualityRate}%`} 
+                    value={`${stats.quality}%`} 
                     subtext="Approval Rate" 
                     icon={ShieldCheck} 
                     color="emerald" 
                 />
             </div>
 
-            <NexCard key="chart-velocity" className="p-0 overflow-hidden flex flex-col h-full">
-                <div className="border-b border-slate-200 bg-slate-50 flex justify-between items-center px-4 py-2">
-                    <h3 className="text-xs font-bold text-slate-700 uppercase flex items-center gap-2">
-                    <Activity size={14} className="text-slate-400"/> Operational Velocity
+            <NexCard key="chart-velocity" className="p-0 overflow-hidden flex flex-col shadow-sm">
+                <div className="border-b border-default bg-subtle flex justify-between items-center px-4 py-2">
+                    <h3 className="text-xs font-bold text-secondary uppercase flex items-center gap-2">
+                    <Activity size={14} className="text-tertiary"/> Operational Velocity
                     </h3>
                     <button onClick={() => navigateTo('analytics')} className="text-blue-600 text-xs font-medium hover:underline">View Report</button>
                 </div>
-                <div className="flex-1 bg-white cursor-pointer p-4" onClick={() => navigateTo('governance')}>
+                <div className="flex-1 bg-panel cursor-pointer p-4 group" onClick={() => navigateTo('governance')}>
                     <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={velocityData}>
                         <defs>
@@ -208,14 +253,14 @@ export const Dashboard: React.FC = () => {
                 </div>
             </NexCard>
 
-            <NexCard key="ai-advisor" className="flex flex-col p-0 h-full">
-                <div className="border-b border-slate-200 bg-slate-50 px-4 py-2">
-                    <h3 className="text-xs font-bold text-slate-700 uppercase flex items-center gap-2">
+            <NexCard key="ai-advisor" className="flex flex-col p-0 shadow-sm border-amber-100 bg-amber-50/20">
+                <div className="border-b border-amber-100 bg-amber-50/50 px-4 py-2">
+                    <h3 className="text-xs font-bold text-amber-900 uppercase flex items-center gap-2">
                     <Sparkles size={14} className="text-amber-500"/> AI Advisor
                     </h3>
                 </div>
-                <div className="flex-1 bg-slate-50/30 flex flex-col justify-between p-4">
-                    <div className="bg-white border-l-4 border-l-amber-500 border border-slate-200 p-4 shadow-sm mb-4 flex-1 overflow-y-auto">
+                <div className="flex-1 flex flex-col justify-between p-4">
+                    <div className="bg-white border border-amber-200 p-04 shadow-sm mb-4 flex-1 overflow-y-auto rounded-sm">
                         {isAiLoading && !aiInsight ? (
                             <div className="space-y-2">
                                 <NexSkeleton className="h-3 w-3/4" />
@@ -228,7 +273,7 @@ export const Dashboard: React.FC = () => {
                             </p>
                         )}
                     </div>
-                    <button onClick={() => navigateTo('designer')} className="w-full py-2 bg-white border border-slate-300 text-slate-700 text-xs font-bold uppercase hover:bg-slate-50 transition-all shadow-sm">
+                    <button onClick={() => navigateTo('designer')} className="w-full py-2 bg-white border border-slate-300 text-slate-700 text-xs font-bold uppercase hover:bg-slate-50 transition-all shadow-sm rounded-sm">
                         Optimize Workflows
                     </button>
                 </div>

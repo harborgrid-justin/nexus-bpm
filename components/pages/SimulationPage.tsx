@@ -16,8 +16,28 @@ export const SimulationPage = () => {
         try {
           const res = await runWorkflowSimulation(designerDraft.steps);
           setResults(res);
-        } catch(e) {
+        } catch(e: any) {
           console.error(e);
+          const msg = e?.message || '';
+          if (msg.includes('429') || msg.toLowerCase().includes('quota')) {
+               setResults([{
+                   agentName: "System AI",
+                   persona: "Monitor",
+                   sentiment: "critical",
+                   score: 0,
+                   critique: "Simulation aborted due to API quota exhaustion (429 Rate Limit). Please try again later.",
+                   recommendations: ["Check billing details", "Wait for quota reset"]
+               }]);
+          } else {
+               setResults([{
+                   agentName: "System",
+                   persona: "Debugger",
+                   sentiment: "critical",
+                   score: 0,
+                   critique: "Simulation failed: " + msg,
+                   recommendations: []
+               }]);
+          }
         }
       }
       setLoading(false);

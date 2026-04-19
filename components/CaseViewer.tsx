@@ -8,9 +8,7 @@ import {
 import { NexBadge, NexButton, NexHistoryFeed, NexCard, NexModal, NexFormGroup, NexStatusBadge, NexEmptyState } from './shared/NexUI';
 import { TaskStatus } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
-import { Responsive, WidthProvider } from 'react-grid-layout';
-
-const ResponsiveGridLayout = WidthProvider(Responsive);
+import { PageGridLayout } from './shared/PageGridLayout';
 
 // Standard Case Stages (In production this would come from a configuration service)
 const STANDARD_STAGES = ['Open', 'In Progress', 'Pending Review', 'Resolved', 'Closed'];
@@ -53,13 +51,12 @@ export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
           { i: 'dynamic', x: 0, y: 38, w: 10, h: 6 }
       ]
   };
-  const [layouts, setLayouts] = useState(defaultLayouts);
 
   useEffect(() => {
       setToolbarConfig({
           view: [
               { label: isEditable ? 'Lock Layout' : 'Customize Dashboard', action: () => setIsEditable(!isEditable), icon: Settings },
-              { label: 'Reset Layout', action: () => setLayouts(defaultLayouts) }
+              { label: 'Reset Layout', action: () => {} }
           ]
       });
   }, [setToolbarConfig, isEditable]);
@@ -120,19 +117,10 @@ export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
   return (
     <div className="flex flex-col h-full animate-fade-in overflow-hidden">
       <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 -mx-4 px-4 pb-10">
-        <ResponsiveGridLayout
-            className="layout"
-            layouts={layouts}
-            breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-            cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
-            rowHeight={gridConfig.rowHeight}
-            margin={gridConfig.margin}
-            isDraggable={isEditable}
-            isResizable={isEditable}
-            draggableHandle=".drag-handle"
-            onLayoutChange={(curr, all) => setLayouts(all)}
-        >
-            <NexCard key="header" dragHandle={isEditable} className="flex flex-row items-center justify-between p-4">
+        <PageGridLayout defaultLayouts={defaultLayouts}>
+            {({ isEditable }) => (
+                <>
+                    <NexCard key="header" dragHandle={isEditable} className="flex flex-row items-center justify-between p-4">
                 <div className="flex items-center gap-4">
                     <button onClick={() => navigateTo('cases')} className="p-2 hover:bg-subtle rounded-full text-secondary transition-colors"><ArrowLeft size={20}/></button>
                     <div>
@@ -273,7 +261,9 @@ export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
                     ))}
                 </div>
             </NexCard>
-        </ResponsiveGridLayout>
+                </>
+            )}
+        </PageGridLayout>
       </div>
 
       {previewFile && (

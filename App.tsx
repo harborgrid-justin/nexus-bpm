@@ -5,13 +5,14 @@ import {
   Search, Layers, Settings as SettingsIcon, ShieldCheck, 
   Fingerprint, Briefcase, FunctionSquare, Info, CheckCircle, AlertCircle, ChevronRight, Loader2,
   Database, LogIn, Command, Home, Calendar, Globe, FormInput,
-  PanelLeftClose, PanelLeftOpen, ShoppingBag, Smartphone
+  PanelLeftClose, PanelLeftOpen, ShoppingBag, Zap
 } from 'lucide-react';
 
 // --- Static Imports for Reliability ---
 import { Dashboard } from './components/Dashboard';
 import { TaskInbox } from './components/TaskInbox';
-import { TaskExplorer } from './components/TaskExplorer';
+import { NexusExplorer } from './components/NexusExplorer';
+import { TriggerManager } from './components/TriggerManager';
 import { ProcessRepository } from './components/ProcessRepository';
 import { ProcessDesigner } from './components/ProcessDesigner';
 import { AnalyticsView } from './components/AnalyticsView';
@@ -26,7 +27,6 @@ import { ApiGatewayView } from './components/ApiGatewayView';
 import { FormRepository } from './components/FormRepository';
 import { FormDesigner } from './components/FormDesigner';
 import { MarketplaceView } from './components/MarketplaceView';
-import { MobileFieldView } from './components/MobileFieldView';
 import { ResourcePlanner } from './components/pages/ResourcePlanner';
 
 import { DevToolbar } from './components/DevToolbar';
@@ -116,7 +116,8 @@ const NavGroup = ({ title, children, collapsed }: { title: string, children?: Re
 const ROUTES: Record<string, React.ComponentType<any>> = {
     'dashboard': Dashboard,
     'inbox': TaskInbox,
-    'explorer': TaskExplorer,
+    'explorer': NexusExplorer,
+    'trigger-manager': TriggerManager,
     'processes': ProcessRepository,
     'designer': ProcessDesigner,
     'analytics': AnalyticsView,
@@ -131,7 +132,6 @@ const ROUTES: Record<string, React.ComponentType<any>> = {
     'forms': FormRepository,
     'form-designer': FormDesigner,
     'marketplace': MarketplaceView,
-    'field-ops': MobileFieldView,
     'create-user': UserFormView,
     'edit-user': UserFormView,
     'create-role': RoleFormView,
@@ -222,16 +222,6 @@ const AppContent: React.FC = () => {
     );
   }
 
-  if (nav.view === 'field-ops') {
-      return (
-          <>
-            <div className="h-screen w-full">
-                <MobileFieldView />
-            </div>
-            <button onClick={() => navigateTo('dashboard')} className="fixed top-2 right-2 z-[250] bg-black/30 hover:bg-black/50 text-white rounded-full p-2 backdrop-blur-sm transition-all"><X size={20}/></button>
-          </>
-      );
-  }
 
   return (
     <div className="flex h-screen bg-app overflow-hidden">
@@ -252,10 +242,11 @@ const AppContent: React.FC = () => {
           <NavGroup title="Operations" collapsed={sidebarCollapsed}>
             <NavItem view="dashboard" icon={LayoutDashboard} label="Overview" active={nav.view === 'dashboard'} collapsed={sidebarCollapsed} />
             <NavItem view="inbox" icon={CheckSquare} label="Task List" active={nav.view === 'inbox'} collapsed={sidebarCollapsed} />
+            <NavItem view="explorer" icon={Search} label="Nexus Discovery" active={nav.view === 'explorer'} collapsed={sidebarCollapsed} />
             <NavItem view="cases" icon={Briefcase} label="Case Management" active={nav.view === 'cases'} collapsed={sidebarCollapsed} />
-            <NavItem view="field-ops" icon={Smartphone} label="Field Ops Mode" active={nav.view === 'field-ops'} collapsed={sidebarCollapsed} />
           </NavGroup>
           <NavGroup title="Configuration" collapsed={sidebarCollapsed}>
+            <NavItem view="trigger-manager" icon={Zap} label="Trigger Orchestrator" active={nav.view === 'trigger-manager'} collapsed={sidebarCollapsed} />
             <NavItem view="processes" icon={Layers} label="Process Registry" active={nav.view === 'processes'} collapsed={sidebarCollapsed} />
             <NavItem view="designer" icon={PenTool} label="Workflow Designer" active={nav.view === 'designer'} collapsed={sidebarCollapsed} />
             <NavItem view="forms" icon={FormInput} label="Form Builder" active={nav.view === 'forms'} collapsed={sidebarCollapsed} />
@@ -274,10 +265,10 @@ const AppContent: React.FC = () => {
 
         <div className={`border-t border-default bg-subtle shrink-0 transition-all ${sidebarCollapsed ? 'p-2' : 'p-4'}`}>
           <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} transition-all`}>
-            <div className="w-9 h-9 rounded-full bg-white border border-default flex items-center justify-center text-blue-700 font-bold text-sm shadow-sm shrink-0">{currentUser.name.charAt(0)}</div>
+            <div className="w-9 h-9 rounded-full bg-white border border-default flex items-center justify-center text-blue-700 font-bold text-sm shadow-sm shrink-0">{(currentUser?.name || 'U').charAt(0)}</div>
             <div className={`min-w-0 overflow-hidden transition-all duration-300 ${sidebarCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100 flex-1'}`}>
-              <p className="text-sm font-bold text-primary truncate">{currentUser.name}</p>
-              <p className="text-xs text-secondary truncate">{currentUser.email}</p>
+              <p className="text-sm font-bold text-primary truncate">{currentUser?.name || 'Unknown User'}</p>
+              <p className="text-xs text-secondary truncate">{currentUser?.email || ''}</p>
             </div>
             {!sidebarCollapsed && <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="p-1.5 text-secondary hover:text-primary hover:bg-hover rounded-md"><PanelLeftClose size={16} /></button>}
           </div>
@@ -291,7 +282,7 @@ const AppContent: React.FC = () => {
             <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden text-secondary p-1 hover:bg-hover rounded-md"><Menu size={20}/></button>
             <div className="flex items-center px-3 py-1.5 bg-subtle border border-default rounded-md hover:border-active transition-colors cursor-pointer group gap-base">
                <span className="text-xs font-semibold text-secondary group-hover:text-primary">Domain:</span>
-               <span className="text-xs text-primary font-mono font-bold">{currentUser.domainId || 'GLOBAL'}</span>
+               <span className="text-xs text-primary font-mono font-bold">{currentUser?.domainId || 'GLOBAL'}</span>
             </div>
           </div>
           <div className="flex items-center gap-base">

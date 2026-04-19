@@ -1,23 +1,20 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useBPM } from '../contexts/BPMContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Play, FileText, Layers, Plus, Edit, MoreVertical, Copy, Trash2, PauseCircle, StopCircle, Search, History, BookOpen, Globe, Upload, BarChart3, AlertCircle, Settings, GripVertical, CheckCircle } from 'lucide-react';
-import { NexBadge, NexModal, NexButton, NexCard, NexStatusBadge, NexEmptyState } from './shared/NexUI';
+import { Play, FileText, Layers, Plus, Edit, MoreVertical, Copy, Trash2, PauseCircle, StopCircle, Search, History, BookOpen, Globe, Upload, BarChart3, AlertCircle, Settings, GripVertical, CheckCircle, Database, Activity, Download } from 'lucide-react';
+import { NexBadge, NexModal, NexButton, NexCard, NexStatusBadge, NexEmptyState, KPICard } from './shared/NexUI';
 import { ProcessDiffViewer } from './governance/ProcessDiffViewer';
 import { ProcessDefinition } from '../types';
 import { generateProcessDocumentation } from '../services/geminiService';
 import { ProcessHeatmap } from './process/ProcessHeatmap';
-import { Responsive, WidthProvider } from 'react-grid-layout';
-
-const ResponsiveGridLayout = WidthProvider(Responsive);
+import { PageGridLayout } from './shared/PageGridLayout';
 
 export const ProcessRepository: React.FC = () => {
   const { processes, instances, startProcess, openInstanceViewer, deployProcess, deleteProcess, toggleProcessState, suspendInstance, terminateInstance, navigateTo, addNotification, setToolbarConfig } = useBPM();
   const { gridConfig, layoutBreakpoints, layoutCols } = useTheme();
   
   const [filterQuery, setFilterQuery] = useState('');
-  const [isEditable, setIsEditable] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Modals
@@ -29,7 +26,7 @@ export const ProcessRepository: React.FC = () => {
   const [heatmapMode, setHeatmapMode] = useState<'traffic' | 'errors'>('traffic');
 
   // Layouts
-  const defaultLayouts = {
+  const defaultLayouts = useMemo(() => ({
       lg: [
           { i: 'stats-defs', x: 0, y: 0, w: 4, h: 3 },
           { i: 'stats-active', x: 4, y: 0, w: 4, h: 3 },
@@ -44,23 +41,34 @@ export const ProcessRepository: React.FC = () => {
           { i: 'defs-list', x: 0, y: 3, w: 10, h: 8 },
           { i: 'inst-list', x: 0, y: 11, w: 10, h: 8 }
       ]
-  };
-  const [layouts, setLayouts] = useState(defaultLayouts);
-
-  useEffect(() => {
-      setToolbarConfig({
-          view: [
-              { label: isEditable ? 'Lock Layout' : 'Edit Layout', action: () => setIsEditable(!isEditable), icon: Settings },
-              { label: 'Reset Layout', action: () => setLayouts(defaultLayouts) }
-          ]
-      });
-  }, [setToolbarConfig, isEditable]);
+  }), []);
 
   // Handlers
   const handleStart = (id: string) => { startProcess(id, { summary: `Automated initiation via Registry` }); };
   const handleDuplicate = async (proc: ProcessDefinition) => { const newProc = { ...proc, id: undefined, name: `${proc.name} (Copy)`, version: 1, history: [] }; await deployProcess(newProc); };
+  const handleExportProcess = (proc: ProcessDefinition) => {
+      const data = JSON.stringify(proc, null, 2);
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = `process_${proc.name.replace(/\s+/g, '_').toLowerCase()}.json`; a.click();
+      addNotification('info', 'Process model exported.');
+  };
   const handleViewHistory = (proc: ProcessDefinition) => { setSelectedHistoryProc(proc); setHistoryModalOpen(true); };
-  const handleGenerateDocs = async (proc: ProcessDefinition) => { setDocModalOpen(true); setDocContent('<p>Generating...</p>'); try { const html = await generateProcessDocumentation(proc); setDocContent(html); } catch(e) { setDocContent('Error'); } };
+  const handleGenerateDocs = async (proc: ProcessDefinition) => { 
+      setDocModalOpen(true); 
+      setDocContent('<p>Generating...</p>'); 
+      try { 
+          const html = await generateProcessDocumentation(proc); 
+          setDocContent(html); 
+      } catch(e: any) { 
+          const msg = e?.message || '';
+          if (msg.includes('429') || msg.toLowerCase().includes('quota')) {
+              setDocContent('<div class="p-6 text-center text-rose-600"><p class="font-bold mb-2">Quota Exceeded</p><p class="text-sm">Cannot generate documentation because the AI quota rate limits have been reached. Please try again later.</p></div>');
+          } else {
+              setDocContent('<p class="text-rose-600">Error generating documentation.</p>'); 
+          }
+      } 
+  };
   
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -87,12 +95,12 @@ export const ProcessRepository: React.FC = () => {
 
   return (
     <div className="animate-fade-in flex flex-col h-full overflow-hidden">
-      <header className="flex items-center justify-between border-b border-slate-300 pb-4 shrink-0 mb-2">
+      <header className="flex items-center justify-between border-b border-default pb-04 shrink-0 mb-layout">
         <div>
-          <h2 className="text-xl font-bold text-slate-800 tracking-tight">Process Registry</h2>
-          <p className="text-xs text-slate-500 font-medium">Authoritative source for deployed models and runtimes.</p>
+          <h2 className="text-xl font-bold text-primary tracking-tight">Process Registry</h2>
+          <p className="text-xs text-secondary font-medium">Authoritative source for deployed models and runtimes.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-02">
             <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleImportFile} />
             <NexButton variant="secondary" onClick={() => fileInputRef.current?.click()} icon={Upload}>Import</NexButton>
             <NexButton variant="primary" icon={Plus} onClick={() => navigateTo('designer')}>New Model</NexButton>
@@ -100,91 +108,97 @@ export const ProcessRepository: React.FC = () => {
       </header>
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 -mx-4 px-4 pb-10">
-        <ResponsiveGridLayout
-            className="layout"
-            layouts={layouts}
-            breakpoints={layoutBreakpoints}
-            cols={layoutCols}
-            rowHeight={gridConfig.rowHeight}
-            margin={gridConfig.margin}
-            isDraggable={isEditable}
-            isResizable={isEditable}
-            draggableHandle=".drag-handle"
-            onLayoutChange={(curr, all) => setLayouts(all)}
-        >
-            <div key="stats-defs" className="bg-white border border-slate-200 rounded-sm p-4 flex items-center justify-between shadow-sm">
-                <div>
-                    <div className="text-2xl font-bold text-slate-900">{processes.length}</div>
-                    <div className="text-[10px] font-bold text-slate-500 uppercase">Total Definitions</div>
-                </div>
-                {isEditable && <GripVertical size={14} className="drag-handle text-slate-300"/>}
-                <div className="p-2 bg-blue-50 text-blue-600 rounded-full"><Layers size={20}/></div>
-            </div>
-            <div key="stats-active" className="bg-white border border-slate-200 rounded-sm p-4 flex items-center justify-between shadow-sm">
-                <div>
-                    <div className="text-2xl font-bold text-emerald-600">{activeInstances.length}</div>
-                    <div className="text-[10px] font-bold text-slate-500 uppercase">Active Runtimes</div>
-                </div>
-                {isEditable && <GripVertical size={14} className="drag-handle text-slate-300"/>}
-                <div className="p-2 bg-emerald-50 text-emerald-600 rounded-full"><Play size={20}/></div>
-            </div>
-            <div key="stats-errors" className="bg-white border border-slate-200 rounded-sm p-4 flex items-center justify-between shadow-sm">
-                <div>
-                    <div className="text-2xl font-bold text-rose-600">{errorInstances.length}</div>
-                    <div className="text-[10px] font-bold text-slate-500 uppercase">Failures (24h)</div>
-                </div>
-                {isEditable && <GripVertical size={14} className="drag-handle text-slate-300"/>}
-                <div className="p-2 bg-rose-50 text-rose-600 rounded-full"><AlertCircle size={20}/></div>
-            </div>
-
-            <NexCard key="defs-list" dragHandle={isEditable} title="Definitions" className="p-0 overflow-hidden flex flex-col h-full"
-                actions={<div className="relative w-48"><Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400"/><input className="w-full pl-6 pr-2 py-1 bg-slate-100 border border-slate-200 rounded-sm text-xs outline-none" placeholder="Filter..." value={filterQuery} onChange={e => setFilterQuery(e.target.value)}/></div>}
-            >
-                <div className="flex-1 overflow-y-auto p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredProcesses.map(p => (
-                        <div key={p.id} className="bg-white border border-slate-200 rounded-sm p-3 hover:shadow-md transition-shadow relative group">
-                            <div className="flex justify-between items-start mb-2">
-                                <h4 className="font-bold text-sm text-slate-800">{p.name}</h4>
-                                <button onClick={() => !isEditable && navigateTo('designer', p.id)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-slate-100 rounded text-slate-500"><Edit size={12}/></button>
+        <PageGridLayout defaultLayouts={defaultLayouts}>
+            {({ isEditable }) => [
+                <KPICard 
+                    key="stats-defs" 
+                    isEditable={isEditable} 
+                    title="Total Definitions" 
+                    value={processes.length} 
+                    icon={Database} 
+                    color="blue" 
+                />,
+                <KPICard 
+                    key="stats-active" 
+                    isEditable={isEditable} 
+                    title="Active Runtimes" 
+                    value={activeInstances.length} 
+                    icon={Play} 
+                    color="emerald" 
+                />,
+                <KPICard 
+                    key="stats-errors" 
+                    isEditable={isEditable} 
+                    title="Failures (24h)" 
+                    value={errorInstances.length} 
+                    icon={AlertCircle} 
+                    color="rose" 
+                />,
+                <NexCard key="defs-list" dragHandle={isEditable} title="Deployed Definitions" className="p-0 overflow-hidden flex flex-col"
+                    actions={<div className="relative w-48"><Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-tertiary"/><input className="w-full pl-8 pr-2 py-1 bg-subtle border border-default rounded-sm text-[11px] outline-none text-primary" placeholder="Filter..." value={filterQuery} onChange={e => setFilterQuery(e.target.value)}/></div>}
+                >
+                    <div className="flex-1 overflow-y-auto p-04 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-04 bg-panel">
+                        {filteredProcesses.length === 0 ? (
+                            <div className="col-span-full py-12">
+                                <NexEmptyState icon={Database} title="No definitions found" description="Try refining your search or import a new model." />
                             </div>
-                            <div className="flex gap-2 mb-3">
-                                <span className="text-[9px] font-mono bg-slate-100 px-1 rounded">v{p.version}</span>
-                                <NexBadge variant={p.isActive ? 'emerald' : 'slate'}>{p.isActive ? 'Active' : 'Archived'}</NexBadge>
-                            </div>
-                            <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-100">
-                                <button onClick={() => !isEditable && setHeatmapProc(p)} className="text-[10px] text-blue-600 hover:underline flex items-center gap-1"><BarChart3 size={10}/> Analytics</button>
-                                <button onClick={() => !isEditable && handleStart(p.id)} className="bg-blue-600 text-white rounded-full p-1.5 hover:bg-blue-700 shadow-sm"><Play size={10} fill="currentColor"/></button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </NexCard>
-
-            <NexCard key="inst-list" dragHandle={isEditable} title="Active Instances" className="p-0 overflow-hidden flex flex-col h-full">
-                <div className="flex-1 overflow-y-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead className="bg-slate-50 border-b border-slate-200">
-                            <tr className="text-[10px] font-bold text-slate-500 uppercase">
-                                <th className="px-4 py-2">ID</th>
-                                <th className="px-4 py-2">Definition</th>
-                                <th className="px-4 py-2">Status</th>
-                                <th className="px-4 py-2 text-right">Started</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {filteredInstances.slice(0, 20).map(inst => (
-                                <tr key={inst.id} onClick={() => !isEditable && openInstanceViewer(inst.id)} className="hover:bg-slate-50 cursor-pointer text-xs group">
-                                    <td className="px-4 py-2 font-mono text-slate-500">{inst.id.split('-').pop()}</td>
-                                    <td className="px-4 py-2 font-bold text-slate-800">{inst.definitionName}</td>
-                                    <td className="px-4 py-2"><NexStatusBadge status={inst.status}/></td>
-                                    <td className="px-4 py-2 text-right text-slate-500">{new Date(inst.startDate).toLocaleDateString()}</td>
+                        ) : (
+                            filteredProcesses.map(p => (
+                                <div key={p.id} className="bg-panel border border-default rounded-sm p-04 hover:shadow-md transition-shadow relative group">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h4 className="font-bold text-sm text-primary tracking-tight">{p.name}</h4>
+                                        <button onClick={() => !isEditable && navigateTo('designer', p.id)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-subtle rounded-sm text-tertiary"><Edit size={12}/></button>
+                                    </div>
+                                    <div className="flex gap-2 mb-3">
+                                        <span className="text-[9px] font-mono bg-subtle px-1 rounded border border-default">v{p.version}</span>
+                                        <NexBadge variant={p.isActive ? 'emerald' : 'slate'}>{p.isActive ? 'Active' : 'Archived'}</NexBadge>
+                                    </div>
+                                    <div className="flex justify-between items-center mt-4 pt-4 border-t border-default">
+                                        <div className="flex gap-3">
+                                            <button onClick={() => !isEditable && setHeatmapProc(p)} className="text-[10px] text-blue-600 font-bold hover:underline flex items-center gap-1 uppercase tracking-wider"><BarChart3 size={12}/> Analysis</button>
+                                            <button onClick={() => !isEditable && handleExportProcess(p)} className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center gap-1 uppercase tracking-wider"><Download size={12}/> Export</button>
+                                        </div>
+                                        <button onClick={() => !isEditable && handleStart(p.id)} className="bg-blue-600 text-white rounded-full p-2 hover:bg-blue-700 shadow-md transition-all active:scale-95"><Play size={10} fill="currentColor"/></button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </NexCard>,
+                <NexCard key="inst-list" dragHandle={isEditable} title="Active Deployment Instances" className="p-0 overflow-hidden flex flex-col">
+                    <div className="flex-1 overflow-y-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-subtle border-b border-default sticky top-0 z-10">
+                                <tr className="text-[10px] font-bold text-secondary uppercase tracking-widest">
+                                    <th className="px-layout py-3">Reference ID</th>
+                                    <th className="px-layout py-3">Namespace</th>
+                                    <th className="px-layout py-3">Status</th>
+                                    <th className="px-layout py-3 text-right">Observation Date</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </NexCard>
-        </ResponsiveGridLayout>
+                            </thead>
+                            <tbody className="divide-y divide-default">
+                                {filteredInstances.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={4} className="py-20">
+                                            <NexEmptyState icon={Activity} title="No active instances" description="Trigger a process to see live execution data." />
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    filteredInstances.slice(0, 20).map(inst => (
+                                        <tr key={inst.id} onClick={() => !isEditable && openInstanceViewer(inst.id)} className="hover:bg-subtle cursor-pointer text-xs group transition-colors">
+                                            <td className="px-layout py-3 font-mono text-blue-600 font-medium">#{inst.id.split('-').pop()}</td>
+                                            <td className="px-layout py-3 font-bold text-primary">{inst.definitionName}</td>
+                                            <td className="px-layout py-3"><NexStatusBadge status={inst.status}/></td>
+                                            <td className="px-layout py-3 text-right text-tertiary">{new Date(inst.startDate).toLocaleDateString()}</td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </NexCard>
+            ]}
+        </PageGridLayout>
       </div>
 
       {/* Modals */}
