@@ -24,16 +24,16 @@ export const Dashboard: React.FC = () => {
       { i: 'metric-exposure', x: 3, y: 0, w: 3, h: 4 },
       { i: 'metric-risks', x: 6, y: 0, w: 3, h: 4 },
       { i: 'metric-quality', x: 9, y: 0, w: 3, h: 4 },
-      { i: 'chart-velocity', x: 0, y: 4, w: 8, h: 10 },
-      { i: 'ai-advisor', x: 8, y: 4, w: 4, h: 10 }
+      { i: 'chart-velocity', x: 0, y: 4, w: 8, h: 12 },
+      { i: 'ai-advisor', x: 8, y: 4, w: 4, h: 12 }
     ],
     md: [
       { i: 'metric-progress', x: 0, y: 0, w: 5, h: 4 },
       { i: 'metric-exposure', x: 5, y: 0, w: 5, h: 4 },
       { i: 'metric-risks', x: 0, y: 4, w: 5, h: 4 },
       { i: 'metric-quality', x: 5, y: 4, w: 5, h: 4 },
-      { i: 'chart-velocity', x: 0, y: 8, w: 10, h: 10 },
-      { i: 'ai-advisor', x: 0, y: 18, w: 10, h: 8 }
+      { i: 'chart-velocity', x: 0, y: 8, w: 10, h: 12 },
+      { i: 'ai-advisor', x: 0, y: 20, w: 10, h: 10 }
     ]
   }), []);
 

@@ -129,8 +129,15 @@ export const RoleFormView = () => {
         <NexFormGroup label="Role Name">
             <input className="prop-input" value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="e.g. Compliance Auditor" />
         </NexFormGroup>
-        <NexFormGroup label="Permission Scopes">
-            <div className="grid grid-cols-2 gap-3 p-4 border border-slate-200 rounded-sm bg-slate-50">
+        <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+                <label className="text-[11px] font-bold text-tertiary uppercase">Permission Scopes</label>
+                <div className="flex items-center gap-3">
+                     <button onClick={() => setForm({ ...form, permissions: Object.values(Permission) })} className="text-[10px] font-bold text-blue-600 hover:text-blue-800 uppercase">Select All</button>
+                     <button onClick={() => setForm({ ...form, permissions: [] })} className="text-[10px] font-bold text-tertiary hover:text-rose-600 uppercase">Clear</button>
+                </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 p-4 border border-slate-200 rounded-sm bg-slate-50 max-h-[300px] overflow-y-auto">
                 {Object.values(Permission).map(p => (
                     <label key={p} className="flex items-center gap-3 p-2 hover:bg-white border border-transparent hover:border-slate-200 rounded-sm cursor-pointer transition-all">
                         <input type="checkbox" checked={form.permissions.includes(p)} onChange={() => togglePermission(p)} className="rounded-sm border-slate-300 text-blue-600 focus:ring-blue-500" />
@@ -138,7 +145,7 @@ export const RoleFormView = () => {
                     </label>
                 ))}
             </div>
-        </NexFormGroup>
+        </div>
       </div>
     </FormPageLayout>
   );

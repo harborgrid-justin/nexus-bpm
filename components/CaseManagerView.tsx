@@ -1,38 +1,47 @@
 
 import React, { useState, useMemo } from 'react';
 import { useBPM } from '../contexts/BPMContext';
-import { Briefcase, Plus, Search, AlertCircle, User as UserIcon, LayoutGrid, List as ListIcon, GripVertical, ChevronRight, Activity } from 'lucide-react';
+import { Briefcase, Plus, Search, AlertCircle, User as UserIcon, LayoutGrid, List as ListIcon, GripVertical, ChevronRight, Activity, Filter, X } from 'lucide-react';
 import { NexCard, NexButton, NexBadge, NexStatusBadge, KPICard, NexEmptyState } from './shared/NexUI';
 import { PageGridLayout } from './shared/PageGridLayout';
+import { TaskPriority } from '../types';
 
 export const CaseManagerView: React.FC = () => {
   const { cases, navigateTo, currentUser, tasks, updateCase } = useBPM();
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list');
+  const [priorityFilter, setPriorityFilter] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
   const defaultLayouts = useMemo(() => ({
       lg: [
           { i: 'kpi-active', x: 0, y: 0, w: 4, h: 4 },
           { i: 'kpi-workload', x: 4, y: 0, w: 4, h: 4 },
           { i: 'kpi-critical', x: 8, y: 0, w: 4, h: 4 },
-          { i: 'main-content', x: 0, y: 4, w: 12, h: 16 }
+          { i: 'main-content', x: 0, y: 4, w: 12, h: 18 }
       ],
       md: [
           { i: 'kpi-active', x: 0, y: 0, w: 3, h: 4 },
           { i: 'kpi-workload', x: 3, y: 0, w: 3, h: 4 },
           { i: 'kpi-critical', x: 6, y: 0, w: 4, h: 4 },
-          { i: 'main-content', x: 0, y: 4, w: 10, h: 16 }
+          { i: 'main-content', x: 0, y: 4, w: 10, h: 18 }
       ]
   }), []);
 
-  const filteredCases = useMemo(() => cases.filter(c => c.title.toLowerCase().includes(searchQuery.toLowerCase())), [cases, searchQuery]);
+  const stages = ['Open', 'In Progress', 'Pending Review', 'Resolved', 'Closed'];
+
+  const filteredCases = useMemo(() => cases.filter(c => {
+      const matchSearch = c.title.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchPriority = priorityFilter ? c.priority === priorityFilter : true;
+      const matchStatus = statusFilter ? c.status === statusFilter : true;
+      return matchSearch && matchPriority && matchStatus;
+  }), [cases, searchQuery, priorityFilter, statusFilter]);
+
   const kpis = useMemo(() => ({
       active: cases.filter(c => c.status !== 'Closed').length,
       critical: cases.filter(c => c.priority === 'Critical').length,
       myActive: cases.filter(c => c.stakeholders.some(s => s.userId === currentUser?.id)).length
   }), [cases, currentUser]);
-
-  const stages = ['Open', 'In Progress', 'Pending Review', 'Resolved', 'Closed'];
 
   return (
     <div className="animate-fade-in flex flex-col h-full overflow-hidden">
@@ -48,13 +57,51 @@ export const CaseManagerView: React.FC = () => {
                 <KPICard key="kpi-workload" isEditable={isEditable} title="Lead Stakeholder" value={kpis.myActive} icon={UserIcon} color="emerald" />,
                 <KPICard key="kpi-critical" isEditable={isEditable} title="High Priority" value={kpis.critical} icon={AlertCircle} color="rose" />,
 
-                <NexCard key="main-content" dragHandle={isEditable} className="p-0 flex flex-col shadow-sm">
-                    <div className="p-03 border-b border-default bg-subtle flex flex-col md:flex-row gap-02">
-                        <div className="relative flex-1">
+                <NexCard key="main-content" dragHandle={isEditable} className="p-0 flex flex-col shadow-sm border border-default rounded-lg">
+                    <div className="p-03 border-b border-default bg-subtle flex flex-col md:flex-row gap-4 items-start md:items-center">
+                        <div className="relative flex-1 w-full md:max-w-md">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary" size={14}/>
-                            <input className="w-full pl-9 pr-4 py-1.5 bg-panel border border-default rounded-sm text-xs font-semibold outline-none text-primary placeholder:text-tertiary" placeholder="Search case registry..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                            <input className="w-full pl-9 pr-4 py-1.5 bg-panel border border-default rounded-sm text-xs font-semibold outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 text-primary placeholder:text-tertiary transition-all" placeholder="Search case registry..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
                         </div>
-                        <div className="flex gap-01 bg-panel border border-default p-01 rounded-sm">
+                        
+                        <div className="flex flex-wrap items-center gap-2 flex-1">
+                            <div className="flex items-center gap-2 bg-panel border border-default px-2 py-1 rounded-sm">
+                                <Filter size={12} className="text-tertiary" />
+                                <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">Priority:</span>
+                                {Object.values(TaskPriority).map(p => (
+                                    <button 
+                                        key={p} 
+                                        onClick={() => setPriorityFilter(priorityFilter === p ? null : p)}
+                                        className={`text-[10px] px-2 py-0.5 rounded-full transition-colors font-medium border ${priorityFilter === p ? 'bg-blue-100 border-blue-200 text-blue-700' : 'bg-subtle border-default text-secondary hover:bg-hover'}`}
+                                    >
+                                        {p}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="flex items-center gap-2 bg-panel border border-default px-2 py-1 rounded-sm">
+                                <Filter size={12} className="text-tertiary" />
+                                <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">Status:</span>
+                                {stages.map(s => (
+                                    <button 
+                                        key={s} 
+                                        onClick={() => setStatusFilter(statusFilter === s ? null : s)}
+                                        className={`text-[10px] px-2 py-0.5 rounded-full transition-colors font-medium border ${statusFilter === s ? 'bg-indigo-100 border-indigo-200 text-indigo-700' : 'bg-subtle border-default text-secondary hover:bg-hover'}`}
+                                    >
+                                        {s}
+                                    </button>
+                                ))}
+                            </div>
+                            {(priorityFilter || statusFilter || searchQuery) && (
+                                <button 
+                                  onClick={() => { setPriorityFilter(null); setStatusFilter(null); setSearchQuery(''); }}
+                                  className="text-[10px] flex items-center gap-1 text-rose-600 hover:text-rose-800 ml-auto px-2 py-1 rounded-sm hover:bg-rose-50 transition-colors font-bold"
+                                >
+                                  <X size={12} /> Clear Filters
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="flex gap-01 bg-panel border border-default p-01 rounded-sm shrink-0">
                             <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-sm transition-all ${viewMode === 'list' ? 'bg-subtle shadow-inner text-blue-600' : 'text-tertiary hover:text-secondary'}`}><ListIcon size={16}/></button>
                             <button onClick={() => setViewMode('board')} className={`p-1.5 rounded-sm transition-all ${viewMode === 'board' ? 'bg-subtle shadow-inner text-blue-600' : 'text-tertiary hover:text-secondary'}`}><LayoutGrid size={16}/></button>
                         </div>
@@ -78,6 +125,7 @@ export const CaseManagerView: React.FC = () => {
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-6">
+                                                <NexBadge variant={c.priority === 'Critical' ? 'rose' : 'slate'} className="w-20 justify-center">{c.priority}</NexBadge>
                                                 <NexStatusBadge status={c.status} />
                                                 <ChevronRight size={16} className="text-tertiary group-hover:translate-x-1 transition-transform"/>
                                             </div>
@@ -95,9 +143,9 @@ export const CaseManagerView: React.FC = () => {
                                         </div>
                                         <div className="flex-1 overflow-y-auto p-03 space-y-03">
                                             {filteredCases.filter(c => c.status === stage).map(c => (
-                                                <div key={c.id} onClick={() => !isEditable && navigateTo('case-viewer', c.id)} className="p-04 bg-panel border border-default rounded-sm shadow-sm hover:shadow-md cursor-pointer transition-all hover:-translate-y-0.5 border-l-4 border-l-blue-500">
+                                                <div key={c.id} onClick={() => !isEditable && navigateTo('case-viewer', c.id)} className="p-04 bg-panel border border-default rounded-sm shadow-sm hover:shadow-md cursor-pointer transition-all hover:-translate-y-0.5 border-l-4 border-l-blue-500 flex flex-col h-28 justify-between">
                                                     <div className="text-xs font-bold text-primary mb-2 line-clamp-2 uppercase tracking-tight leading-snug">{c.title}</div>
-                                                    <div className="flex justify-between items-center mt-3">
+                                                    <div className="flex justify-between items-center mt-auto">
                                                         <NexBadge variant={c.priority === 'Critical' ? 'rose' : 'slate'}>{c.priority}</NexBadge>
                                                         <div className="flex items-center gap-1">
                                                             <div className="text-[9px] font-mono text-tertiary">...{c.id.split('-').pop()?.slice(-4)}</div>

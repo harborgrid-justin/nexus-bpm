@@ -119,7 +119,7 @@ export const NexModal: React.FC<{ isOpen: boolean; onClose: () => void; title: s
   const maxWidths = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };
 
   return (
-    <div className="fixed inset-0 z-modal bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center p-4 animate-fade-in">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center p-4 animate-fade-in">
       <div 
         ref={modalRef} 
         className={`bg-panel w-full ${maxWidths[size]} border border-default shadow-2xl animate-slide-up flex flex-col max-h-[90vh] rounded-lg`}

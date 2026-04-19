@@ -16,7 +16,7 @@ interface Notification {
   id: string;
   type: 'success' | 'error' | 'info';
   message: string;
-  action?: () => void;
+  action?: { label: string; onClick: () => void };
   deepLink?: { view: ViewState; id?: string };
 }
 
@@ -61,7 +61,7 @@ interface BPMContextType {
   openInstanceViewer: (id: string) => void;
   closeInstanceViewer: () => void;
   switchUser: (userId: string) => void;
-  addNotification: (type: 'success' | 'error' | 'info', message: string, deepLink?: { view: ViewState; id?: string }) => void;
+  addNotification: (type: 'success' | 'error' | 'info', message: string, deepLink?: { view: ViewState; id?: string }, action?: { label: string; onClick: () => void }) => void;
   removeNotification: (id: string) => void;
   executeRules: (ruleId: string, fact: Record<string, unknown>) => Promise<unknown>;
   deployProcess: (process: Partial<ProcessDefinition>) => Promise<void>;
@@ -254,17 +254,21 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => { loadData(); }, [loadData]);
 
   // --- Internal Helper for Audit Creation ---
-  const createAudit = (action: string, type: AuditLog['entityType'], id: string, details: string, severity: AuditLog['severity'] = 'Info'): AuditLog => ({
+  const createAudit = (action: string, type: AuditLog['entityType'], id: string, details: string, severity: AuditLog['severity'] = 'Info', metadata?: AuditLog['metadata']): AuditLog => ({
       id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       timestamp: new Date().toISOString(),
       userId: stateRef.current.currentUser?.name || 'System',
-      action, entityType: type, entityId: id, details, severity
+      action, entityType: type, entityId: id, details, severity,
+      metadata: {
+         domainId: stateRef.current.currentUser?.domainId || 'GLOBAL',
+         ...metadata
+      }
   });
 
-  const addNotification = useCallback((type: 'success' | 'error' | 'info', message: string, deepLink?: { view: ViewState; id?: string }) => {
-    const n: Notification = { id: `n-${Date.now()}`, type, message, deepLink };
+  const addNotification = useCallback((type: 'success' | 'error' | 'info', message: string, deepLink?: { view: ViewState; id?: string }, action?: { label: string; onClick: () => void }) => {
+    const n: Notification = { id: `n-${Date.now()}`, type, message, deepLink, action };
     setState(produce<BPMState>(draft => { draft.notifications.push(n); }));
-    setTimeout(() => setState(produce<BPMState>(draft => { draft.notifications = draft.notifications.filter(x => x.id !== n.id); })), 5000);
+    setTimeout(() => setState(produce<BPMState>(draft => { draft.notifications = draft.notifications.filter(x => x.id !== n.id); })), 8000);
   }, []);
 
   const removeNotification = useCallback((id: string) => {
@@ -395,7 +399,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       };
 
       // ATOMIC TRANSACTION: Create Instance + Audit Log
-      const auditEntry = createAudit('PROCESS_START', 'Instance', newInstance.id, `Started process ${def.name}`);
+      const auditEntry = createAudit('PROCESS_START', 'Instance', newInstance.id, `Started process ${def.name}`, 'Info', { reasonCode: 'USER_INITIATED_START' });
       await dbService.auditTransaction('instances', newInstance, auditEntry);
 
       setState(produce<BPMState>(draft => { 
@@ -410,14 +414,46 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return newInstance.id;
   }, [addNotification]);
 
+  const compensateTransaction = useCallback(async (id: string) => {
+      const instance = stateRef.current.instances.find(i => i.id === id);
+      if (instance) {
+          await dbService.add('instances', { ...instance, status: 'Suspended' });
+          setState(produce<BPMState>(draft => {
+              const i = draft.instances.find(x => x.id === id);
+              if (i) { 
+                  i.status = 'Suspended'; 
+                  i.history.push({ 
+                      id: `h-${Date.now()}`, stepName: 'Compensation Handler', action: 'Rollback', 
+                      performer: 'System', timestamp: new Date().toISOString() 
+                  });
+              }
+          }));
+          addNotification('info', `Compensation triggered for instance ${id}`);
+      }
+  }, [addNotification]);
+
   const completeTask = useCallback(async (taskId: string, action: string, comments: string, formData?: Record<string, unknown>) => {
       const task = stateRef.current.tasks.find(t => t.id === taskId);
       if (!task) return;
 
+      // Check if it's already completed to prevent double-firing
+      if (task.status === TaskStatus.COMPLETED) {
+         addNotification('info', `Task ${task.title} is already completed.`);
+         return;
+      }
+
       // 1. Prepare Update
       const updates: Partial<Task> = { status: TaskStatus.COMPLETED, data: { ...((task.data as object) || {}), ...formData } };
       const updatedTask = { ...task, ...updates };
-      const auditEntry = createAudit('TASK_COMPLETE', 'Task', taskId, `Completed task ${task.title} with action: ${action}`);
+      const auditEntry = createAudit('TASK_COMPLETE', 'Task', taskId, `Completed task ${task.title} with action: ${action}`, 'Info', { reasonCode: `TASK_ACTION_${action.toUpperCase()}` });
+
+      // SLA Breach Logic for Enterprise Reporting
+      const isOverdue = task.dueDate ? new Date(task.dueDate) < new Date() : false;
+      if (isOverdue) {
+          const slaAudit = createAudit('SLA_BREACH', 'Task', taskId, `Task completed after SLA deadline.`, 'Warning', { reasonCode: 'SLA_MISS' });
+          await dbService.add('auditLogs', slaAudit);
+          setState(produce<BPMState>(draft => { draft.auditLogs.unshift(slaAudit); }));
+      }
 
       // 2. ATOMIC TRANSACTION: Update Task + Audit Log
       await dbService.auditTransaction('tasks', updatedTask, auditEntry);
@@ -427,6 +463,31 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           if (t) { t.status = TaskStatus.COMPLETED; t.data = { ...((t.data as object) || {}), ...formData }; }
           draft.auditLogs.unshift(auditEntry);
       }));
+
+      addNotification('success', `Task completed: ${task.title}`, undefined, {
+          label: 'Undo Completion',
+          onClick: async () => {
+              // Enterprise Undo Logic: Trigger compensation
+              if (task.processInstanceId) {
+                  const instance = stateRef.current.instances.find(i => i.id === task.processInstanceId);
+                  if (instance) {
+                      await compensateTransaction(instance.id);
+                      const undoAudit = createAudit('TASK_UNDO', 'Task', taskId, `Undo applied to task ${task.title}. Triggered compensation on instance ${instance.id}.`, 'Warning', { reasonCode: 'USER_UNDO_COMPENSATION' });
+                      await dbService.add('auditLogs', undoAudit);
+                      setState(produce<BPMState>(draft => { draft.auditLogs.unshift(undoAudit); }));
+                      addNotification('info', `Compensation triggered for ${task.title}`);
+                  }
+              } else {
+                  // Standard DB rollback for ad-hoc tasks
+                  await dbService.add('tasks', task); // Revert to original state
+                  setState(produce<BPMState>(draft => { 
+                      const tIdx = draft.tasks.findIndex(x => x.id === taskId);
+                      if (tIdx !== -1) draft.tasks[tIdx] = task;
+                  }));
+                  addNotification('info', `Undo applied to ad-hoc task: ${task.title}`);
+              }
+          }
+      });
 
       processTriggers('Task', 'TASK_COMPLETE', { task: updatedTask });
 
@@ -443,25 +504,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               proceedWorkflow(task.processInstanceId, task.stepId);
           }
       }
-  }, []);
-
-  const compensateTransaction = useCallback(async (id: string) => {
-      const instance = stateRef.current.instances.find(i => i.id === id);
-      if (instance) {
-          await dbService.add('instances', { ...instance, status: 'Suspended' });
-          setState(produce<BPMState>(draft => {
-              const i = draft.instances.find(x => x.id === id);
-              if (i) { 
-                  i.status = 'Suspended'; 
-                  i.history.push({ 
-                      id: `h-${Date.now()}`, stepName: 'Compensation Handler', action: 'Rollback', 
-                      performer: 'System', timestamp: new Date().toISOString(), comments: 'Transaction reversed due to fault.' 
-                  });
-              }
-          }));
-          addNotification('info', 'Instance compensated and suspended.');
-      }
-  }, [addNotification]);
+  }, [addNotification, compensateTransaction]);
 
   const deployProcess = useCallback(async (process: Partial<ProcessDefinition>) => {
       const newProc = { 
@@ -507,7 +550,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           domainId: stateRef.current.currentUser?.domainId || 'GLOBAL'
       };
       
-      const auditEntry = createAudit('CASE_CREATE', 'Case', newCase.id, `Case created: ${title}`);
+      const auditEntry = createAudit('CASE_CREATE', 'Case', newCase.id, `Case created: ${title}`, 'Info', { reasonCode: 'NEW_CASE_ASSEMBLED' });
       await dbService.auditTransaction('cases', newCase, auditEntry);
 
       setState(produce<BPMState>(draft => { 
@@ -553,7 +596,7 @@ export const BPMProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     break;
                 case 'AddLog':
                     const details = trigger.actionParams.details as string || 'Trigger Fired';
-                    const auditEntry = createAudit('AUTOMATION_FIRE', 'System', trigger.id, details);
+                    const auditEntry = createAudit('AUTOMATION_FIRE', 'System', trigger.id, details, 'Info', { reasonCode: 'AUTOMATION_RULE_ENGINE' });
                     await dbService.add('auditLogs', auditEntry);
                     break;
                 case 'SendEmail':

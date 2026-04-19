@@ -14,8 +14,8 @@ export interface AiResult<T> {
 }
 
 const getClient = () => {
-  if (!process.env.API_KEY) return null;
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  if (!process.env.GEMINI_API_KEY) return null;
+  return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 };
 
 // Private helper for safe execution
@@ -69,7 +69,7 @@ export const generateProcessWorkflow = async (prompt: string): Promise<ProcessSt
   ];
 
   return safeExecute(
-    "gemini-3-pro-preview",
+    "gemini-3.1-pro-preview",
     `Design an enterprise BPMN workflow for: "${prompt}". Return as JSON array of steps. Include roles, logic-heavy descriptions, and grid-snapped positions.`,
     {
         type: Type.ARRAY,
@@ -92,7 +92,7 @@ export const generateProcessWorkflow = async (prompt: string): Promise<ProcessSt
 
 export const runWorkflowSimulation = async (steps: ProcessStep[]): Promise<SimulationResult[]> => {
   return safeExecute(
-    "gemini-3-pro-preview",
+    "gemini-3.1-pro-preview",
     `Perform a "Murder Board" simulation on this BPMN workflow: ${JSON.stringify(steps)}. 
     Simulate 3 agents: 1. Chronos (Efficiency Architect), 2. Draco (Risk Skeptic), 3. Veda (Compliance Auditor). 
     Each must give a score (0-100), a detailed critique, and 2 actionable recommendations.`,
@@ -124,7 +124,7 @@ export const getProcessInsightsStream = async function* (processData: any): Asyn
 
   try {
     const response = await ai.models.generateContentStream({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3.1-pro-preview",
       contents: `Analyze this BPM workflow/task data for bottlenecks or inefficiencies: ${JSON.stringify(processData)}. Provide 3 actionable executive bullets. Keep it short.`,
     });
     for await (const chunk of response) {
@@ -144,7 +144,7 @@ export const getProcessInsightsStream = async function* (processData: any): Asyn
 
 export const generateRuleFromText = async (prompt: string): Promise<Partial<BusinessRule>> => {
   return safeExecute(
-    "gemini-3-flash-preview",
+    "gemini-3.1-pro-preview",
     `Translate this natural language business rule into a structured JSON object compatible with a rules engine.
     User Input: "${prompt}"
     Structure:
@@ -166,7 +166,7 @@ export const generateRuleFromText = async (prompt: string): Promise<Partial<Busi
 
 export const summarizeTaskContext = async (task: Task): Promise<{ summary: string; sentiment: string; nextAction: string }> => {
   return safeExecute(
-    "gemini-3-flash-preview",
+    "gemini-3.1-pro-preview",
     `Analyze this enterprise task context: ${JSON.stringify(task)}. Return JSON with summary, sentiment, and nextAction.`,
     {
       type: Type.OBJECT,
@@ -186,7 +186,7 @@ export const generateProcessDocumentation = async (processDef: any): Promise<str
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
+      model: "gemini-3.1-pro-preview",
       contents: `Generate professional HTML documentation for this Business Process: ${JSON.stringify(processDef)}. Format: Pure HTML body content only.`
     });
 

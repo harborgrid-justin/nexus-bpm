@@ -174,7 +174,6 @@ export const TaskInbox: React.FC = () => {
           }
       }
       await completeTask(selectedTask.id, 'completed', commentText, formData);
-      addNotification('success', 'Task completed successfully');
       setSelectedTask(null);
   };
 

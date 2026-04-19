@@ -41,10 +41,10 @@ export const GovernanceView: React.FC = () => {
 
   const columns = [
       { header: 'Timestamp', accessor: (l: AuditLog) => formatDate(l.timestamp, true), width: '160px', sortable: true },
-      { header: 'Action', accessor: (l: AuditLog) => <NexStatusBadge status={l.action} />, width: '140px', sortable: true },
+      { header: 'Action', accessor: (l: AuditLog) => <div className="flex flex-col gap-1"><NexStatusBadge status={l.action} />{l.metadata?.domainId && <span className="text-[9px] font-mono text-tertiary">D: {l.metadata.domainId}</span>}</div>, width: '160px', sortable: true },
       { header: 'Severity', accessor: (l: AuditLog) => <span className={`font-bold ${l.severity === 'Alert' ? 'text-rose-600' : 'text-blue-600'}`}>{l.severity}</span>, width: '80px', sortable: true },
-      { header: 'Details', accessor: (l: AuditLog) => <span className="truncate max-w-[200px]" title={l.details}>{l.details}</span>},
-      { header: 'User', accessor: (l: AuditLog) => <span className="font-mono text-tertiary truncate">{l.userId}</span>, width: '100px', align: 'right' as const }
+      { header: 'Details', accessor: (l: AuditLog) => <div className="flex flex-col"><span className="truncate max-w-[200px]" title={l.details}>{l.details}</span>{l.metadata?.reasonCode && <span className="text-[10px] text-tertiary italic">Reason: {l.metadata.reasonCode}</span>}</div>},
+      { header: 'User', accessor: (l: AuditLog) => <div className="flex flex-col items-end"><span className="font-mono text-secondary truncate text-xs">{l.userId}</span>{l.metadata?.ipAddress && <span className="text-[9px] text-tertiary hidden lg:block">{l.metadata.ipAddress}</span>}</div>, width: '120px', align: 'right' as const }
   ];
 
   return (

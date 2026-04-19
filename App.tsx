@@ -49,21 +49,33 @@ import { ThemeProvider } from './contexts/ThemeContext';
 const ToastContainer = () => {
   const { notifications, removeNotification, navigateTo } = useBPM();
   return (
-    <div className="fixed bottom-4 right-4 z-toast space-y-2 pointer-events-none max-w-sm w-full">
+    <div className="fixed bottom-4 right-4 z-50 space-y-2 pointer-events-none max-w-sm w-full">
       {notifications.map(n => (
         <div 
           key={n.id} 
           onClick={() => n.deepLink && navigateTo(n.deepLink.view, n.deepLink.id)}
-          className={`flex items-center gap-3 p-3 rounded-base border pointer-events-auto animate-slide-up shadow-md cursor-pointer text-sm ${
+          className={`flex flex-col gap-2 p-3 rounded-base border pointer-events-auto animate-slide-up shadow-md cursor-pointer text-sm ${
             n.type === 'success' ? 'bg-panel border-l-4 border-l-emerald-500 border-default' :
             n.type === 'error' ? 'bg-panel border-l-4 border-l-rose-500 border-default' : 'bg-panel border-l-4 border-l-blue-500 border-default'
           }`}
         >
-          {n.type === 'success' ? <CheckCircle size={16} className="text-emerald-600"/> : n.type === 'error' ? <AlertCircle size={16} className="text-rose-600"/> : <Info size={16} className="text-blue-600"/>}
-          <div className="flex-1">
-            <p className="font-medium text-primary">{n.message}</p>
+          <div className="flex items-center gap-3">
+            {n.type === 'success' ? <CheckCircle size={16} className="text-emerald-600"/> : n.type === 'error' ? <AlertCircle size={16} className="text-rose-600"/> : <Info size={16} className="text-blue-600"/>}
+            <div className="flex-1">
+              <p className="font-medium text-primary">{n.message}</p>
+            </div>
+            <button onClick={(e) => { e.stopPropagation(); removeNotification(n.id); }} className="text-tertiary hover:text-primary"><X size={14}/></button>
           </div>
-          <button onClick={(e) => { e.stopPropagation(); removeNotification(n.id); }} className="text-tertiary hover:text-primary"><X size={14}/></button>
+          {n.action && (
+            <div className="pl-7">
+               <button 
+                 onClick={(e) => { e.stopPropagation(); if (n.action) n.action.onClick(); removeNotification(n.id); }} 
+                 className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline px-2 py-1 -ml-2 rounded-sm transition-colors"
+               >
+                 {n.action.label}
+               </button>
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -183,8 +195,8 @@ const Breadcrumbs = ({ nav }: { nav: { view: ViewState, selectedId?: string } })
             {nav.selectedId && (
                 <>
                     <ChevronRight size={10} className="text-tertiary"/>
-                    <button onClick={copyId} className="font-mono text-blue-600 hover:underline hover:text-blue-800 flex items-center gap-1">
-                        <span className="opacity-50">ID:</span> {nav.selectedId.split('-').pop()}
+                    <button onClick={copyId} className="font-mono text-[11px] text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-blue-50 px-2 py-0.5 rounded-sm border border-blue-200 transition-colors" title="Click to Copy ID">
+                        {nav.selectedId.split('-').pop()}
                     </button>
                 </>
             )}
@@ -193,9 +205,34 @@ const Breadcrumbs = ({ nav }: { nav: { view: ViewState, selectedId?: string } })
 };
 
 const AppContent: React.FC = () => {
-  const { nav, navigateTo, viewingInstanceId, closeInstanceViewer, currentUser, loading, reseedSystem, notifications } = useBPM();
+  const { nav, navigateTo, viewingInstanceId, closeInstanceViewer, currentUser, loading, reseedSystem, notifications, settings } = useBPM();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
+  
+  // Session Timeout logic
+  useEffect(() => {
+    if (!currentUser || !settings?.security?.sessionTimeout) return;
+    
+    let timeoutId: ReturnType<typeof setTimeout>;
+    
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      // Ensure sessionTimeout is in minutes
+      timeoutId = setTimeout(() => {
+        setIsLocked(true);
+      }, settings.security.sessionTimeout * 60 * 1000);
+    };
+
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+    events.forEach(e => document.addEventListener(e, resetTimer));
+    resetTimer();
+
+    return () => {
+      clearTimeout(timeoutId);
+      events.forEach(e => document.removeEventListener(e, resetTimer));
+    };
+  }, [currentUser, settings?.security?.sessionTimeout]);
 
   // Dynamic Component Rendering
   const CurrentComponent = ROUTES[nav.view] || Dashboard;
@@ -223,10 +260,32 @@ const AppContent: React.FC = () => {
   }
 
 
+  if (isLocked) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-slate-900 absolute inset-0 z-[9999] backdrop-blur-md">
+        <div className="bg-white p-8 rounded-xl shadow-2xl max-w-md w-full text-center space-y-6 flex flex-col items-center animate-slide-up">
+           <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center border border-blue-100">
+             <Lock size={32} />
+           </div>
+           <div>
+             <h2 className="text-xl font-bold text-slate-800 mb-2">Session Locked</h2>
+             <p className="text-sm text-slate-500">Your session timed out after {settings?.security?.sessionTimeout} minutes of inactivity.</p>
+           </div>
+           <div className="w-full relative">
+             <input type="password" placeholder="Enter password to unlock" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-400" />
+           </div>
+           <button onClick={() => setIsLocked(false)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
+             Sign In
+           </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-app overflow-hidden">
       <aside 
-        className={`fixed inset-y-0 left-0 z-dropdown bg-panel border-r border-default flex flex-col transform transition-all duration-300 ${mobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0 lg:static'}`}
+        className={`fixed inset-y-0 left-0 z-40 bg-panel border-r border-default flex flex-col transform transition-all duration-300 ${mobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0 lg:static'}`}
         style={{ width: sidebarCollapsed ? '72px' : 'var(--sidebar-width)' }}
       >
         <div className={`h-header flex items-center ${sidebarCollapsed ? 'justify-center px-0' : 'px-5'} border-b border-default bg-subtle shrink-0 transition-all overflow-hidden gap-base`}>

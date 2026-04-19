@@ -137,9 +137,21 @@ export const MOCK_API_CLIENTS: ApiClient[] = [
 
 export const DEFAULT_SETTINGS: SystemSettings = {
   id: 'global-settings',
-  sso: { ldap: true, okta: false, workspace: true },
-  security: { minPasswordLength: 12, mfaEnabled: true, sessionTimeout: 60, geoFencing: false },
-  compliance: { standards: ['SOC2 Type II', 'GDPR / CCPA', 'HIPAA compliant'], lastAudit: new Date().toISOString() },
+  sso: { ldap: true, okta: false, workspace: true, saml: { enabled: false, idpUrl: '' } },
+  security: { 
+    minPasswordLength: 12, 
+    mfaEnabled: true, 
+    sessionTimeout: 60, 
+    geoFencing: false, 
+    ipWhitelist: [], 
+    requireUppercase: true, 
+    requireSymbols: true 
+  },
+  compliance: { 
+    standards: ['SOC2 Type II', 'GDPR / CCPA', 'HIPAA compliant'], 
+    lastAudit: new Date().toISOString(),
+    dataRetentionDays: 365 
+  },
   calendar: { workDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], workHours: { start: '09:00', end: '17:00' }, timezone: 'UTC' }
 };
 

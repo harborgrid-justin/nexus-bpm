@@ -13,7 +13,8 @@ import { PageGridLayout } from './shared/PageGridLayout';
 // Standard Case Stages (In production this would come from a configuration service)
 const STANDARD_STAGES = ['Open', 'In Progress', 'Pending Review', 'Resolved', 'Closed'];
 
-export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
+export const CaseViewer: React.FC<{ id?: string; caseId?: string }> = ({ id, caseId }) => {
+  const activeCaseId = id || caseId || '';
   const { cases, tasks, users, navigateTo, addCaseEvent, removeCaseEvent, addCasePolicy, removeCasePolicy, addCaseStakeholder, removeCaseStakeholder, updateCase, currentUser, openInstanceViewer, getActiveUsersOnRecord, setToolbarConfig, processes, startProcess } = useBPM();
   const { gridConfig } = useTheme();
   
@@ -22,33 +23,33 @@ export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
   const [previewFile, setPreviewFile] = useState<{name: string, url?: string} | null>(null);
   const [isEditable, setIsEditable] = useState(false);
 
-  const currentCase = cases.find(c => c.id === caseId);
-  const relatedTasks = useMemo(() => tasks.filter(t => t.caseId === caseId), [tasks, caseId]);
-  const activeViewers = getActiveUsersOnRecord(caseId);
+  const currentCase = cases.find(c => c.id === activeCaseId);
+  const relatedTasks = useMemo(() => tasks.filter(t => t.caseId === activeCaseId), [tasks, activeCaseId]);
+  const activeViewers = getActiveUsersOnRecord(activeCaseId);
 
   // Layouts
   const defaultLayouts = {
       lg: [
-          { i: 'header', x: 0, y: 0, w: 12, h: 3 },
-          { i: 'progress', x: 0, y: 3, w: 8, h: 3 },
-          { i: 'actions', x: 8, y: 3, w: 4, h: 3 },
-          { i: 'timeline', x: 0, y: 6, w: 6, h: 14 },
-          { i: 'tasks', x: 6, y: 6, w: 6, h: 8 },
-          { i: 'data', x: 6, y: 14, w: 6, h: 6 },
-          { i: 'stakeholders', x: 0, y: 20, w: 4, h: 8 },
-          { i: 'content', x: 4, y: 20, w: 8, h: 8 },
-          { i: 'dynamic', x: 0, y: 28, w: 12, h: 6 }
+          { i: 'header', x: 0, y: 0, w: 12, h: 4 },
+          { i: 'progress', x: 0, y: 4, w: 8, h: 4 },
+          { i: 'actions', x: 8, y: 4, w: 4, h: 4 },
+          { i: 'timeline', x: 0, y: 8, w: 6, h: 18 },
+          { i: 'tasks', x: 6, y: 8, w: 6, h: 10 },
+          { i: 'data', x: 6, y: 18, w: 6, h: 8 },
+          { i: 'stakeholders', x: 0, y: 26, w: 4, h: 10 },
+          { i: 'content', x: 4, y: 26, w: 8, h: 10 },
+          { i: 'dynamic', x: 0, y: 36, w: 12, h: 8 }
       ],
       md: [
-          { i: 'header', x: 0, y: 0, w: 10, h: 3 },
-          { i: 'progress', x: 0, y: 3, w: 6, h: 3 },
-          { i: 'actions', x: 6, y: 3, w: 4, h: 3 },
-          { i: 'timeline', x: 0, y: 6, w: 10, h: 10 },
-          { i: 'tasks', x: 0, y: 16, w: 10, h: 8 },
-          { i: 'data', x: 0, y: 24, w: 10, h: 6 },
-          { i: 'stakeholders', x: 0, y: 30, w: 5, h: 8 },
-          { i: 'content', x: 5, y: 30, w: 5, h: 8 },
-          { i: 'dynamic', x: 0, y: 38, w: 10, h: 6 }
+          { i: 'header', x: 0, y: 0, w: 10, h: 4 },
+          { i: 'progress', x: 0, y: 4, w: 6, h: 4 },
+          { i: 'actions', x: 6, y: 4, w: 4, h: 4 },
+          { i: 'timeline', x: 0, y: 8, w: 10, h: 14 },
+          { i: 'tasks', x: 0, y: 22, w: 10, h: 10 },
+          { i: 'data', x: 0, y: 32, w: 10, h: 8 },
+          { i: 'stakeholders', x: 0, y: 40, w: 5, h: 10 },
+          { i: 'content', x: 5, y: 40, w: 5, h: 10 },
+          { i: 'dynamic', x: 0, y: 50, w: 10, h: 8 }
       ]
   };
 
@@ -73,25 +74,25 @@ export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
 
   const handlePostNote = async () => {
     if (!note.trim()) return;
-    await addCaseEvent(caseId, note);
+    await addCaseEvent(activeCaseId, note);
     setNote('');
   };
 
   const handleCloseCase = async () => {
-      await updateCase(caseId, { status: 'Closed', resolvedAt: new Date().toISOString() });
-      await addCaseEvent(caseId, 'Case officially closed.');
+      await updateCase(activeCaseId, { status: 'Closed', resolvedAt: new Date().toISOString() });
+      await addCaseEvent(activeCaseId, 'Case officially closed.');
   };
 
   const handleReopenCase = async () => {
-      await updateCase(caseId, { status: 'Open' });
-      await addCaseEvent(caseId, 'Case reopened for further action.');
+      await updateCase(activeCaseId, { status: 'Open' });
+      await addCaseEvent(activeCaseId, 'Case reopened for further action.');
   };
 
   const handleSaveData = async () => {
       try {
           const parsed = JSON.parse(caseData);
-          await updateCase(caseId, { data: parsed });
-          await addCaseEvent(caseId, 'Updated case data fields.');
+          await updateCase(activeCaseId, { data: parsed });
+          await addCaseEvent(activeCaseId, 'Updated case data fields.');
       } catch (e) {
           alert('Invalid JSON format');
       }
@@ -105,13 +106,13 @@ export const CaseViewer: React.FC<{ caseId: string }> = ({ caseId }) => {
           size: Math.floor(Math.random() * 5000) + 1000,
           uploadDate: new Date().toISOString()
       };
-      await updateCase(caseId, { attachments: [...currentCase.attachments, mockFile] });
-      await addCaseEvent(caseId, `Uploaded document: ${mockFile.name}`);
+      await updateCase(activeCaseId, { attachments: [...currentCase.attachments, mockFile] });
+      await addCaseEvent(activeCaseId, `Uploaded document: ${mockFile.name}`);
   };
 
   const triggerDynamicAction = async (procId: string, procName: string) => {
-      await startProcess(procId, { caseContext: currentCase.title }, caseId);
-      await addCaseEvent(caseId, `Launched dynamic activity: ${procName}`);
+      await startProcess(procId, { caseContext: currentCase.title }, activeCaseId);
+      await addCaseEvent(activeCaseId, `Launched dynamic activity: ${procName}`);
   };
 
   return (

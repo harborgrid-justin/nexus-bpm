@@ -278,6 +278,14 @@ export interface AuditLog {
   entityId: string;
   details: string;
   severity: 'Info' | 'Warning' | 'Alert';
+  metadata?: {
+    ipAddress?: string;
+    userAgent?: string;
+    domainId?: string;
+    reasonCode?: string;
+    previousState?: unknown;
+    newState?: unknown;
+  };
 }
 
 export interface TaskHistory {
@@ -501,16 +509,21 @@ export interface SystemSettings {
     ldap: boolean;
     okta: boolean;
     workspace: boolean;
+    saml?: { enabled: boolean; idpUrl: string; }; // Enterprise Support
   };
   security: {
     minPasswordLength: number;
     mfaEnabled: boolean;
     sessionTimeout: number; // minutes
     geoFencing: boolean;
+    ipWhitelist?: string[]; // Enterprise Support
+    requireUppercase?: boolean;
+    requireSymbols?: boolean;
   };
   compliance: {
     standards: string[]; // ['SOC2', 'GDPR']
     lastAudit: string;
+    dataRetentionDays?: number; // Enterprise Support
   };
   calendar: {
     workDays: string[];
